@@ -1,0 +1,37 @@
+{
+  "name": "@xlog/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "migrate": "bun run ../../packages/db/src/migrate.ts",
+    "type-check": "tsc --noEmit",
+    "build": "bun build src/index.ts --outdir dist --target bun"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.19.6",
+    "@hono/standard-validator": "^0.2.0",
+    "@hono/zod-validator": "^0.4.1",
+    "@scalar/hono-api-reference": "^0.9.25",
+    "@xlog/ap": "workspace:*",
+    "@xlog/config": "workspace:*",
+    "@xlog/db": "workspace:*",
+    "@xlog/markdown": "workspace:*",
+    "@xlog/snowflake": "workspace:*",
+    "@xlog/types": "workspace:*",
+    "@xlog/validation": "workspace:*",
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.0.0",
+    "hono-openapi": "^1.1.1",
+    "kysely": "^0.28.8",
+    "zod": "^3.22.4",
+    "zod-openapi": "4"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.3",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3"
+  }
+}

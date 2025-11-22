@@ -1,0 +1,5 @@
+// Shared UI components will be exported here
+// For now, this is a placeholder
+
+export {};
+

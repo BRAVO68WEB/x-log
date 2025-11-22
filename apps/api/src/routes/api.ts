@@ -1,0 +1,20 @@
+import { Hono } from "hono";
+import { authRoutes } from "./auth";
+import { onboardingRoutes } from "./onboarding";
+import { usersRoutes } from "./users";
+import { profilesRoutes } from "./profiles";
+import { postsRoutes } from "./posts";
+import { feedsRoutes } from "./feeds";
+import { searchRoutes } from "./search";
+import { mediaRoutes } from "./media";
+
+export const apiRoutes = new Hono()
+  .route("/auth", authRoutes)
+  .route("/onboarding", onboardingRoutes)
+  .route("/users", usersRoutes)
+  .route("/profiles", profilesRoutes)
+  .route("/posts", postsRoutes)
+  .route("/feeds", feedsRoutes)
+  .route("/search", searchRoutes)
+  .route("/media", mediaRoutes);
+

@@ -1,0 +1,11 @@
+{
+  "_": "This file locks the dependencies of your migration system",
+  "migrations": [
+    {
+      "name": "001_initial",
+      "up": "up",
+      "down": "down"
+    }
+  ]
+}
+

@@ -1,0 +1,87 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: xlog
+      POSTGRES_USER: xlog
+      POSTGRES_PASSWORD: xlogpass
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xlog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+
+  api:
+    image: oven/bun:1
+    working_dir: /app/apps/api
+    env_file:
+      - .env
+    volumes:
+      - ../../:/app
+    command: ["bun", "run", "dev"]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://xlog:xlogpass@db:5432/xlog
+      - REDIS_URL=redis://redis:6379
+
+  web:
+    image: oven/bun:1
+    working_dir: /app/apps/web
+    env_file:
+      - .env
+    volumes:
+      - ../../:/app
+    command: ["bun", "run", "dev"]
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+
+  worker:
+    image: oven/bun:1
+    working_dir: /app/apps/worker
+    env_file:
+      - .env
+    volumes:
+      - ../../:/app
+    command: ["bun", "run", "dev"]
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://xlog:xlogpass@db:5432/xlog
+      - REDIS_URL=redis://redis:6379
+
+volumes:
+  db_data:
+  redis_data:
+
