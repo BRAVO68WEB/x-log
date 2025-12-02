@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 interface PostCardProps {
   id: string;
@@ -23,35 +24,51 @@ export function PostCard({
   published_at,
   banner_url,
   hashtags,
-  like_count,
 }: PostCardProps) {
   return (
-    <article className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-gray-200">
+    <article className="bg-light-surface dark:bg-dark-surface opacity-100 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-light-highlight-med dark:border-dark-highlight-med hover:border-light-highlight-high dark:hover:border-dark-highlight-high">
       {banner_url && (
         <Link href={`/post/${id}`}>
-          <img
-            src={banner_url}
-            alt={title}
-            className="w-full h-48 object-cover"
-          />
+          <div className="relative w-full h-48">
+            <Image
+              src={banner_url}
+              alt={title}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
+              className="object-cover"
+              unoptimized
+            />
+          </div>
         </Link>
       )}
       <div className="p-6">
         <Link href={`/post/${id}`}>
-          <h2 className="text-2xl font-bold mb-2 hover:text-blue-600 transition-colors text-gray-900">
+          <h2 className="text-2xl font-bold mb-2 hover:text-light-pine dark:hover:text-dark-foam transition-colors text-light-text dark:text-dark-text">
             {title}
           </h2>
         </Link>
         {summary && (
-          <p className="text-gray-600 mb-4 line-clamp-3">{summary}</p>
+          <p className="text-light-muted dark:text-dark-muted mb-4 line-clamp-3">{summary}</p>
         )}
-        <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+        <div className="flex items-center justify-between text-sm text-light-subtle dark:text-dark-subtle mb-4">
           <div className="flex items-center gap-2">
             <Link
               href={`/u/${author.username}`}
-              className="hover:text-blue-600 transition-colors"
+              className="hover:text-light-pine dark:hover:text-dark-foam transition-colors flex items-center"
             >
-              {author.full_name || author.username}
+              <div className="flex items-center">
+                {author.avatar_url && (
+                  <Image
+                    src={author.avatar_url}
+                    alt={author.full_name || author.username}
+                    width={32}
+                    height={32}
+                    className="rounded-full mr-2"
+                    unoptimized
+                  />
+                )}
+                {author.full_name || author.username}
+              </div>
             </Link>
             {published_at && (
               <>
@@ -62,9 +79,9 @@ export function PostCard({
               </>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          {/* <div className="flex items-center gap-4">
             <span>❤️ {like_count}</span>
-          </div>
+          </div> */}
         </div>
         {hashtags.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -72,7 +89,7 @@ export function PostCard({
               <Link
                 key={tag}
                 href={`/search?q=${encodeURIComponent(tag)}&type=post`}
-                className="text-sm text-blue-600 hover:text-blue-800"
+                className="text-sm text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine transition-colors"
               >
                 #{tag}
               </Link>
@@ -83,4 +100,3 @@ export function PostCard({
     </article>
   );
 }
-

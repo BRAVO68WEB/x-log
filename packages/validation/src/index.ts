@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PostCreateSchema = z.object({
   title: z.string().min(1).max(200),
   banner_url: z.string().url().optional(),
-  content_blocks: z.array(z.any()).min(1),
+  content_blocks: z.record(z.any()), // ProseMirror/TipTap document object
   content_markdown: z.string().min(1),
   hashtags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20),
   visibility: z.enum(["public", "unlisted", "private"]).default("public"),

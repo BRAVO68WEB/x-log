@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
-import { getEnv } from "@xlog/config";
+import { getInstanceSettings } from "@xlog/db";
 import { writeFile, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
@@ -48,7 +48,6 @@ mediaRoutes.post(
       return c.json({ error: "File too large" }, 400);
     }
 
-    const env = getEnv();
     const uploadDir = join(process.cwd(), "uploads");
     const filename = `${crypto.randomUUID()}-${file.name}`;
     const filepath = join(uploadDir, filename);
@@ -62,13 +61,14 @@ mediaRoutes.post(
     const arrayBuffer = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
-    const url = `https://${env.INSTANCE_DOMAIN}/media/${filename}`;
+    const settings = await getInstanceSettings();
+    const url = `https://${settings.instance_domain}/media/${filename}`;
 
     return c.json({ url });
   }
 );
 
-mediaRoutes.get("/media/:filename", async (c) => {
+mediaRoutes.get("/:filename", async (c) => {
   const filename = c.req.param("filename");
   const filepath = join(process.cwd(), "uploads", filename);
 
@@ -81,4 +81,3 @@ mediaRoutes.get("/media/:filename", async (c) => {
     "Content-Type": file.type || "application/octet-stream",
   });
 });
-

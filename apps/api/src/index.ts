@@ -6,6 +6,8 @@ import { getEnv } from "@xlog/config";
 import { apiRoutes } from "./routes/api";
 import { federationRoutes } from "./routes/federation";
 import { wellKnownRoutes } from "./routes/well-known";
+import { mcpRoutes } from "./routes/mcp";
+import { mediaRoutes } from "./routes/media";
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPIRouteHandler } from "hono-openapi";
 
@@ -76,8 +78,10 @@ app.get('/docs', Scalar({ url: '/api/openapi.json',
 
 // Routes
 app.route("/api", apiRoutes);
+app.route("/mcp", mcpRoutes); // MCP server at /mcp
 app.route("/", federationRoutes);
 app.route("/", wellKnownRoutes);
+app.route("/media", mediaRoutes);
 
 // Health check
 app.get("/health", (c) => {
@@ -93,4 +97,3 @@ serve({
   fetch: app.fetch,
   port,
 });
-

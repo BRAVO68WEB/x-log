@@ -30,10 +30,15 @@ searchRoutes.get(
         .select([
           "posts.id",
           "posts.title",
+          "posts.banner_url",
           "posts.content_markdown",
+          "posts.summary",
+          "posts.hashtags",
+          "posts.like_count",
           "posts.published_at",
           "users.username",
           "user_profiles.full_name",
+          "user_profiles.avatar_url",
         ])
         .where("posts.visibility", "=", "public")
         .where("posts.published_at", "is not", null)
@@ -46,9 +51,25 @@ searchRoutes.get(
         .limit(limit)
         .execute();
 
+      const items = posts.map((post) => ({
+        id: post.id,
+        title: post.title,
+        banner_url: post.banner_url,
+        content_markdown: post.content_markdown,
+        summary: post.summary || null,
+        hashtags: post.hashtags,
+        like_count: post.like_count,
+        published_at: post.published_at?.toISOString() || null,
+        author: {
+          username: post.username,
+          full_name: post.full_name || null,
+          avatar_url: post.avatar_url || null,
+        },
+      }));
+
       return c.json({
         type: "post",
-        items: posts,
+        items,
       });
     }
 

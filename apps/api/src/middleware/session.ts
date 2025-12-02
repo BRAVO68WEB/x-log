@@ -3,7 +3,6 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
 import { sign, verify } from "hono/jwt";
-import type { Database } from "@xlog/db";
 
 export interface SessionUser {
   id: string;

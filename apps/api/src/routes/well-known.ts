@@ -1,7 +1,6 @@
 import { Hono } from "hono";
-import { getDb } from "@xlog/db";
-import { getActorUrl } from "@xlog/ap";
-import { getEnv } from "@xlog/config";
+import { getDb, getInstanceSettings } from "@xlog/db";
+import { getActorUrlSync } from "@xlog/ap";
 
 export const wellKnownRoutes = new Hono();
 
@@ -18,9 +17,9 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
   }
 
   const [, username, domain] = match;
-  const env = getEnv();
+  const settings = await getInstanceSettings();
 
-  if (domain !== env.INSTANCE_DOMAIN) {
+  if (domain !== settings.instance_domain) {
     return c.json({ error: "Resource not found" }, 404);
   }
 
@@ -35,8 +34,8 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
     return c.json({ error: "User not found" }, 404);
   }
 
-  const actorId = getActorUrl(username);
-  const profileUrl = `https://${env.INSTANCE_DOMAIN}/u/${username}`;
+  const actorId = getActorUrlSync(username, settings.instance_domain);
+  const profileUrl = `https://${settings.instance_domain}/u/${username}`;
 
   const jrd = {
     subject: resource,
@@ -61,12 +60,12 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
 
 // NodeInfo discovery
 wellKnownRoutes.get("/.well-known/nodeinfo", async (c) => {
-  const env = getEnv();
+  const settings = await getInstanceSettings();
   const nodeInfo = {
     links: [
       {
         rel: "http://nodeinfo.diaspora.software/ns/schema/2.1",
-        href: `https://${env.INSTANCE_DOMAIN}/nodeinfo/2.1`,
+        href: `https://${settings.instance_domain}/nodeinfo/2.1`,
       },
     ],
   };
@@ -79,7 +78,6 @@ wellKnownRoutes.get("/.well-known/nodeinfo", async (c) => {
 // NodeInfo 2.1
 wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
   const db = getDb();
-  const env = getEnv();
 
   const userCount = await db
     .selectFrom("users")
@@ -129,10 +127,10 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
 
 // Host-meta (optional)
 wellKnownRoutes.get("/.well-known/host-meta", async (c) => {
-  const env = getEnv();
+  const settings = await getInstanceSettings();
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <XRD xmlns="http://docs.oasis-open.org/ns/xri/xrd-1.0">
-  <Link rel="lrdd" template="https://${env.INSTANCE_DOMAIN}/.well-known/webfinger?resource={uri}"/>
+  <Link rel="lrdd" template="https://${settings.instance_domain}/.well-known/webfinger?resource={uri}"/>
 </XRD>`;
 
   return c.text(xml, 200, {
@@ -141,12 +139,12 @@ wellKnownRoutes.get("/.well-known/host-meta", async (c) => {
 });
 
 wellKnownRoutes.get("/.well-known/host-meta.json", async (c) => {
-  const env = getEnv();
+  const settings = await getInstanceSettings();
   const jrd = {
     links: [
       {
         rel: "lrdd",
-        template: `https://${env.INSTANCE_DOMAIN}/.well-known/webfinger?resource={uri}`,
+        template: `https://${settings.instance_domain}/.well-known/webfinger?resource={uri}`,
       },
     ],
   };

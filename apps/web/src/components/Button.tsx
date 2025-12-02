@@ -1,9 +1,10 @@
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import * as React from "react";
+import type { ButtonHTMLAttributes } from "react";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
   size?: "sm" | "md" | "lg";
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 export function Button({
@@ -16,10 +17,11 @@ export function Button({
   const baseStyles = "font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
   
   const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500",
-    danger: "bg-red-600 text-white hover:bg-red-700 focus:ring-red-500",
-    ghost: "bg-transparent text-gray-700 hover:bg-gray-100 focus:ring-gray-500",
+    primary: "bg-light-pine dark:bg-dark-pine opacity-100 text-white hover:bg-light-foam dark:hover:bg-dark-foam focus:ring-light-pine dark:focus:ring-dark-pine",
+    secondary: "bg-light-overlay dark:bg-dark-overlay opacity-100 text-light-text dark:text-dark-text hover:bg-light-highlight-low dark:hover:bg-dark-highlight-low focus:ring-light-muted dark:focus:ring-dark-muted",
+    danger: "bg-light-love dark:bg-dark-love opacity-100 text-white hover:bg-light-rose dark:hover:bg-dark-rose focus:ring-light-love dark:focus:ring-dark-love",
+    ghost: "bg-transparent text-light-text dark:text-dark-text hover:bg-light-overlay dark:hover:bg-dark-overlay focus:ring-light-muted dark:focus:ring-dark-muted",
+    outline: "border border-light-highlight-med dark:border-dark-highlight-med bg-light-surface dark:bg-dark-surface opacity-100 text-light-text dark:text-dark-text hover:bg-light-overlay dark:hover:bg-dark-overlay focus:ring-light-muted dark:focus:ring-dark-muted",
   };
 
   const sizes = {
@@ -37,4 +39,3 @@ export function Button({
     </button>
   );
 }
-

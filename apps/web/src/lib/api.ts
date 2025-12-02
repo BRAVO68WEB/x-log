@@ -1,16 +1,21 @@
 /**
  * API Client for x-log
  * Centralized API functions for interacting with the backend
+ * All requests are proxied through Next.js API routes
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+// Use relative URLs to proxy through Next.js API routes
+const API_BASE = "/api";
 
 // Helper function to make API requests with credentials
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const response = await fetch(`${API_URL}${endpoint}`, {
+  // Remove leading /api if present since we're already proxying through Next.js
+  const cleanEndpoint = endpoint.startsWith("/api") ? endpoint.slice(4) : endpoint;
+  
+  const response = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     credentials: "include", // Include cookies for session
     headers: {
@@ -20,6 +25,37 @@ async function apiRequest<T>(
   });
 
   if (!response.ok) {
+    // Handle 401 Unauthorized - redirect to login only for protected routes
+    if (response.status === 401) {
+      // Public routes and auth check endpoints that shouldn't trigger redirect on 401
+      const publicEndpoints = [
+        "/api/posts",
+        "/api/profiles",
+        "/api/search",
+        "/api/feeds",
+      ];
+      
+      // Auth check endpoint - 401 is expected when not logged in
+      const isAuthCheck = endpoint === "/api/users/me";
+      
+      const isPublicEndpoint = publicEndpoints.some((publicEndpoint) =>
+        endpoint.startsWith(publicEndpoint)
+      );
+
+      // Only redirect if it's not a public endpoint, not an auth check, and we're not already on the login page
+      if (
+        !isPublicEndpoint &&
+        !isAuthCheck &&
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login")
+      ) {
+        const currentPath = window.location.pathname + window.location.search;
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
+        // Return a rejected promise to stop execution
+        return Promise.reject(new Error("Unauthorized"));
+      }
+    }
+
     const error = await response.json().catch(() => ({ error: "Unknown error" }));
     throw new Error(error.error || `HTTP ${response.status}`);
   }
@@ -70,11 +106,21 @@ export const postsApi = {
     if (params?.author) searchParams.set("author", params.author);
 
     const query = searchParams.toString();
-    return apiRequest<{
-      items: any[];
-      nextCursor?: string;
-      hasMore: boolean;
-    }>(`/api/posts${query ? `?${query}` : ""}`);
+  interface PostSummary {
+    id: string;
+    title: string;
+    summary?: string | null;
+    banner_url?: string | null;
+    hashtags: string[];
+    like_count: number;
+    author: { username: string; full_name?: string | null; avatar_url?: string | null };
+    published_at: string | null;
+  }
+  return apiRequest<{
+    items: PostSummary[];
+    nextCursor?: string;
+    hasMore: boolean;
+  }>(`/api/posts${query ? `?${query}` : ""}`);
   },
 
   get: async (id: string) => {
@@ -84,7 +130,7 @@ export const postsApi = {
   create: async (data: {
     title: string;
     content_markdown: string;
-    content_blocks?: any;
+    content_blocks?: import("@tiptap/core").JSONContent | string;
     banner_url?: string;
     summary?: string;
     hashtags: string[];
@@ -99,7 +145,7 @@ export const postsApi = {
   update: async (id: string, data: {
     title?: string;
     content_markdown?: string;
-    content_blocks?: any;
+    content_blocks?: import("@tiptap/core").JSONContent | string;
     banner_url?: string;
     summary?: string;
     hashtags?: string[];
@@ -156,7 +202,8 @@ export const searchApi = {
   search: async (query: string, type?: "post" | "profile") => {
     const params = new URLSearchParams({ q: query });
     if (type) params.set("type", type);
-    return apiRequest<{ items: any[] }>(`/api/search?${params}`);
+    type SearchItem = { id?: string; username?: string };
+    return apiRequest<{ items: SearchItem[] }>(`/api/search?${params}`);
   },
 };
 
@@ -166,7 +213,7 @@ export const mediaApi = {
     const formData = new FormData();
     formData.append("file", file);
 
-    const response = await fetch(`${API_URL}/api/media/upload`, {
+    const response = await fetch(`${API_BASE}/media/upload`, {
       method: "POST",
       credentials: "include",
       body: formData,
@@ -204,3 +251,35 @@ export const onboardingApi = {
   },
 };
 
+// Settings API
+export const settingsApi = {
+  get: async () => {
+    return apiRequest<{
+      id: number;
+      instance_name: string;
+      instance_description: string | null;
+      instance_domain: string;
+      open_registrations: boolean;
+      admin_email: string | null;
+      smtp_url: string | null;
+      federation_enabled: boolean;
+      created_at: string;
+      updated_at: string;
+    }>("/api/settings");
+  },
+
+  update: async (data: {
+    instance_name?: string;
+    instance_description?: string | null;
+    instance_domain?: string;
+    open_registrations?: boolean;
+    admin_email?: string | null;
+    smtp_url?: string | null;
+    federation_enabled?: boolean;
+  }) => {
+    return apiRequest("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+};

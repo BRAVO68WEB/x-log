@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { postsApi } from "@/lib/api";
+import { useEffect } from "react";
+import { useInfiniteQuery } from "react-query";
 
 interface Post {
   id: string;
@@ -26,57 +26,52 @@ interface UsePostsOptions {
 
 export function usePosts(options: UsePostsOptions = {}) {
   const { author, limit = 20, autoLoad = true } = options;
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(autoLoad);
-  const [hasMore, setHasMore] = useState(true);
-  const [cursor, setCursor] = useState<string | undefined>();
-  const [error, setError] = useState<string | null>(null);
+
+  const query = useInfiniteQuery<{ items: Post[]; nextCursor?: string; hasMore: boolean }>(
+    ["posts", author, limit],
+    async ({ pageParam }): Promise<{ items: Post[]; nextCursor?: string; hasMore: boolean }> => {
+      const params = new URLSearchParams();
+      params.set("limit", String(limit));
+      if (author) params.set("author", author);
+      if (pageParam) params.set("cursor", String(pageParam));
+      const res = await fetch(`/api/posts${params.toString() ? `?${params.toString()}` : ""}`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to load posts" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return (await res.json()) as { items: Post[]; nextCursor?: string; hasMore: boolean };
+    },
+    {
+      enabled: autoLoad,
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+    }
+  );
+
+  const posts: Post[] = (query.data?.pages ?? [])
+    .flatMap((p) => p.items)
+    .filter((p, idx, arr) => arr.findIndex((x) => x.id === p.id) === idx);
+
+  const hasMore = Boolean(query.data?.pages.at(-1)?.hasMore);
 
   useEffect(() => {
     if (autoLoad) {
-      loadPosts();
+      query.refetch();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [author]);
-
-  const loadPosts = async (reset = false) => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const result = await postsApi.list({
-        limit,
-        cursor: reset ? undefined : cursor,
-        author,
-      });
-
-      if (reset) {
-        setPosts(result.items);
-      } else {
-        setPosts((prev) => [...prev, ...result.items]);
-      }
-
-      setHasMore(result.hasMore);
-      setCursor(result.nextCursor);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load posts");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadMore = () => {
-    if (!loading && hasMore) {
-      loadPosts();
-    }
-  };
 
   return {
     posts,
-    loading,
+    loading: query.isLoading || query.isFetching,
     hasMore,
-    error,
-    loadMore,
-    refetch: () => loadPosts(true),
+    error: query.error ? (query.error as Error).message : null,
+    loadMore: () => {
+      if (!query.isFetching && hasMore) {
+        query.fetchNextPage();
+      }
+    },
+    refetch: () => query.refetch(),
   };
 }
-

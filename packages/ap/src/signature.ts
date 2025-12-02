@@ -1,6 +1,5 @@
 import crypto from "crypto";
-import { getDb } from "@xlog/db";
-import { getEnv } from "@xlog/config";
+import { getDb, getInstanceSettings } from "@xlog/db";
 
 export interface SignatureHeaders {
   "(request-target)": string;
@@ -23,7 +22,7 @@ export async function signRequest(
   userId: string
 ): Promise<string> {
   const db = getDb();
-  const env = getEnv();
+  const settings = await getInstanceSettings();
 
   const userKey = await db
     .selectFrom("user_keys")
@@ -54,7 +53,7 @@ export async function signRequest(
   sign.end();
   const signature = sign.sign(userKey.private_key_pem, "base64");
 
-  const keyId = `https://${env.INSTANCE_DOMAIN}/ap/users/${userId}#main-key`;
+  const keyId = `https://${settings.instance_domain}/ap/users/${userId}#main-key`;
 
   const signatureHeader = [
     `keyId="${keyId}"`,

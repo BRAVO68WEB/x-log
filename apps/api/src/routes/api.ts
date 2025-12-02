@@ -7,6 +7,8 @@ import { postsRoutes } from "./posts";
 import { feedsRoutes } from "./feeds";
 import { searchRoutes } from "./search";
 import { mediaRoutes } from "./media";
+import { settingsRoutes } from "./settings";
+import { mcpRoutes } from "./mcp";
 
 export const apiRoutes = new Hono()
   .route("/auth", authRoutes)
@@ -16,5 +18,7 @@ export const apiRoutes = new Hono()
   .route("/posts", postsRoutes)
   .route("/feeds", feedsRoutes)
   .route("/search", searchRoutes)
-  .route("/media", mediaRoutes);
+  .route("/media", mediaRoutes)
+  .route("/settings", settingsRoutes)
+  .route("/mcp", mcpRoutes);
 

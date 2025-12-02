@@ -9,4 +9,5 @@ export { OnboardingWizard } from "./OnboardingWizard";
 export { SearchBar } from "./SearchBar";
 export { ProfileForm } from "./ProfileForm";
 export { Editor } from "./Editor";
+export { ThemeToggle } from "./ThemeToggle";
 

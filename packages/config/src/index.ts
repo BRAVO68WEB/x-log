@@ -13,6 +13,7 @@ const envSchema = z.object({
     .default("false"),
   SMTP_URL: z.string().url().optional(),
   SESSION_SECRET: z.string().min(32),
+  MCP_API_KEY: z.string().optional(), // Optional MCP API key (falls back to SESSION_SECRET)
   FEDERATION_ENABLED: z
     .string()
     .transform((val) => val !== "false")

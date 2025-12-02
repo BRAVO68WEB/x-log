@@ -7,10 +7,9 @@ import {
   PostResponseSchema,
   PaginationQuerySchema,
 } from "@xlog/validation";
-import { getDb } from "@xlog/db";
+import { getDb, getInstanceSettings } from "@xlog/db";
 import { generateId } from "@xlog/snowflake";
-import { getPostUrl } from "@xlog/ap";
-import { getEnv } from "@xlog/config";
+import { getPostUrlSync } from "@xlog/ap";
 import { renderMarkdown } from "@xlog/markdown";
 import {
   sessionMiddleware,
@@ -81,11 +80,11 @@ postsRoutes.get(
 
     const hasMore = posts.length > limit;
     const items = posts.slice(0, limit);
+    const settings = await getInstanceSettings();
 
-    const response = await Promise.all(
-      items.map(async (post) => ({
+    const response = items.map((post) => ({
       id: post.id,
-      url: getPostUrl(post.id),
+      url: getPostUrlSync(post.id, settings.instance_domain),
       title: post.title,
       banner_url: post.banner_url,
       content_html: post.content_markdown, // TODO: Render markdown
@@ -100,8 +99,7 @@ postsRoutes.get(
       published_at: post.published_at?.toISOString() || null,
       updated_at: post.updated_at.toISOString(),
       visibility: post.visibility,
-      }))
-    );
+    }));
 
     return c.json({
       items: response,
@@ -136,6 +134,7 @@ postsRoutes.get(
   async (c) => {
     const { id } = c.req.valid("param");
     const db = getDb();
+    const user = c.get("user"); // Optional - may be undefined for public access
 
     const post = await db
       .selectFrom("posts")
@@ -151,6 +150,7 @@ postsRoutes.get(
         "posts.published_at",
         "posts.updated_at",
         "posts.visibility",
+        "posts.author_id",
         "users.username",
         "user_profiles.full_name",
         "user_profiles.avatar_url",
@@ -162,11 +162,20 @@ postsRoutes.get(
       return c.json({ error: "Post not found" }, 404);
     }
 
+    // Check visibility: public and unlisted posts are visible to everyone
+    // Private posts are only visible to the author or admins
+    if (post.visibility === "private") {
+      if (!user || (user.id !== post.author_id && user.role !== "admin")) {
+        return c.json({ error: "Post not found" }, 404);
+      }
+    }
+
     const contentHtml = await renderMarkdown(post.content_markdown);
+    const settings = await getInstanceSettings();
 
     return c.json({
       id: post.id,
-      url: getPostUrl(post.id),
+      url: getPostUrlSync(post.id, settings.instance_domain),
       title: post.title,
       banner_url: post.banner_url,
       content_html: contentHtml,
@@ -207,10 +216,10 @@ postsRoutes.post(
     const user = c.get("user")!;
     const data = c.req.valid("json");
     const db = getDb();
+    const settings = await getInstanceSettings();
 
     const postId = generateId();
-    const env = getEnv();
-    const apObjectId = `https://${env.INSTANCE_DOMAIN}/post/${postId}`;
+    const apObjectId = `https://${settings.instance_domain}/post/${postId}`;
 
     await db
       .insertInto("posts")
@@ -253,7 +262,7 @@ postsRoutes.post(
     return c.json(
       {
         id: post!.id,
-        url: getPostUrl(post!.id),
+        url: getPostUrlSync(post!.id, settings.instance_domain),
         title: post!.title,
         banner_url: post!.banner_url,
         content_html: await renderMarkdown(post!.content_markdown),

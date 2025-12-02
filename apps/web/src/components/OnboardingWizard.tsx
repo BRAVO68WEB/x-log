@@ -3,17 +3,17 @@
 import { useState } from "react";
 import { Button } from "./Button";
 import { Input, Textarea } from "./Input";
-import { onboardingApi } from "@/lib/api";
+import { useMutation } from "react-query";
 
 interface OnboardingData {
   instance_name: string;
-  instance_description: string;
+  instance_description?: string;
   instance_domain: string;
   admin_username: string;
   admin_password: string;
-  admin_email: string;
+  admin_email?: string;
   open_registrations: boolean;
-  smtp_url: string;
+  smtp_url?: string;
 }
 
 export function OnboardingWizard() {
@@ -23,29 +23,43 @@ export function OnboardingWizard() {
     open_registrations: false,
   });
 
-  const updateData = (field: keyof OnboardingData, value: any) => {
+  const updateData = <K extends keyof OnboardingData>(field: K, value: OnboardingData[K]) => {
     setData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    try {
-      await onboardingApi.complete(data as any);
-      // Force a hard reload to ensure onboarding guard picks up the change
+  const mutation = useMutation(async () => {
+    const res = await fetch(`/api/onboarding/complete`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to complete onboarding" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return res.json();
+  }, {
+    onSuccess: () => {
       window.location.href = "/";
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error("Onboarding error:", error);
       alert(`Failed to complete onboarding: ${error instanceof Error ? error.message : "Unknown error"}`);
-    } finally {
-      setLoading(false);
-    }
+    },
+    onSettled: () => setLoading(false),
+  });
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    mutation.mutate();
   };
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <div className="mb-8 text-center">
         <h1 className="text-4xl font-bold mb-2 text-gray-900">Welcome to x-log</h1>
-        <p className="text-gray-600">Let's set up your instance</p>
+        <p className="text-gray-600">Let’s set up your instance</p>
       </div>
 
       <div className="mb-8">
@@ -202,4 +216,3 @@ export function OnboardingWizard() {
     </div>
   );
 }
-

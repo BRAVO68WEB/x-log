@@ -5,7 +5,8 @@ import {
   ProfileResponseSchema,
   ProfileUpdateSchema,
 } from "@xlog/validation";
-import { getDb } from "@xlog/db";
+import { getDb, getInstanceSettings } from "@xlog/db";
+import { getActorUrlSync } from "@xlog/ap";
 import {
   sessionMiddleware,
   requireAuth,
@@ -64,7 +65,14 @@ profilesRoutes.get(
       return c.json({ error: "Profile not found" }, 404);
     }
 
-    return c.json(user);
+    const settings = await getInstanceSettings();
+    const actorUrl = getActorUrlSync(username, settings.instance_domain);
+
+    return c.json({
+      ...user,
+      instance_domain: settings.instance_domain,
+      actor_url: actorUrl,
+    });
   }
 );
 

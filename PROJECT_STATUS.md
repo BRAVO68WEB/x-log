@@ -69,9 +69,9 @@
 ### Frontend
 - [ ] Complete onboarding wizard UI
 - [ ] Post list with pagination
-- [ ] Profile editing UI
-- [ ] Settings UI
-- [ ] Dark mode implementation
+- [x] Profile editing UI
+- [x] Settings UI
+- [x] Dark mode implementation
 - [ ] Responsive design polish
 - [ ] Image upload in editor
 

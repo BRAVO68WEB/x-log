@@ -1,9 +1,8 @@
 import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
-import { getDb } from "@xlog/db";
-import { getPostUrl } from "@xlog/ap";
-import { getEnv } from "@xlog/config";
+import { getDb, getInstanceSettings } from "@xlog/db";
+import { getPostUrlSync } from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
 
 export const feedsRoutes = new Hono();
@@ -30,7 +29,7 @@ feedsRoutes.get(
   async (c) => {
     const { username } = c.req.valid("param");
     const db = getDb();
-    const env = getEnv();
+    const settings = await getInstanceSettings();
 
     const user = await db
       .selectFrom("users")
@@ -65,7 +64,7 @@ feedsRoutes.get(
 <rss version="2.0">
   <channel>
     <title>${user.full_name || user.username}</title>
-    <link>https://${env.INSTANCE_DOMAIN}/u/${username}</link>
+    <link>https://${settings.instance_domain}/u/${username}</link>
     <description>Blog posts by ${user.full_name || user.username}</description>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     ${posts
@@ -73,8 +72,8 @@ feedsRoutes.get(
         (post) => `
     <item>
       <title>${escapeXml(post.title)}</title>
-      <link>${getPostUrl(post.id)}</link>
-      <guid>${getPostUrl(post.id)}</guid>
+      <link>${getPostUrlSync(post.id, settings.instance_domain)}</link>
+      <guid>${getPostUrlSync(post.id, settings.instance_domain)}</guid>
       <description>${escapeXml(post.summary || renderMarkdownSync(post.content_markdown).slice(0, 200))}</description>
       <pubDate>${post.published_at?.toUTCString()}</pubDate>
     </item>`
@@ -111,7 +110,7 @@ feedsRoutes.get(
   async (c) => {
     const { username } = c.req.valid("param");
     const db = getDb();
-    const env = getEnv();
+    const settings = await getInstanceSettings();
 
     const user = await db
       .selectFrom("users")
@@ -145,8 +144,8 @@ feedsRoutes.get(
     const atom = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
   <title>${user.full_name || user.username}</title>
-  <link href="https://${env.INSTANCE_DOMAIN}/u/${username}" />
-  <id>https://${env.INSTANCE_DOMAIN}/u/${username}</id>
+  <link href="https://${settings.instance_domain}/u/${username}" />
+  <id>https://${settings.instance_domain}/u/${username}</id>
   <updated>${posts[0]?.updated_at.toISOString() || new Date().toISOString()}</updated>
   <author>
     <name>${user.full_name || user.username}</name>
@@ -156,8 +155,8 @@ feedsRoutes.get(
       (post) => `
   <entry>
     <title>${escapeXml(post.title)}</title>
-    <link href="${getPostUrl(post.id)}" />
-    <id>${getPostUrl(post.id)}</id>
+    <link href="${getPostUrlSync(post.id, settings.instance_domain)}" />
+    <id>${getPostUrlSync(post.id, settings.instance_domain)}</id>
     <updated>${post.updated_at.toISOString()}</updated>
     <published>${post.published_at?.toISOString()}</published>
     <summary>${escapeXml(post.summary || renderMarkdownSync(post.content_markdown).slice(0, 200))}</summary>

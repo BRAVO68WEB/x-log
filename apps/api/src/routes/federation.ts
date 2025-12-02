@@ -1,16 +1,15 @@
 import { Hono } from "hono";
-import { getDb } from "@xlog/db";
+import { getDb, getInstanceSettings } from "@xlog/db";
 import {
-  getActorUrl,
-  createActorObject,
-  getOutboxUrl,
-  getFollowersUrl,
-  getFollowingUrl,
-  createArticleObject,
+  getActorUrlSync,
+  createActorObjectSync,
+  getOutboxUrlSync,
+  getFollowersUrlSync,
+  getFollowingUrlSync,
+  createArticleObjectSync,
   createCreateActivity,
   verifySignature,
 } from "@xlog/ap";
-import { getEnv } from "@xlog/config";
 
 export const federationRoutes = new Hono();
 
@@ -37,11 +36,13 @@ federationRoutes.get("/ap/users/:username", async (c) => {
   }
 
   const summary = user.bio || "";
-  const actor = createActorObject(
+  const settings = await getInstanceSettings();
+  const actor = createActorObjectSync(
     username,
     user.full_name || username,
     summary,
-    user.public_key_pem
+    user.public_key_pem,
+    settings.instance_domain
   );
 
   return c.json(actor, 200, {
@@ -53,7 +54,7 @@ federationRoutes.get("/ap/users/:username", async (c) => {
 federationRoutes.get("/ap/users/:username/outbox", async (c) => {
   const username = c.req.param("username");
   const db = getDb();
-  const env = getEnv();
+  const settings = await getInstanceSettings();
 
   const user = await db
     .selectFrom("users")
@@ -74,23 +75,24 @@ federationRoutes.get("/ap/users/:username/outbox", async (c) => {
     .limit(20)
     .execute();
 
-  const actorId = getActorUrl(username);
-  const outboxId = getOutboxUrl(username);
+  const actorId = getActorUrlSync(username, settings.instance_domain);
+  const outboxId = getOutboxUrlSync(username, settings.instance_domain);
 
   const activities = await Promise.all(
     posts.map(async (post) => {
-      const article = createArticleObject(
+      const article = createArticleObjectSync(
         post.id,
         actorId,
         post.title,
         post.content_markdown, // TODO: Render to HTML
         post.published_at!,
         post.hashtags,
+        settings.instance_domain,
         post.summary || undefined,
         post.banner_url
       );
 
-      const activityId = `${env.INSTANCE_DOMAIN}/ap/activities/${crypto.randomUUID()}`;
+      const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
       return createCreateActivity(
         activityId,
         actorId,
@@ -135,7 +137,8 @@ federationRoutes.get("/ap/users/:username/followers", async (c) => {
     .where("approved", "=", true)
     .execute();
 
-  const followersId = getFollowersUrl(username);
+  const settings = await getInstanceSettings();
+  const followersId = getFollowersUrlSync(username, settings.instance_domain);
   const collection = {
     "@context": "https://www.w3.org/ns/activitystreams",
     id: followersId,
@@ -152,7 +155,8 @@ federationRoutes.get("/ap/users/:username/followers", async (c) => {
 // Following endpoint
 federationRoutes.get("/ap/users/:username/following", async (c) => {
   const username = c.req.param("username");
-  const followersId = getFollowingUrl(username);
+  const settings = await getInstanceSettings();
+  const followersId = getFollowingUrlSync(username, settings.instance_domain);
 
   // TODO: Implement following tracking
   const collection = {

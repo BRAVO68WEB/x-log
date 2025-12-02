@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-light-base dark:bg-dark-base text-light-text dark:text-dark-text transition-colors;
   }
 }
 
@@ -14,44 +14,62 @@
 }
 
 .prose h1 {
-  @apply text-4xl font-bold mt-8 mb-4;
+  @apply text-4xl font-bold mt-8 mb-4 text-light-text dark:text-dark-text;
 }
 
 .prose h2 {
-  @apply text-3xl font-bold mt-6 mb-3;
+  @apply text-3xl font-bold mt-6 mb-3 text-light-text dark:text-dark-text;
 }
 
 .prose h3 {
-  @apply text-2xl font-bold mt-4 mb-2;
+  @apply text-2xl font-bold mt-4 mb-2 text-light-text dark:text-dark-text;
 }
 
 .prose p {
-  @apply mb-4 leading-relaxed;
+  @apply mb-4 leading-relaxed text-light-text dark:text-dark-text;
 }
 
-.prose ul,
+.prose ul {
+  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-disc;
+}
+
 .prose ol {
-  @apply mb-4 ml-6;
+  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-decimal;
 }
 
 .prose li {
-  @apply mb-2;
+  @apply mb-2 text-light-text dark:text-dark-text;
+}
+
+.prose ul li::marker {
+  @apply text-light-pine dark:text-dark-foam;
+}
+
+.prose ol li::marker {
+  @apply text-light-pine dark:text-dark-foam font-semibold;
+}
+
+.prose ul ul,
+.prose ol ol,
+.prose ul ol,
+.prose ol ul {
+  @apply mt-2 mb-0;
 }
 
 .prose code {
-  @apply bg-gray-100 px-1 py-0.5 rounded text-sm font-mono;
+  @apply bg-light-highlight-low dark:bg-dark-highlight-low px-1.5 py-0.5 rounded text-sm font-mono text-light-pine dark:text-dark-foam;
 }
 
 .prose pre {
-  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
+  @apply bg-light-overlay dark:bg-dark-overlay p-4 rounded-lg overflow-x-auto mb-4 border border-light-highlight-med dark:border-dark-highlight-med;
 }
 
 .prose pre code {
-  @apply bg-transparent p-0 text-gray-100;
+  @apply bg-transparent p-0 text-light-text dark:text-dark-text;
 }
 
 .prose a {
-  @apply text-blue-600 hover:text-blue-800 underline;
+  @apply text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine underline transition-colors;
 }
 
 .prose img {
@@ -59,6 +77,109 @@
 }
 
 .prose blockquote {
-  @apply border-l-4 border-gray-300 pl-4 italic my-4;
+  @apply border-l-4 border-light-pine dark:border-dark-pine pl-4 italic my-4 text-light-muted dark:text-dark-muted bg-light-overlay/50 dark:bg-dark-overlay/50 py-2;
 }
 
+/* TipTap Editor Styles */
+.ProseMirror {
+  @apply outline-none;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  @apply text-light-muted dark:text-dark-muted;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror h1 {
+  @apply text-4xl font-bold mt-8 mb-4 text-light-text dark:text-dark-text;
+}
+
+.ProseMirror h2 {
+  @apply text-3xl font-bold mt-6 mb-3 text-light-text dark:text-dark-text;
+}
+
+.ProseMirror h3 {
+  @apply text-2xl font-bold mt-4 mb-2 text-light-text dark:text-dark-text;
+}
+
+.ProseMirror p {
+  @apply mb-4 leading-relaxed text-light-text dark:text-dark-text;
+}
+
+.ProseMirror ul {
+  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-disc;
+}
+
+.ProseMirror ol {
+  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-decimal;
+}
+
+.ProseMirror li {
+  @apply mb-2 text-light-text dark:text-dark-text;
+}
+
+.ProseMirror ul li::marker {
+  @apply text-light-pine dark:text-dark-foam;
+}
+
+.ProseMirror ol li::marker {
+  @apply text-light-pine dark:text-dark-foam font-semibold;
+}
+
+.ProseMirror ul ul,
+.ProseMirror ol ol,
+.ProseMirror ul ol,
+.ProseMirror ol ul {
+  @apply mt-2 mb-0;
+}
+
+.ProseMirror code {
+  @apply bg-light-highlight-low dark:bg-dark-highlight-low px-1.5 py-0.5 rounded text-sm font-mono text-light-pine dark:text-dark-foam;
+}
+
+.ProseMirror pre {
+  @apply bg-light-overlay dark:bg-dark-overlay p-4 rounded-lg overflow-x-auto mb-4 border border-light-highlight-med dark:border-dark-highlight-med;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent p-0 text-light-text dark:text-dark-text;
+}
+
+.ProseMirror a {
+  @apply text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine underline transition-colors;
+}
+
+.ProseMirror img {
+  @apply rounded-lg my-4 max-w-full h-auto;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-light-pine dark:border-dark-pine pl-4 italic my-4 text-light-muted dark:text-dark-muted bg-light-overlay/50 dark:bg-dark-overlay/50 py-2;
+}
+
+.ProseMirror strong {
+  @apply font-bold text-light-text dark:text-dark-text;
+}
+
+.ProseMirror em {
+  @apply italic text-light-text dark:text-dark-text;
+}
+
+.ProseMirror hr {
+  @apply my-8 border-0 border-t border-light-highlight-med dark:border-dark-highlight-med;
+}
+
+.ProseMirror mark {
+  @apply bg-light-gold/30 dark:bg-dark-gold/30 text-light-text dark:text-dark-text px-1 rounded;
+}
+
+.ProseMirror::selection {
+  @apply bg-light-pine/20 dark:bg-dark-pine/30;
+}
+
+.ProseMirror *::selection {
+  @apply bg-light-pine/20 dark:bg-dark-pine/30;
+}

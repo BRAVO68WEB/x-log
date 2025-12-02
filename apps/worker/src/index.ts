@@ -55,9 +55,9 @@ async function deliverActivity(delivery: DeliveryJob) {
       throw new Error("Post not found or not published");
     }
 
-    const actorId = getActorUrl(post.username);
+    const actorId = await getActorUrl(post.username);
     const contentHtml = renderMarkdownSync(post.content_markdown);
-    const article = createArticleObject(
+    const article = await createArticleObject(
       post.id,
       actorId,
       post.title,
@@ -155,4 +155,3 @@ async function processRetryJobs() {
 // Start workers
 processDeliveryJobs();
 processRetryJobs();
-

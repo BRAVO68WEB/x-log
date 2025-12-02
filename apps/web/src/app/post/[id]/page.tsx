@@ -1,72 +1,50 @@
-"use client";
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import PostClient from "./Client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { postsApi } from "@/lib/api";
+export default function PostPage(props: { params: Promise<{ id: string }> }) {
+  return <PostClient {...props} />;
+}
 
-export default function PostPage({ params }: { params: Promise<{ id: string }> }) {
-  const [post, setPost] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [postId, setPostId] = useState<string>("");
-
-  useEffect(() => {
-    params.then(async (p) => {
-      setPostId(p.id);
-      try {
-        const data = await postsApi.get(p.id);
-        setPost(data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    });
-  }, [params]);
-
-  if (loading) {
-    return (
-      <main className="min-h-screen py-8 px-4">
-        <div className="max-w-4xl mx-auto flex justify-center items-center min-h-[400px]">
-          <LoadingSpinner size="lg" />
-        </div>
-      </main>
-    );
+export async function generateMetadata(
+  { params }: { params: { id: string } }
+): Promise<Metadata> {
+  try {
+    const { id } = await params;
+    const hdrs = await headers();
+    const host = hdrs.get("host") || "localhost:4000";
+    const proto = hdrs.get("x-forwarded-proto") || "http";
+    const base = `${proto}://${host}`;
+    const res = await fetch(`${base}/api/posts/${id}`, { cache: "no-store" });
+    if (!res.ok) {
+      console.error(`Failed to fetch post ${id}: ${res.statusText}`);
+      return { title: "Post not found — x-log" };
+    }
+    const post = (await res.json()) as {
+      id: string;
+      title: string;
+      summary?: string | null;
+      banner_url?: string | null;
+      author: { username: string; full_name?: string | null };
+      published_at: string | null;
+    };
+    return {
+      title: `${post.title} — x-log`,
+      description: post.summary || undefined,
+      openGraph: {
+        title: post.title,
+        description: post.summary || undefined,
+        type: "article",
+        images: post.banner_url ? [post.banner_url] : undefined,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: post.title,
+        description: post.summary || undefined,
+        images: post.banner_url ? [post.banner_url] : undefined,
+      },
+    };
+  } catch {
+    return { title: "Post — x-log" };
   }
-
-  if (!post) {
-    return (
-      <main className="min-h-screen py-8 px-4">
-        <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Post not found</h1>
-          <p className="text-gray-600">The post you're looking for doesn't exist.</p>
-        </div>
-      </main>
-    );
-  }
-
-  return (
-    <main className="min-h-screen py-8 px-4">
-      <article className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8 border border-gray-200">
-        <h1 className="text-4xl font-bold mb-4 text-gray-900">{post.title}</h1>
-        <div className="text-gray-600 mb-8 pb-4 border-b">
-          By{" "}
-          <Link
-            href={`/u/${post.author.username}`}
-            className="hover:text-blue-600 transition-colors font-medium"
-          >
-            {post.author.full_name || post.author.username}
-          </Link>{" "}
-          • {post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}
-        </div>
-        {post.banner_url && (
-          <img src={post.banner_url} alt={post.title} className="w-full mb-8 rounded-lg" />
-        )}
-        <div
-          className="prose prose-lg max-w-none"
-          dangerouslySetInnerHTML={{ __html: post.content_html }}
-        />
-      </article>
-    </main>
-  );
 }

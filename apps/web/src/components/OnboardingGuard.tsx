@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LoadingSpinner } from "./LoadingSpinner";
-import { onboardingApi } from "@/lib/api";
 
 export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
@@ -11,16 +10,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
-  useEffect(() => {
-    checkOnboardingStatus();
-  }, []);
-
-  useEffect(() => {
-    // Re-check when pathname changes
-    checkOnboardingStatus();
-  }, [pathname]);
-
-  const checkOnboardingStatus = async () => {
+  const checkOnboardingStatus = useCallback(async () => {
     // Always allow access to onboarding page
     if (pathname === "/onboarding") {
       setLoading(false);
@@ -29,22 +19,30 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const data = await onboardingApi.getState();
+      const res = await fetch(`/api/onboarding/state`, { credentials: "include" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = (await res.json()) as { completed: boolean };
       const isCompleted = data.completed || false;
       setCompleted(isCompleted);
 
-      // If onboarding is not completed, redirect to onboarding page
       if (!isCompleted) {
         router.replace("/onboarding");
       }
     } catch (error) {
       console.error("Failed to check onboarding status:", error);
-      // On error, allow access (don't block) - might be API not ready yet
       setCompleted(true);
     } finally {
       setLoading(false);
     }
-  };
+  }, [pathname, router]);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, [checkOnboardingStatus]);
+
+  useEffect(() => {
+    checkOnboardingStatus();
+  }, [pathname, checkOnboardingStatus]);
 
   // Show loading spinner while checking
   if (loading) {
