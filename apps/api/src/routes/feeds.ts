@@ -63,9 +63,9 @@ feedsRoutes.get(
     const rss = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>${user.full_name || user.username}</title>
+    <title>${user.full_name?.split(" ")[0] || user.username}</title>
     <link>https://${settings.instance_domain}/u/${username}</link>
-    <description>Blog posts by ${user.full_name || user.username}</description>
+    <description>Blog posts by ${user.full_name?.split(" ")[0] || user.username}</description>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     ${posts
       .map(
@@ -143,12 +143,12 @@ feedsRoutes.get(
 
     const atom = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>${user.full_name || user.username}</title>
+  <title>${user.full_name?.split(" ")[0] || user.username}</title>
   <link href="https://${settings.instance_domain}/u/${username}" />
   <id>https://${settings.instance_domain}/u/${username}</id>
   <updated>${posts[0]?.updated_at.toISOString() || new Date().toISOString()}</updated>
   <author>
-    <name>${user.full_name || user.username}</name>
+    <name>${user.full_name?.split(" ")[0] || user.username}</name>
   </author>
   ${posts
     .map(

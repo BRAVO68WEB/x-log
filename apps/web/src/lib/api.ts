@@ -176,6 +176,18 @@ export const profilesApi = {
     return apiRequest(`/api/profiles/${username}`);
   },
 
+  listFollowers: async (username: string) => {
+    return apiRequest<{ items: { remote_actor: string; inbox_url: string; approved: boolean; created_at: string }[] }>(
+      `/api/profiles/${username}/followers`
+    );
+  },
+
+  listFollowing: async (username: string) => {
+    return apiRequest<{ items: { remote_actor: string; inbox_url: string; activity_id: string; accepted: boolean; created_at: string }[] }>(
+      `/api/profiles/${username}/following`
+    );
+  },
+
   update: async (username: string, data: {
     full_name?: string;
     bio?: string;

@@ -9,6 +9,7 @@ import { searchRoutes } from "./search";
 import { mediaRoutes } from "./media";
 import { settingsRoutes } from "./settings";
 import { mcpRoutes } from "./mcp";
+import { adminRoutes } from "./admin";
 
 export const apiRoutes = new Hono()
   .route("/auth", authRoutes)
@@ -22,3 +23,4 @@ export const apiRoutes = new Hono()
   .route("/settings", settingsRoutes)
   .route("/mcp", mcpRoutes);
 
+export const adminApiRoutes = new Hono().route("/admin", adminRoutes);

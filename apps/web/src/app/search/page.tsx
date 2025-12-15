@@ -6,12 +6,21 @@ export default function SearchPage() {
 }
 
 export async function generateMetadata(
-  { searchParams }: { searchParams: { q?: string; type?: string } }
+  { searchParams }: { searchParams: { q?: string; type?: string; hashtag?: string } }
 ): Promise<Metadata> {
   const q = searchParams.q || "";
+  const hashtag = searchParams.hashtag || "";
   const type = searchParams.type === "profile" ? "Profiles" : "Posts";
-  const title = q ? `Search ${type}: ${q} — x-log` : `Search — x-log`;
-  const description = q ? `Results for “${q}” in ${type.toLowerCase()}` : "Search posts and profiles";
+  const title = hashtag
+    ? `Search Posts by #${hashtag} — x-log`
+    : q
+    ? `Search ${type}: ${q} — x-log`
+    : `Search — x-log`;
+  const description = hashtag
+    ? `Posts tagged with #${hashtag}`
+    : q
+    ? `Results for “${q}” in ${type.toLowerCase()}`
+    : "Search posts and profiles";
   return {
     title,
     description,

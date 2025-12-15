@@ -24,7 +24,7 @@ export async function generateMetadata(
       bio?: string | null;
       banner_url?: string | null;
     };
-    const title = `${profile.full_name || username} — x-log`;
+    const title = `${profile.full_name?.split(" ")[0] || username} — x-log`;
     return {
       title,
       description: profile.bio || undefined,

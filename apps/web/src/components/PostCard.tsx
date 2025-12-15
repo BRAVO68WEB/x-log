@@ -60,14 +60,14 @@ export function PostCard({
                 {author.avatar_url && (
                   <Image
                     src={author.avatar_url}
-                    alt={author.full_name || author.username}
+                    alt={author.full_name?.split(" ")[0] || author.username}
                     width={32}
                     height={32}
                     className="rounded-full mr-2"
                     unoptimized
                   />
                 )}
-                {author.full_name || author.username}
+                {author.full_name?.split(" ")[0] || author.username}
               </div>
             </Link>
             {published_at && (
@@ -88,7 +88,7 @@ export function PostCard({
             {hashtags.map((tag) => (
               <Link
                 key={tag}
-                href={`/search?q=${encodeURIComponent(tag)}&type=post`}
+                href={`/search?hashtag=${encodeURIComponent(tag)}&type=post`}
                 className="text-sm text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine transition-colors"
               >
                 #{tag}

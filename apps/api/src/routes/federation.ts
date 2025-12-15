@@ -9,7 +9,10 @@ import {
   createArticleObjectSync,
   createCreateActivity,
   verifySignature,
+  createAcceptActivity,
+  signRequest,
 } from "@xlog/ap";
+import { renderMarkdownSync } from "@xlog/markdown";
 
 export const federationRoutes = new Hono();
 
@@ -80,11 +83,12 @@ federationRoutes.get("/ap/users/:username/outbox", async (c) => {
 
   const activities = await Promise.all(
     posts.map(async (post) => {
+      const contentHtml = renderMarkdownSync(post.content_markdown);
       const article = createArticleObjectSync(
         post.id,
         actorId,
         post.title,
-        post.content_markdown, // TODO: Render to HTML
+        contentHtml,
         post.published_at!,
         post.hashtags,
         settings.instance_domain,
@@ -155,16 +159,33 @@ federationRoutes.get("/ap/users/:username/followers", async (c) => {
 // Following endpoint
 federationRoutes.get("/ap/users/:username/following", async (c) => {
   const username = c.req.param("username");
+  const db = getDb();
   const settings = await getInstanceSettings();
-  const followersId = getFollowingUrlSync(username, settings.instance_domain);
+  const followingId = getFollowingUrlSync(username, settings.instance_domain);
 
-  // TODO: Implement following tracking
+  const user = await db
+    .selectFrom("users")
+    .select("id")
+    .where("username", "=", username)
+    .executeTakeFirst();
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
+  const following = await db
+    .selectFrom("following")
+    .select("remote_actor")
+    .where("local_user_id", "=", user.id)
+    .where("accepted", "=", true)
+    .execute();
+
   const collection = {
     "@context": "https://www.w3.org/ns/activitystreams",
-    id: followersId,
+    id: followingId,
     type: "OrderedCollection",
-    totalItems: 0,
-    items: [],
+    totalItems: following.length,
+    items: following.map((f) => f.remote_actor),
   };
 
   return c.json(collection, 200, {
@@ -250,7 +271,38 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
         .execute();
     }
 
-    // TODO: Send Accept activity
+    try {
+      const settings = await getInstanceSettings();
+      const actorId = getActorUrlSync(username, settings.instance_domain);
+
+      const acceptActivityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+      const accept = createAcceptActivity(
+        acceptActivityId,
+        actorId,
+        activity.id
+      );
+
+      const acceptBody = JSON.stringify(accept);
+      const signature = await signRequest(
+        "POST",
+        inboxUrl,
+        acceptBody,
+        user.id
+      );
+
+      await fetch(inboxUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/activity+json",
+          Signature: signature,
+          Date: new Date().toUTCString(),
+          Host: new URL(inboxUrl).host,
+        },
+        body: acceptBody,
+      });
+    } catch (err) {
+      console.error("Failed to send Accept:", err);
+    }
   }
 
   // Handle Like activity
@@ -269,6 +321,41 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
     }
   }
 
+  if (activity.type === "Accept") {
+    const objectId = typeof activity.object === "string" ? activity.object : activity.object?.id;
+    if (objectId) {
+      await db
+        .updateTable("following")
+        .set({ accepted: true })
+        .where("local_user_id", "=", user.id)
+        .where("activity_id", "=", objectId)
+        .execute();
+    }
+  }
+
+  // Handle Undo activity
+  if (activity.type === "Undo") {
+    const obj: any = activity.object;
+    if (obj && typeof obj === "object" && obj.type === "Follow") {
+      await db
+        .deleteFrom("followers")
+        .where("local_user_id", "=", user.id)
+        .where("remote_actor", "=", activity.actor)
+        .execute();
+    }
+    if (obj && typeof obj === "object" && obj.type === "Like") {
+      const likedObject = obj.object as string;
+      const postId = likedObject?.split("/").pop();
+      if (postId) {
+        await db
+          .updateTable("posts")
+          .set((eb) => ({ like_count: eb("like_count", "-", 1) }))
+          .where("id", "=", postId)
+          .where("like_count", ">", 0)
+          .execute();
+      }
+    }
+  }
+
   return c.json({ success: true }, 202);
 });
-

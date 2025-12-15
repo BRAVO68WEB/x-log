@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { getEnv } from "@xlog/config";
-import { apiRoutes } from "./routes/api";
+import { apiRoutes, adminApiRoutes } from "./routes/api";
 import { federationRoutes } from "./routes/federation";
 import { wellKnownRoutes } from "./routes/well-known";
 import { mcpRoutes } from "./routes/mcp";
@@ -78,6 +78,7 @@ app.get('/docs', Scalar({ url: '/api/openapi.json',
 
 // Routes
 app.route("/api", apiRoutes);
+app.route("/api", adminApiRoutes);
 app.route("/mcp", mcpRoutes); // MCP server at /mcp
 app.route("/", federationRoutes);
 app.route("/", wellKnownRoutes);

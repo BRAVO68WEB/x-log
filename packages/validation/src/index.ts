@@ -97,10 +97,13 @@ export const OnboardingCompleteSchema = z.object({
 
 // Search schemas
 export const SearchQuerySchema = z.object({
-  q: z.string().min(1),
+  q: z.string().min(1).optional(),
+  hashtag: z.string().regex(/^[a-z0-9_]{1,64}$/i).optional(),
   type: z.enum(["post", "profile"]).optional(),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default("20"),
   cursor: z.string().optional(),
+}).refine((data) => Boolean(data.q) || Boolean(data.hashtag), {
+  message: "q or hashtag is required",
 });
 
 // Pagination schemas
@@ -117,4 +120,3 @@ export const ProblemDetailSchema = z.object({
   detail: z.string().optional(),
   instance: z.string().optional(),
 });
-

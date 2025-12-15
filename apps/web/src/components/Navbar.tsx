@@ -34,7 +34,18 @@ export function Navbar() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center mr-8">
-              <span className="text-xl font-bold text-light-text dark:text-dark-text">x-log</span>
+              <span className="relative inline-block" aria-label="x-log">
+                <span className="text-2xl sm:text-3xl font-extrabold leading-none text-white dark:text-white">x-log</span>
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 -z-10 blur-lg opacity-35 pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      "linear-gradient(90deg, #8b5cf6 0%, #60a5fa 20%, #22c55e 40%, #f59e0b 60%, #ef4444 80%, #ec4899 100%)",
+                    filter: "blur(10px)",
+                  }}
+                />
+              </span>
             </Link>
             <div className="hidden sm:flex sm:space-x-4">
               {allNavItems.map((item) => (

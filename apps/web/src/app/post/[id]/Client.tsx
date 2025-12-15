@@ -70,36 +70,43 @@ export default function PostClient(props: { params: Promise<{ id: string }> }) {
       <article className="max-w-4xl mx-auto bg-light-surface dark:bg-dark-surface opacity-100 rounded-lg shadow-md p-8 border border-light-highlight-med dark:border-dark-highlight-med">
         <h1 className="text-4xl font-bold mb-4 text-light-text dark:text-dark-text">{post.title}</h1>
         <div className="text-light-muted dark:text-dark-muted mb-8 pb-4 border-b border-light-highlight-med dark:border-dark-highlight-med flex items-center">
-          By{"  "}
+          <div className="mr-2">
+            By{" "}
+          </div>
           <Link
             href={`/u/${post.author.username}`}
             className="hover:text-light-pine dark:hover:text-dark-foam transition-colors font-medium"
           >
-            <div className="flex items-center">
+            <div className="flex items-center space-x-2">
               {post.author.avatar_url && (
                 <Image
                   src={post.author.avatar_url}
-                  alt={post.author.full_name || post.author.username}
+                  alt={post.author.full_name?.split(" ")[0] || post.author.username}
                   width={32}
                   height={32}
                   className="rounded-full mr-2"
                   unoptimized
                 />
               )}
-              {post.author.full_name || post.author.username}
+              {post.author.full_name?.split(" ")[0] || post.author.username}
             </div>
-          </Link>{" "}
-          • {post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}
+          </Link>
+          <div className="mr-2">
+            •{" "}
+          </div>
+          <div className="text-light-muted dark:text-dark-muted">
+            {post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}
+          </div>
         </div>
         {post.banner_url && (
           <div className="relative w-full h-64 mb-8">
             <Image
               src={post.banner_url}
               alt={post.title}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
               className="object-cover rounded-lg"
               unoptimized
+              width={1200}
+              height={600}
             />
           </div>
         )}

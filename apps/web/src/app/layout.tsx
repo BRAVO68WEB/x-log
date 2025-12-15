@@ -7,9 +7,16 @@ import { OnboardingGuard } from "@/components/OnboardingGuard";
 import { Dotted } from "@/components/Backgrounds/Dotted";
 import { ThemeProvider } from 'next-themes'
 import { QueryProvider } from "@/components/QueryProvider";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 
-const inter = Inter({ subsets: ["latin"] });
+const mcfont = localFont({
+  src: [
+    {
+      path: "../fonts/Monocraft.ttf",
+      weight: "400",
+    },
+  ],
+});
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
@@ -60,7 +67,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className={`min-h-full bg-light-base dark:bg-dark-base transition-colors font-sans ${inter.className}`} >
+      <body className={`min-h-full bg-light-base dark:bg-dark-base transition-colors font-sans ${mcfont.className}`} >
         <OnboardingGuard>
           <QueryProvider>
             <Navbar />

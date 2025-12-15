@@ -12,7 +12,7 @@ interface PostListProps {
 export function PostList({ author }: PostListProps) {
   const { posts, loading, hasMore, loadMore, error } = usePosts({
     author,
-    limit: 20,
+    limit: 12,
     autoLoad: true,
   });
 

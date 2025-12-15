@@ -76,6 +76,34 @@ export interface DeliveriesTable {
   attempt_count: number;
   last_error: string | null;
   updated_at: ColumnType<Date, never, Date>;
+  user_id: string | null;
+  post_id: string | null;
+  activity_json: ColumnType<Record<string, unknown> | null, unknown, unknown>;
+}
+
+export interface FollowingTable {
+  id: string; // uuid, PK
+  local_user_id: string; // FK users.id
+  remote_actor: string;
+  inbox_url: string;
+  activity_id: string;
+  accepted: boolean; // default false
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface OutboxActivitiesTable {
+  id: string; // uuid, PK
+  user_id: string; // FK users.id
+  activity_id: string; // globally unique ActivityStreams id
+  type: string; // e.g., Create, Follow, Like, Accept
+  object_id: string; // URL of object or id
+  raw: ColumnType<Record<string, unknown>, unknown, unknown>; // jsonb
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface ReplayCacheTable {
+  key: string; // signature + date composite
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface InboxObjectsTable {
@@ -107,8 +135,10 @@ export interface Database {
   posts: PostsTable;
   post_hashtags: PostHashtagsTable;
   followers: FollowersTable;
+  following: FollowingTable;
+  outbox_activities: OutboxActivitiesTable;
   deliveries: DeliveriesTable;
   inbox_objects: InboxObjectsTable;
   instance_settings: InstanceSettingsTable;
+  replay_cache: ReplayCacheTable;
 }
-

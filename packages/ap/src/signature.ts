@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { getDb, getInstanceSettings } from "@xlog/db";
+const SIGNATURE_TTL_MS = 15 * 60 * 1000;
 
 export interface SignatureHeaders {
   "(request-target)": string;
@@ -53,7 +54,17 @@ export async function signRequest(
   sign.end();
   const signature = sign.sign(userKey.private_key_pem, "base64");
 
-  const keyId = `https://${settings.instance_domain}/ap/users/${userId}#main-key`;
+  const userRow = await db
+    .selectFrom("users")
+    .select(["username"])
+    .where("id", "=", userId)
+    .executeTakeFirst();
+
+  if (!userRow) {
+    throw new Error("User not found for signature");
+  }
+
+  const keyId = `https://${settings.instance_domain}/ap/users/${userRow.username}#main-key`;
 
   const signatureHeader = [
     `keyId="${keyId}"`,
@@ -73,6 +84,31 @@ export async function verifySignature(
   body: string
 ): Promise<boolean> {
   try {
+    const db = getDb();
+    const digestHeader = headers["digest"] || headers["Digest"]; 
+    if (digestHeader) {
+      const expectedDigest = `SHA-256=${crypto
+        .createHash("sha256")
+        .update(body)
+        .digest("base64")}`;
+      if (digestHeader !== expectedDigest) {
+        return false;
+      }
+    }
+
+    const dateHeader = headers["date"] || headers["Date"];
+    if (dateHeader) {
+      const parsed = new Date(dateHeader).getTime();
+      if (Number.isNaN(parsed)) {
+        return false;
+      }
+      const diffMs = Math.abs(Date.now() - parsed);
+      const maxSkewMs = 5 * 60 * 1000;
+      if (diffMs > maxSkewMs) {
+        return false;
+      }
+    }
+
     // Parse signature header
     const signatureParts: Record<string, string> = {};
     signatureHeader.split(",").forEach((part) => {
@@ -87,12 +123,28 @@ export async function verifySignature(
       return false;
     }
 
+    const replayKey = `${signatureParts.signature || ""}:${dateHeader || ""}`;
+    const replay = await db
+      .selectFrom("replay_cache")
+      .select("created_at")
+      .where("key", "=", replayKey)
+      .executeTakeFirst();
+    const now = Date.now();
+    if (replay && now - new Date(replay.created_at as any).getTime() < SIGNATURE_TTL_MS) {
+      return false;
+    }
+    await db
+      .insertInto("replay_cache")
+      .values({ key: replayKey })
+      .onConflict((oc) => oc.column("key").doNothing())
+      .execute();
+
     // Extract actor URL from keyId
     const actorUrl = keyId.replace(/#main-key$/, "");
     const actorId = actorUrl.split("/").pop();
 
     // Fetch public key from database or remote
-    const db = getDb();
+    // db already initialized above
     const user = await db
       .selectFrom("users")
       .select("id")
@@ -120,9 +172,35 @@ export async function verifySignature(
         userKey.public_key_pem
       );
     } else {
-      // Remote user - fetch actor and public key
-      // TODO: Implement remote key fetching
-      return false;
+      const resp = await fetch(actorUrl, {
+        headers: {
+          Accept: "application/activity+json",
+        },
+      });
+      if (!resp.ok) {
+        return false;
+      }
+      const actor = (await resp.json()) as { publicKey?: { publicKeyPem?: string; owner?: string; id?: string } };
+      const publicKeyPem = actor.publicKey?.publicKeyPem;
+      const publicKeyOwner = actor.publicKey?.owner;
+      const publicKeyId = actor.publicKey?.id;
+      if (!publicKeyPem) {
+        return false;
+      }
+      if (publicKeyOwner && publicKeyOwner !== actorUrl) {
+        return false;
+      }
+      if (publicKeyId && publicKeyId !== keyId) {
+        return false;
+      }
+      return verifySignatureWithKey(
+        method,
+        path,
+        headers,
+        signatureParts,
+        body,
+        publicKeyPem
+      );
     }
   } catch (error) {
     console.error("Signature verification error:", error);
@@ -160,4 +238,3 @@ function verifySignatureWithKey(
     return false;
   }
 }
-

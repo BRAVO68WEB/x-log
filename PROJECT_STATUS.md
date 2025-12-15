@@ -37,6 +37,9 @@
 - [x] ActivityPub endpoints (Actor, Inbox, Outbox, Followers, Following)
 - [x] HTTP Signature verification for ActivityPub inbox
 - [x] Well-known endpoints (WebFinger, NodeInfo, host-meta)
+- [x] Profile follow endpoint (`POST /api/profiles/:username/follow`) with WebFinger resolution
+  - Resolves `@user@domain` to actor URL and sends signed Follow
+  - Inserts outgoing follow into DB for persistence
 
 ### Frontend (Next.js)
 - [x] Basic page structure
@@ -60,8 +63,6 @@
 
 ### Core Features
 - [ ] Complete TipTap editor integration with API
-- [ ] Remote ActivityPub key fetching for signature verification
-- [ ] Accept activity generation and sending
 - [ ] Media file serving optimization
 - [ ] CSRF protection middleware
 - [ ] Rate limiting middleware
@@ -82,9 +83,6 @@
 - [ ] Media file cleanup/management
 
 ### ActivityPub
-- [ ] Remote actor key fetching
-- [ ] Complete Accept activity flow
-- [ ] Undo activity support
 - [ ] Better error handling for deliveries
 
 ### Testing
@@ -103,7 +101,8 @@
 - Session management is implemented using JWT tokens stored in HTTP-only cookies
 - Markdown rendering uses unified/remark/rehype pipeline with syntax highlighting
 - TipTap editor is implemented with basic block support
-- HTTP Signature verification works for local users; remote key fetching needs implementation
+- HTTP Signature verification works for local and remote users; remote actor key fetching implemented
+- Inbox verification includes Digest matching, Date skew checks, and replay protection
 - Federation delivery includes retry logic with exponential backoff
 - Media uploads are stored locally; consider S3 integration for production
 
@@ -114,3 +113,12 @@
 3. Start services: `docker-compose -f infra/compose/docker-compose.yml up -d`
 4. Run migrations: `cd apps/api && bun run migrate`
 5. Start development: `bun run dev`
+
+### ActivityPub & Federation
+- [x] Remote actor key fetching for signature verification (fetch actor, verify `publicKeyPem`)
+- [x] Accept activity generation and sending on inbound Follow
+- [x] Undo activity support (Follow, Like)
+- [x] Outbox renders markdown to HTML for `Article.content`
+- [x] Following persistence: DB migration `002_following` and real data at `GET /ap/users/:username/following`
+- [x] Digest header validation and Date header freshness checks
+- [x] Signature replay protection with short-lived cache

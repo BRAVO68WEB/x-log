@@ -19,58 +19,112 @@ searchRoutes.get(
   }),
   validator("query", SearchQuerySchema),
   async (c) => {
-    const { q, type, limit } = c.req.valid("query");
+    const { q, type, limit, hashtag, cursor } = c.req.valid("query");
     const db = getDb();
 
     if (type === "post" || !type) {
-      const posts = await db
-        .selectFrom("posts")
-        .innerJoin("users", "users.id", "posts.author_id")
-        .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-        .select([
-          "posts.id",
-          "posts.title",
-          "posts.banner_url",
-          "posts.content_markdown",
-          "posts.summary",
-          "posts.hashtags",
-          "posts.like_count",
-          "posts.published_at",
-          "users.username",
-          "user_profiles.full_name",
-          "user_profiles.avatar_url",
-        ])
-        .where("posts.visibility", "=", "public")
-        .where("posts.published_at", "is not", null)
-        .where(
-          sql`to_tsvector('english', posts.title || ' ' || posts.content_markdown)`,
-          "@@",
-          sql`plainto_tsquery('english', ${q})`
-        )
-        .orderBy("posts.published_at", "desc")
-        .limit(limit)
-        .execute();
+      if (hashtag) {
+        let query = db
+          .selectFrom("posts")
+          .innerJoin("users", "users.id", "posts.author_id")
+          .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+          .select([
+            "posts.id",
+            "posts.title",
+            "posts.banner_url",
+            "posts.content_markdown",
+            "posts.summary",
+            "posts.hashtags",
+            "posts.like_count",
+            "posts.published_at",
+            "users.username",
+            "user_profiles.full_name",
+            "user_profiles.avatar_url",
+          ])
+          .where("posts.visibility", "=", "public")
+          .where("posts.published_at", "is not", null)
+          .where("posts.hashtags", "@>", [hashtag.toLowerCase()])
+          .orderBy("posts.published_at", "desc")
+          .limit(limit + 1);
 
-      const items = posts.map((post) => ({
-        id: post.id,
-        title: post.title,
-        banner_url: post.banner_url,
-        content_markdown: post.content_markdown,
-        summary: post.summary || null,
-        hashtags: post.hashtags,
-        like_count: post.like_count,
-        published_at: post.published_at?.toISOString() || null,
-        author: {
-          username: post.username,
-          full_name: post.full_name || null,
-          avatar_url: post.avatar_url || null,
-        },
-      }));
+        if (cursor) {
+          query = query.where("posts.id", "<", cursor);
+        }
 
-      return c.json({
-        type: "post",
-        items,
-      });
+        const rows = await query.execute();
+        const hasMore = rows.length > limit;
+        const items = rows.slice(0, limit).map((post) => ({
+          id: post.id,
+          title: post.title,
+          banner_url: post.banner_url,
+          content_markdown: post.content_markdown,
+          summary: post.summary || null,
+          hashtags: post.hashtags,
+          like_count: post.like_count,
+          published_at: post.published_at?.toISOString() || null,
+          author: {
+            username: post.username,
+            full_name: post.full_name || null,
+            avatar_url: post.avatar_url || null,
+          },
+        }));
+
+        return c.json({
+          type: "post",
+          items,
+          nextCursor: hasMore ? items[items.length - 1].id : undefined,
+          hasMore,
+        });
+      } else {
+        const posts = await db
+          .selectFrom("posts")
+          .innerJoin("users", "users.id", "posts.author_id")
+          .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+          .select([
+            "posts.id",
+            "posts.title",
+            "posts.banner_url",
+            "posts.content_markdown",
+            "posts.summary",
+            "posts.hashtags",
+            "posts.like_count",
+            "posts.published_at",
+            "users.username",
+            "user_profiles.full_name",
+            "user_profiles.avatar_url",
+          ])
+          .where("posts.visibility", "=", "public")
+          .where("posts.published_at", "is not", null)
+          .where(
+            sql`to_tsvector('english', posts.title || ' ' || posts.content_markdown)`,
+            "@@",
+            sql`plainto_tsquery('english', ${q!})`
+          )
+          .orderBy("posts.published_at", "desc")
+          .limit(limit)
+          .execute();
+
+        const items = posts.map((post) => ({
+          id: post.id,
+          title: post.title,
+          banner_url: post.banner_url,
+          content_markdown: post.content_markdown,
+          summary: post.summary || null,
+          hashtags: post.hashtags,
+          like_count: post.like_count,
+          published_at: post.published_at?.toISOString() || null,
+          author: {
+            username: post.username,
+            full_name: post.full_name || null,
+            avatar_url: post.avatar_url || null,
+          },
+        }));
+
+        return c.json({
+          type: "post",
+          items,
+        });
+      }
     }
 
     if (type === "profile") {
@@ -100,4 +154,3 @@ searchRoutes.get(
     return c.json({ items: [] });
   }
 );
-
