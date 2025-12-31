@@ -61,3 +61,7 @@ async function migrateToLatest() {
 
 migrateToLatest();
 
+export {
+  migrateToLatest,
+}
+

@@ -10,8 +10,12 @@ import { mcpRoutes } from "./routes/mcp";
 import { mediaRoutes } from "./routes/media";
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPIRouteHandler } from "hono-openapi";
+import { migrateToLatest } from "@xlog/db/migrate";
 
 const app = new Hono();
+
+// Migrate the database
+migrateToLatest();
 
 // Middleware
 app.use("*", logger());

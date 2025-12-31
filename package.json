@@ -12,7 +12,8 @@
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "type-check": "turbo run type-check",
-    "migrate": "dotenv -- turbo run migrate"
+    "migrate": "dotenv -- turbo run migrate",
+    "start": "dotenv -- turbo run start"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

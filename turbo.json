@@ -28,6 +28,7 @@
         "^type-check"
       ]
     },
-    "migrate": {}
+    "migrate": {},
+    "start": {}
   }
 }

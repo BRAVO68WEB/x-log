@@ -14,7 +14,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ${{ github.repository_owner }}
+  IMAGE_NAME: ${{ github.repository_owner }}/x-log
 
 jobs:
   build-and-push:
@@ -22,19 +22,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    strategy:
-      matrix:
-        app:
-          - name: web
-            context: .
-            dockerfile: apps/web/Dockerfile
-          - name: api
-            context: .
-            dockerfile: apps/api/Dockerfile
-          - name: worker
-            context: .
-            dockerfile: apps/worker/Dockerfile
 
     steps:
       - name: Checkout repository
@@ -50,11 +37,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for ${{ matrix.app.name }}
+      - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/x-log-${{ matrix.app.name }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -63,11 +50,11 @@ jobs:
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image for ${{ matrix.app.name }}
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.app.context }}
-          file: ${{ matrix.app.dockerfile }}
+          context: .
+          file: Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
