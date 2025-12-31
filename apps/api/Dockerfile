@@ -9,7 +9,7 @@ COPY apps/api/package.json ./apps/api/
 COPY packages ./packages
 
 # Install dependencies
-RUN bun install --frozen-lockfile --production=false
+RUN bun install --frozen-lockfile
 
 # Copy API source
 COPY apps/api ./apps/api
@@ -35,7 +35,7 @@ COPY package.json bun.lockb* ./
 COPY apps/api/package.json ./apps/api/
 COPY packages ./packages
 
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile
 
 # Copy built files and source (Bun can run TS directly)
 COPY --from=builder /app/apps/api/dist ./apps/api/dist

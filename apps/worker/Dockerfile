@@ -9,7 +9,7 @@ COPY apps/worker/package.json ./apps/worker/
 COPY packages ./packages
 
 # Install dependencies
-RUN bun install --frozen-lockfile --production=false
+RUN bun install --frozen-lockfile
 
 # Copy worker source
 COPY apps/worker ./apps/worker
@@ -35,7 +35,7 @@ COPY package.json bun.lockb* ./
 COPY apps/worker/package.json ./apps/worker/
 COPY packages ./packages
 
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile
 
 # Copy built files or source (Bun can run TS directly)
 COPY --from=builder /app/apps/worker/dist ./apps/worker/dist
