@@ -8,12 +8,12 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "dotenv -- turbo run dev",
+    "dev": "dotenv --override=false -- turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "type-check": "turbo run type-check",
-    "migrate": "dotenv -- turbo run migrate",
-    "start": "dotenv -- turbo run start"
+    "migrate": "dotenv --override=false -- turbo run migrate",
+    "start": "dotenv --override=false -- turbo run start"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -25,5 +25,8 @@
   "packageManager": "bun@1.0.0",
   "engines": {
     "bun": ">=1.0.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
   }
 }
