@@ -1,5 +1,5 @@
 # Build stage
-FROM oven/bun:1.0.0-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY turbo.json ./
 RUN bun run build --filter=@xlog/api
 
 # Production stage
-FROM oven/bun:1.0.0-alpine AS runner
+FROM oven/bun:1-alpine AS runner
 
 WORKDIR /app
 
