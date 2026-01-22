@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import React, { Suspense } from "react";
 import OIDCLinkClient from "./Client";
 
 export default function OIDCLinkPage() {
