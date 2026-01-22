@@ -11,6 +11,4 @@ RUN bun run build
 EXPOSE 8080
 EXPOSE 4000
 
-RUN bun run build
-
 CMD ["bun", "run", "start"]
