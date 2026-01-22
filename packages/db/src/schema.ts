@@ -128,6 +128,33 @@ export interface InstanceSettingsTable {
   updated_at: ColumnType<Date, never, Date>;
 }
 
+export interface OIDCAccountsTable {
+  id: string; // uuid, PK
+  user_id: string; // FK users.id
+  provider: string;
+  provider_account_id: string; // sub claim from OIDC
+  email: string | null;
+  email_verified: boolean;
+  name: string | null;
+  picture: string | null;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface OIDCPendingLinksTable {
+  id: string; // uuid, PK
+  state: string; // OAuth state parameter
+  provider: string;
+  provider_account_id: string;
+  email: string | null;
+  name: string | null;
+  picture: string | null;
+  email_verified: boolean;
+  oidc_data: ColumnType<Record<string, unknown> | null, unknown, unknown>; // jsonb
+  created_at: ColumnType<Date, never, never>;
+  expires_at: Date;
+}
+
 export interface Database {
   users: UsersTable;
   user_profiles: UserProfilesTable;
@@ -141,4 +168,6 @@ export interface Database {
   inbox_objects: InboxObjectsTable;
   instance_settings: InstanceSettingsTable;
   replay_cache: ReplayCacheTable;
+  oidc_accounts: OIDCAccountsTable;
+  oidc_pending_links: OIDCPendingLinksTable;
 }

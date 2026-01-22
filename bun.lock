@@ -26,6 +26,7 @@
         "@xlog/ap": "workspace:*",
         "@xlog/config": "workspace:*",
         "@xlog/db": "workspace:*",
+        "@xlog/libs": "workspace:*",
         "@xlog/markdown": "workspace:*",
         "@xlog/snowflake": "workspace:*",
         "@xlog/types": "workspace:*",
@@ -134,6 +135,18 @@
       "devDependencies": {
         "@types/node": "^20.10.0",
         "@types/pg": "^8.10.9",
+        "typescript": "^5.3.3",
+      },
+    },
+    "packages/libs": {
+      "name": "@xlog/libs",
+      "version": "0.1.0",
+      "dependencies": {
+        "hono": "^4.11.4",
+        "jose": "^6.1.3",
+      },
+      "devDependencies": {
+        "@types/node": "^20.10.0",
         "typescript": "^5.3.3",
       },
     },
@@ -549,6 +562,8 @@
 
     "@xlog/db": ["@xlog/db@workspace:packages/db"],
 
+    "@xlog/libs": ["@xlog/libs@workspace:packages/libs"],
+
     "@xlog/markdown": ["@xlog/markdown@workspace:packages/markdown"],
 
     "@xlog/snowflake": ["@xlog/snowflake@workspace:packages/snowflake"],
@@ -875,7 +890,7 @@
 
     "highlight.js": ["highlight.js@11.11.1", "", {}, "sha512-Xwwo44whKBVCYoliBQwaPvtd/2tYFkRQtXDWj1nackaV2JPXx3L0+Jvd8/qCJ2p+ML0/XVkJ2q+Mr+UVdpJK5w=="],
 
-    "hono": ["hono@4.10.6", "", {}, "sha512-BIdolzGpDO9MQ4nu3AUuDwHZZ+KViNm+EZ75Ae55eMXMqLVhDFqEMXxtUe9Qh8hjL+pIna/frs2j6Y2yD5Ua/g=="],
+    "hono": ["hono@4.11.4", "", {}, "sha512-U7tt8JsyrxSRKspfhtLET79pU8K+tInj5QZXs1jSugO1Vq5dFj3kmZsRldo29mTBfcjDRVRXrEZ6LS63Cog9ZA=="],
 
     "hono-openapi": ["hono-openapi@1.1.1", "", { "peerDependencies": { "@hono/standard-validator": "^0.1.2", "@standard-community/standard-json": "^0.3.5", "@standard-community/standard-openapi": "^0.2.8", "@types/json-schema": "^7.0.15", "hono": "^4.8.3", "openapi-types": "^12.1.3" }, "optionalPeers": ["@hono/standard-validator", "hono"] }, "sha512-AC3HNhZYPHhnZdSy2Je7GDoTTNxPos6rKRQKVDBbSilY3cWJPqsxRnN6zA4pU7tfxmQEMTqkiLXbw6sAaemB8Q=="],
 
@@ -958,6 +973,8 @@
     "iterator.prototype": ["iterator.prototype@1.1.5", "", { "dependencies": { "define-data-property": "^1.1.4", "es-object-atoms": "^1.0.0", "get-intrinsic": "^1.2.6", "get-proto": "^1.0.0", "has-symbols": "^1.1.0", "set-function-name": "^2.0.2" } }, "sha512-H0dkQoCa3b2VEeKQBOxFph+JAbcrQdE7KC0UkqwpLmv2EC4P41QXP+rqo9wYodACiG5/WM5s9oDApTU8utwj9g=="],
 
     "jiti": ["jiti@1.21.7", "", { "bin": { "jiti": "bin/jiti.js" } }, "sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A=="],
+
+    "jose": ["jose@6.1.3", "", {}, "sha512-0TpaTfihd4QMNwrz/ob2Bp7X04yuxJkjRGi4aKmOqwhov54i6u79oCv7T+C7lo70MKH6BesI3vscD1yb/yzKXQ=="],
 
     "js-sha3": ["js-sha3@0.8.0", "", {}, "sha512-gF1cRrHhIzNfToc802P800N8PpXS+evLLXfsVpowqmAFR9uwbi89WvXg2QspOmXL8QL86J4T1EpFu+yUkwJY3Q=="],
 

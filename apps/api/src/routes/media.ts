@@ -62,7 +62,8 @@ mediaRoutes.post(
     await writeFile(filepath, Buffer.from(arrayBuffer));
 
     const settings = await getInstanceSettings();
-    const url = `https://${settings.instance_domain}/media/${filename}`;
+    const isDev = process.env.NODE_ENV === "development";
+    const url = isDev ? `http://${settings.instance_domain}/api/media/${filename}` : `https://${settings.instance_domain}/api/media/${filename}`;
 
     return c.json({ url });
   }

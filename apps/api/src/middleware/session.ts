@@ -27,7 +27,7 @@ export async function sessionMiddleware(c: Context, next: Next) {
 
   if (sessionToken) {
     try {
-      const payload = await verify(sessionToken, env.SESSION_SECRET);
+      const payload = await verify(sessionToken, env.SESSION_SECRET, "HS256");
       const db = getDb();
 
       const user = await db
@@ -78,14 +78,14 @@ export async function createSession(userId: string): Promise<string> {
     sessionId,
     exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE,
   };
-  return await sign(payload, env.SESSION_SECRET);
+  return await sign(payload, env.SESSION_SECRET, "HS256");
 }
 
 export function setSessionCookie(c: Context, token: string) {
   setCookie(c, SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "strict",
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });

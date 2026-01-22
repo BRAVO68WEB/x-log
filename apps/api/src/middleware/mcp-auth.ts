@@ -1,11 +1,8 @@
 import { Context, Next } from "hono";
-import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
 
 export interface MCPAuthContext {
   apiKey: string;
-  userId?: string;
-  username?: string;
 }
 
 declare module "hono" {

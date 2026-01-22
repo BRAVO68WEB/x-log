@@ -100,7 +100,7 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
     version: "2.1",
     software: {
       name: "x-log",
-      version: "0.1.0",
+      version: "0.2.0",
     },
     protocols: ["activitypub"],
     services: {

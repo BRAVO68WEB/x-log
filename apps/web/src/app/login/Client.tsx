@@ -22,6 +22,13 @@ export default function LoginClient() {
       const redirect = searchParams.get("redirect") || "/";
       router.replace(redirect);
     }
+    
+    // Check for OIDC errors in query params
+    const oidcError = searchParams.get("error");
+    const oidcDescription = searchParams.get("description");
+    if (oidcError) {
+      setError(oidcDescription || `OIDC Error: ${oidcError}`);
+    }
   }, [user, router, searchParams]);
 
   const loginMutation = useMutation(
@@ -57,6 +64,24 @@ export default function LoginClient() {
     setError(null);
     setLoading(true);
     loginMutation.mutate();
+  };
+
+  const handleOIDCLogin = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/auth/oidc/login`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to initiate OIDC login" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { auth_url: string };
+      window.location.href = data.auth_url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to initiate OIDC login");
+      setLoading(false);
+    }
   };
 
   return (
@@ -107,6 +132,29 @@ export default function LoginClient() {
               ) : (
                 "Sign in"
               )}
+            </Button>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-light-overlay dark:border-dark-overlay"></div>
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-light-base dark:bg-dark-base text-light-subtle dark:text-dark-subtle">
+                Or continue with
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <Button 
+              type="button" 
+              onClick={handleOIDCLogin}
+              disabled={loading}
+              className="w-full"
+              variant="secondary"
+            >
+              Sign in with OIDC
             </Button>
           </div>
         </form>

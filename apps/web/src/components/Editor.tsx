@@ -11,6 +11,7 @@ import TurndownService from "turndown";
 import { useState, useRef, useEffect } from "react";
 import NextImage from "next/image";
 import { Button } from "./Button";
+import { LoadingSpinner } from "./LoadingSpinner";
 import type { Editor as TipTapEditor, JSONContent } from "@tiptap/core";
 import { renderMarkdownSync } from "@xlog/markdown";
 import toast from "react-hot-toast";
@@ -39,6 +40,18 @@ export function Editor({ initialContent, onSave, onPublish, saving = false }: Ed
   const [bannerImage, setBannerImage] = useState<string>("");
   const [bannerUrl, setBannerUrl] = useState<string>("");
   const [bannerUploading, setBannerUploading] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
+
+  const uploadImageMutation = useMutation(async (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`/api/media/upload`, { method: "POST", credentials: "include", body: fd });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return (await res.json()) as { url: string };
+  });
 
   const uploadBannerMutation = useMutation(async (file: File) => {
     const fd = new FormData();
@@ -98,6 +111,84 @@ export function Editor({ initialContent, onSave, onPublish, saving = false }: Ed
       handlePaste: (view, event) => {
         const clipboardData = event.clipboardData;
         if (!clipboardData) return false;
+
+        const currentEditor = editorRef.current;
+        if (!currentEditor) return false;
+
+        // Check for pasted image files
+        const items = Array.from(clipboardData.items);
+        const imageItem = items.find((item) => item.type.startsWith("image/"));
+        
+        if (imageItem) {
+          event.preventDefault();
+          const file = imageItem.getAsFile();
+          if (file) {
+            setImageUploading(true);
+            // Upload image asynchronously
+            uploadImageMutation.mutate(file, {
+              onSuccess: (res) => {
+                // Insert image at current cursor position
+                currentEditor.chain().focus().setImage({ src: res.url }).run();
+                toast.success("Image uploaded");
+                setImageUploading(false);
+              },
+              onError: (err) => {
+                toast.error(err instanceof Error ? err.message : "Image upload failed");
+                setImageUploading(false);
+              },
+            });
+          }
+          return true;
+        }
+
+        // Check for base64 images in HTML content
+        const html = clipboardData.getData("text/html");
+        if (html) {
+          const base64ImageRegex = /<img[^>]+src=["'](data:image\/[^"']+)["'][^>]*>/gi;
+          const matches = Array.from(html.matchAll(base64ImageRegex));
+          
+          if (matches.length > 0) {
+            event.preventDefault();
+            setImageUploading(true);
+            
+            // Process images asynchronously
+            (async () => {
+              try {
+                // Process each base64 image
+                let processedHtml = html;
+                
+                for (const match of matches) {
+                  const base64Data = match[1];
+                  try {
+                    // Convert base64 to File
+                    const response = await fetch(base64Data);
+                    const blob = await response.blob();
+                    const file = new File([blob], `pasted-image-${Date.now()}.png`, { type: blob.type });
+                    
+                    // Upload image
+                    const uploadRes = await uploadImageMutation.mutateAsync(file);
+                    
+                    // Replace base64 with uploaded URL
+                    processedHtml = processedHtml.replace(base64Data, uploadRes.url);
+                  } catch (err) {
+                    console.error("Failed to upload pasted image:", err);
+                    // Keep the base64 image if upload fails
+                  }
+                }
+                
+                // Insert processed HTML content
+                currentEditor.chain().focus().insertContent(processedHtml).run();
+                toast.success("Images uploaded");
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Failed to process images");
+              } finally {
+                setImageUploading(false);
+              }
+            })();
+            
+            return true;
+          }
+        }
 
         const text = clipboardData.getData("text/plain");
         if (!text) return false;
@@ -537,8 +628,14 @@ export function Editor({ initialContent, onSave, onPublish, saving = false }: Ed
           </div>
           
           {/* Editor Content */}
-          <div className="bg-light-surface dark:bg-dark-surface opacity-100">
+          <div className="bg-light-surface dark:bg-dark-surface opacity-100 relative">
             <EditorContent editor={editor} />
+            {imageUploading && (
+              <div className="absolute top-4 right-4 bg-light-pine/90 dark:bg-dark-pine/90 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-10">
+                <LoadingSpinner size="sm" />
+                <span className="text-sm font-medium">Uploading image...</span>
+              </div>
+            )}
           </div>
         </div>
 
