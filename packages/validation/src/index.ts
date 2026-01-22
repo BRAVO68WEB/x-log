@@ -120,3 +120,25 @@ export const ProblemDetailSchema = z.object({
   detail: z.string().optional(),
   instance: z.string().optional(),
 });
+
+// OIDC schemas
+export const OIDCCallbackQuerySchema = z.object({
+  code: z.string().min(1),
+  state: z.string().min(1),
+  error: z.string().optional(),
+  error_description: z.string().optional(),
+});
+
+export const OIDCLinkAccountSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  state: z.string().min(1), // State from pending link
+});
+
+export const OIDCAccountResponseSchema = z.object({
+  id: z.string(),
+  provider: z.string(),
+  email: z.string().nullable(),
+  name: z.string().nullable(),
+  created_at: z.string(),
+});

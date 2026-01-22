@@ -6,55 +6,48 @@ import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useMutation } from "react-query";
-import { useAuth } from "@/hooks/useAuth";
 
-export default function LoginClient() {
-  const [username, setUsername] = useState("");
+export default function OIDCLinkClient() {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, refetch } = useAuth();
+  const state = searchParams.get("state");
+  const oidcEmail = searchParams.get("email");
 
   useEffect(() => {
-    if (user) {
-      const redirect = searchParams.get("redirect") || "/";
-      router.replace(redirect);
+    if (!state) {
+      router.replace("/login?error=invalid_link_state");
     }
-    
-    // Check for OIDC errors in query params
-    const oidcError = searchParams.get("error");
-    const oidcDescription = searchParams.get("description");
-    if (oidcError) {
-      setError(oidcDescription || `OIDC Error: ${oidcError}`);
+    if (oidcEmail) {
+      setEmail(oidcEmail);
     }
-  }, [user, router, searchParams]);
+  }, [state, oidcEmail, router]);
 
-  const loginMutation = useMutation(
+  const linkMutation = useMutation(
     async () => {
-      const res = await fetch(`/api/auth/login`, {
+      const res = await fetch(`/api/auth/oidc/link`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password, state }),
       });
       if (!res.ok) {
         const err = await res
           .json()
-          .catch(() => ({ error: "Login failed" }));
+          .catch(() => ({ error: "Account linking failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
     },
     {
-      onSuccess: async () => {
-        await refetch();
-        const redirect = searchParams.get("redirect") || "/";
-        router.replace(redirect);
+      onSuccess: () => {
+        router.replace("/?linked=success");
       },
       onError: (err) =>
-        setError(err instanceof Error ? err.message : "Login failed"),
+        setError(err instanceof Error ? err.message : "Account linking failed"),
       onSettled: () => setLoading(false),
     }
   );
@@ -63,34 +56,46 @@ export default function LoginClient() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    loginMutation.mutate();
+    linkMutation.mutate();
   };
 
-  const handleOIDCLogin = () => {
-    window.location.href = "/api/auth/oidc/login";
-  };
+  if (!state) {
+    return null;
+  }
 
   return (
     <main className="min-h-screen flex items-center justify-center bg-light-base dark:bg-dark-base py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-light-text dark:text-dark-text">
-            Sign in to your account
+            Link Your Account
           </h2>
+          <p className="mt-2 text-center text-sm text-light-subtle dark:text-dark-subtle">
+            Your OIDC account email doesn&apos;t match any existing xLog account.
+            <br />
+            Please enter your xLog credentials to link your accounts.
+          </p>
+          {oidcEmail && (
+            <div className="mt-4 p-3 bg-light-overlay dark:bg-dark-overlay rounded-md">
+              <p className="text-sm text-light-text dark:text-dark-text">
+                <span className="font-medium">OIDC Email:</span> {oidcEmail}
+              </p>
+            </div>
+          )}
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <Input
-              label="Username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              label="xLog Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              autoComplete="username"
+              autoComplete="email"
               className="rounded-t-md"
             />
             <Input
-              label="Password"
+              label="xLog Password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -106,41 +111,26 @@ export default function LoginClient() {
             </div>
           )}
 
-          <div>
-            <Button type="submit" disabled={loading || !username || !password} className="w-full">
+          <div className="space-y-3">
+            <Button type="submit" disabled={loading || !email || !password} className="w-full">
               {loading ? (
                 <span className="flex items-center justify-center">
                   <span className="mr-2">
                     <LoadingSpinner size="sm" />
                   </span>
-                  Signing in...
+                  Linking Account...
                 </span>
               ) : (
-                "Sign in"
+                "Link Account"
               )}
             </Button>
-          </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-light-overlay dark:border-dark-overlay"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-light-base dark:bg-dark-base text-light-subtle dark:text-dark-subtle">
-                Or continue with
-              </span>
-            </div>
-          </div>
-
-          <div>
             <Button 
               type="button" 
-              onClick={handleOIDCLogin}
-              disabled={loading}
-              className="w-full"
+              onClick={() => router.push("/login")}
               variant="secondary"
+              className="w-full"
             >
-              Sign in with OIDC
+              Cancel
             </Button>
           </div>
         </form>

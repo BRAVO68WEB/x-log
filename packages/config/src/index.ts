@@ -21,6 +21,10 @@ const envSchema = z.object({
     .default("true"),
   PORT: z.string().transform(Number).default("8080"),
   NEXT_PUBLIC_API_URL: z.string().default("http://localhost:8080"),
+  OIDC_CLIENT_ID: z.string().min(1),
+  OIDC_CLIENT_SECRET: z.string().min(1),
+  OIDC_REDIRECT_URI: z.string().min(1),
+  OIDC_DISCOVERY_URL: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -31,7 +35,6 @@ export function getEnv(): Env {
   if (!env) {
     env = envSchema.parse(process.env);
   }
-  console.log(env, "env");
   return env;
 }
 

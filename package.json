@@ -10,7 +10,7 @@
     "build": "turbo run build",
     "dev": "dotenv --override=false -- turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,md,js,jsx}\"",
     "type-check": "turbo run type-check",
     "migrate": "dotenv --override=false -- turbo run migrate",
     "start": "dotenv --override=false -- turbo run start"

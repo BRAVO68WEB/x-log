@@ -2,6 +2,7 @@
 
 import { ProfileForm } from "@/components/ProfileForm";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { OIDCAccountsSection } from "@/components/OIDCAccountsSection";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function ProfileClient() {
@@ -32,11 +33,14 @@ export default function ProfileClient() {
 
   return (
     <main className="bg-transparent py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-light-text dark:text-dark-text">Edit Profile</h1>
+      <div className="max-w-4xl mx-auto space-y-8">
+        <h1 className="text-4xl font-bold text-light-text dark:text-dark-text">Edit Profile</h1>
+        
         <div className="bg-light-surface dark:bg-dark-surface rounded-lg shadow-md p-6 border border-light-highlight-med dark:border-dark-highlight-med">
           <ProfileForm username={user.username} />
         </div>
+
+        <OIDCAccountsSection />
       </div>
     </main>
   );

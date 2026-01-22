@@ -22,6 +22,7 @@
     "@xlog/snowflake": "workspace:*",
     "@xlog/types": "workspace:*",
     "@xlog/validation": "workspace:*",
+    "@xlog/libs": "workspace:*",
     "bcryptjs": "^3.0.3",
     "hono": "^4.0.0",
     "hono-openapi": "^1.1.1",
