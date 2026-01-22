@@ -85,6 +85,48 @@ async function proxyRequest(
       body,
     });
 
+    // Handle redirects (301, 302, 303, 307, 308)
+    if ([301, 302, 303, 307, 308].includes(response.status)) {
+      const location = response.headers.get("location");
+      if (location) {
+        // If the location is a relative URL, make it absolute relative to the frontend
+        let redirectUrl: string;
+        if (location.startsWith("http://") || location.startsWith("https://")) {
+          // Absolute URL - check if it's pointing to the backend API, rewrite to frontend
+          try {
+            const locationUrl = new URL(location);
+            const backendUrl = new URL(BACKEND_API_URL);
+            // If redirect is to backend, rewrite to frontend
+            if (locationUrl.origin === backendUrl.origin) {
+              redirectUrl = new URL(locationUrl.pathname + locationUrl.search, request.nextUrl.origin).toString();
+            } else {
+              redirectUrl = location;
+            }
+          } catch {
+            redirectUrl = location;
+          }
+        } else {
+          // Relative URL - make it absolute relative to the frontend
+          redirectUrl = new URL(location, request.nextUrl.origin).toString();
+        }
+        
+        // Create redirect response and forward Set-Cookie headers for session management
+        const redirectResponse = NextResponse.redirect(redirectUrl, {
+          status: response.status,
+        });
+        
+        // Forward Set-Cookie headers from the API response
+        response.headers.forEach((value, key) => {
+          const lowerKey = key.toLowerCase();
+          if (lowerKey === "set-cookie") {
+            redirectResponse.headers.append(key, value);
+          }
+        });
+        
+        return redirectResponse;
+      }
+    }
+
     // Get response body based on content type
     const responseContentType = response.headers.get("content-type");
     let responseBody: BodyInit;
@@ -110,7 +152,7 @@ async function proxyRequest(
       // Forward Set-Cookie headers for session management
       if (lowerKey === "set-cookie") {
         nextResponse.headers.append(key, value);
-      } else if (!["content-encoding", "content-length", "transfer-encoding"].includes(lowerKey)) {
+      } else if (!["content-encoding", "content-length", "transfer-encoding", "location"].includes(lowerKey)) {
         nextResponse.headers.set(key, value);
       }
     });

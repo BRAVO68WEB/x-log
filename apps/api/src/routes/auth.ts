@@ -96,8 +96,22 @@ authRoutes.get(
     description: "Initiate OIDC login flow",
     tags: ["auth"],
     responses: {
-      302: {
-        description: "Redirect to OIDC provider",
+      200: {
+        description: "OIDC authorization URL",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                auth_url: {
+                  type: "string",
+                  description: "URL to redirect to for OIDC authentication",
+                },
+              },
+              required: ["auth_url"],
+            },
+          },
+        },
       },
     },
   }),
@@ -109,9 +123,8 @@ authRoutes.get(
     // Store state in session or Redis for validation
     // For simplicity, we'll include it in the callback validation
     const authUrl = await oidcClient.getAuthorizationUrl(state, nonce);
-    console.log(authUrl);
 
-    return c.redirect(authUrl);
+    return c.json({ auth_url: authUrl });
   }
 );
 
@@ -119,11 +132,48 @@ authRoutes.get(
 authRoutes.get(
   "/oidc/callback",
   describeRoute({
-    description: "OIDC callback handler with auto-linking or manual linking flow",
+    description: "OIDC callback handler with auto-linking, manual linking, or account linking for logged-in users",
     tags: ["auth"],
     responses: {
-      302: {
-        description: "Redirect based on linking status",
+      200: {
+        description: "OIDC callback result",
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                action: {
+                  type: "string",
+                  enum: ["login", "link", "pending_link", "already_linked", "error"],
+                  description: "Action taken by the callback",
+                },
+                redirect_url: {
+                  type: "string",
+                  description: "URL to redirect to (frontend should handle)",
+                },
+                user: {
+                  type: "object",
+                  description: "User data if logged in or linked",
+                  properties: {
+                    id: { type: "string" },
+                    username: { type: "string" },
+                    email: { type: "string" },
+                    role: { type: "string" },
+                  },
+                },
+                link_state: {
+                  type: "string",
+                  description: "Pending link state for manual linking",
+                },
+                error: {
+                  type: "string",
+                  description: "Error message if action is 'error'",
+                },
+              },
+              required: ["action", "redirect_url"],
+            },
+          },
+        },
       },
       400: {
         description: "Invalid callback parameters",
@@ -134,6 +184,7 @@ authRoutes.get(
     const env = getEnv();
     const db = getDb();
     const oidcClient = getOIDCClient();
+    const currentUser = c.get("user"); // Check if user is already logged in
 
     const code = c.req.query("code");
     const state = c.req.query("state");
@@ -143,11 +194,19 @@ authRoutes.get(
     // Handle OIDC errors
     if (error) {
       console.error("OIDC error:", error, errorDescription);
-      return c.redirect(`/login?error=oidc_failed&description=${encodeURIComponent(errorDescription || error)}`);
+      return c.json({
+        action: "error",
+        redirect_url: `/login?error=oidc_failed&description=${encodeURIComponent(errorDescription || error)}`,
+        error: errorDescription || error,
+      }, 400);
     }
 
     if (!code || !state) {
-      return c.redirect("/login?error=invalid_callback");
+      return c.json({
+        action: "error",
+        redirect_url: "/login?error=invalid_callback",
+        error: "Missing code or state parameter",
+      }, 400);
     }
 
     try {
@@ -165,6 +224,59 @@ authRoutes.get(
         .where("provider_account_id", "=", providerAccountId)
         .executeTakeFirst();
 
+      // Case 1: User is already logged in
+      if (currentUser) {
+        if (existingOIDCAccount) {
+          if (existingOIDCAccount.user_id === currentUser.id) {
+            // OIDC account already linked to current user
+            return c.json({
+              action: "already_linked",
+              redirect_url: "/settings",
+              user: {
+                id: currentUser.id,
+                username: currentUser.username,
+                email: currentUser.email,
+                role: currentUser.role,
+              },
+            });
+          } else {
+            // OIDC account linked to a different user
+            return c.json({
+              action: "error",
+              redirect_url: "/settings",
+              error: "This OIDC account is already linked to another user",
+            }, 400);
+          }
+        }
+
+        // Link OIDC account to current logged-in user
+        await db
+          .insertInto("oidc_accounts")
+          .values({
+            id: crypto.randomUUID(),
+            user_id: currentUser.id,
+            provider,
+            provider_account_id: providerAccountId,
+            email: email,
+            email_verified: userInfo.email_verified || false,
+            name: userInfo.name || userInfo.preferred_username || null,
+            picture: userInfo.picture || null,
+          })
+          .execute();
+
+        return c.json({
+          action: "link",
+          redirect_url: "/settings",
+          user: {
+            id: currentUser.id,
+            username: currentUser.username,
+            email: currentUser.email,
+            role: currentUser.role,
+          },
+        });
+      }
+
+      // Case 2: User is not logged in
       if (existingOIDCAccount) {
         // Auto-login: OIDC account already linked
         const user = await db
@@ -176,7 +288,16 @@ authRoutes.get(
         if (user) {
           const sessionToken = await createSession(user.id);
           setSessionCookie(c, sessionToken);
-          return c.redirect("/");
+          return c.json({
+            action: "login",
+            redirect_url: "/",
+            user: {
+              id: user.id,
+              username: user.username,
+              email: user.email,
+              role: user.role,
+            },
+          });
         }
       }
 
@@ -206,7 +327,16 @@ authRoutes.get(
 
           const sessionToken = await createSession(existingUser.id);
           setSessionCookie(c, sessionToken);
-          return c.redirect("/?linked=success");
+          return c.json({
+            action: "login",
+            redirect_url: "/?linked=success",
+            user: {
+              id: existingUser.id,
+              username: existingUser.username,
+              email: existingUser.email,
+              role: existingUser.role,
+            },
+          });
         }
       }
 
@@ -230,11 +360,18 @@ authRoutes.get(
         })
         .execute();
 
-      // Redirect to manual linking page
-      return c.redirect(`/login/link?state=${linkState}&email=${encodeURIComponent(email || '')}`);
+      return c.json({
+        action: "pending_link",
+        redirect_url: `/login/link?state=${linkState}&email=${encodeURIComponent(email || '')}`,
+        link_state: linkState,
+      });
     } catch (error) {
       console.error("OIDC callback error:", error);
-      return c.redirect(`/login?error=oidc_processing_failed`);
+      return c.json({
+        action: "error",
+        redirect_url: `/login?error=oidc_processing_failed`,
+        error: error instanceof Error ? error.message : "OIDC processing failed",
+      }, 500);
     }
   }
 );
@@ -243,7 +380,7 @@ authRoutes.get(
 authRoutes.post(
   "/oidc/link",
   describeRoute({
-    description: "Manually link OIDC account to existing xLog account",
+    description: "Manually link OIDC account to existing xLog account. If user is logged in, password is not required.",
     tags: ["auth"],
     responses: {
       200: {
@@ -258,7 +395,7 @@ authRoutes.post(
         description: "Invalid request",
       },
       401: {
-        description: "Invalid credentials",
+        description: "Invalid credentials or unauthorized",
       },
       404: {
         description: "Pending link not found or expired",
@@ -269,6 +406,7 @@ authRoutes.post(
   async (c) => {
     const { email, password, state } = c.req.valid("json");
     const db = getDb();
+    const currentUser = c.get("user"); // Check if user is already logged in
 
     // Find pending link
     const pendingLink = await db
@@ -282,20 +420,44 @@ authRoutes.post(
       return c.json({ error: "Pending link not found or expired" }, 404);
     }
 
-    // Verify user credentials
-    const user = await db
-      .selectFrom("users")
-      .selectAll()
-      .where("email", "=", email)
-      .executeTakeFirst();
+    let user;
 
-    if (!user || !user.password_hash) {
-      return c.json({ error: "Invalid credentials" }, 401);
-    }
+    // If user is already logged in, link to their account
+    if (currentUser) {
+      user = await db
+        .selectFrom("users")
+        .selectAll()
+        .where("id", "=", currentUser.id)
+        .executeTakeFirst();
 
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) {
-      return c.json({ error: "Invalid credentials" }, 401);
+      if (!user) {
+        return c.json({ error: "User not found" }, 404);
+      }
+
+      // Verify email matches if provided
+      if (email && user.email !== email) {
+        return c.json({ error: "Email does not match your account" }, 400);
+      }
+    } else {
+      // User is not logged in - require password verification
+      if (!email || !password) {
+        return c.json({ error: "Email and password are required when not logged in" }, 400);
+      }
+
+      user = await db
+        .selectFrom("users")
+        .selectAll()
+        .where("email", "=", email)
+        .executeTakeFirst();
+
+      if (!user || !user.password_hash) {
+        return c.json({ error: "Invalid credentials" }, 401);
+      }
+
+      const isValid = await bcrypt.compare(password, user.password_hash);
+      if (!isValid) {
+        return c.json({ error: "Invalid credentials" }, 401);
+      }
     }
 
     // Check if this OIDC account is already linked to another user
@@ -307,6 +469,21 @@ authRoutes.post(
       .executeTakeFirst();
 
     if (existingLink) {
+      if (existingLink.user_id === user.id) {
+        // Already linked to this user - just delete pending link
+        await db
+          .deleteFrom("oidc_pending_links")
+          .where("id", "=", pendingLink.id)
+          .execute();
+
+        return c.json({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          created_at: user.created_at.toISOString(),
+        });
+      }
       return c.json({ error: "OIDC account already linked to another user" }, 400);
     }
 
@@ -331,9 +508,11 @@ authRoutes.post(
       .where("id", "=", pendingLink.id)
       .execute();
 
-    // Create session and login
-    const sessionToken = await createSession(user.id);
-    setSessionCookie(c, sessionToken);
+    // Create session if user was not logged in
+    if (!currentUser) {
+      const sessionToken = await createSession(user.id);
+      setSessionCookie(c, sessionToken);
+    }
 
     return c.json({
       id: user.id,

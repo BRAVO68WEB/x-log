@@ -43,7 +43,6 @@ export class OIDCClient {
 
   constructor(config?: Partial<OIDCConfig>) {
     const env = getEnv();
-    console.log(env);
     this.config = {
       clientId: config?.clientId || env.OIDC_CLIENT_ID,
       clientSecret: config?.clientSecret || env.OIDC_CLIENT_SECRET,
@@ -108,8 +107,6 @@ export class OIDCClient {
     });
 
     try {
-        console.log(discovery.token_endpoint);
-        console.log(params.toString());
       const response = await fetch(discovery.token_endpoint, {
         method: 'POST',
         headers: {
@@ -118,14 +115,13 @@ export class OIDCClient {
         body: params.toString(),
       });
 
-      console.log(await response.json());
-
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(`Token exchange failed: ${response.statusText} - ${errorText}`);
       }
 
-      return (await response.json()) as OIDCTokenResponse;
+      const tokenResponse = (await response.json()) as OIDCTokenResponse;
+      return tokenResponse;
     } catch (error) {
       throw new Error(`Token exchange failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }

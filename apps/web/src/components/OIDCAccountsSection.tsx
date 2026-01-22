@@ -75,8 +75,21 @@ export function OIDCAccountsSection() {
     }
   };
 
-  const handleLinkNew = () => {
-    window.location.href = "/api/auth/oidc/login";
+  const handleLinkNew = async () => {
+    try {
+      setError(null);
+      const res = await fetch(`/api/auth/oidc/login`, {
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to initiate OIDC login" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      const data = (await res.json()) as { auth_url: string };
+      window.location.href = data.auth_url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to initiate OIDC login");
+    }
   };
 
   if (accountsQuery.isLoading) {

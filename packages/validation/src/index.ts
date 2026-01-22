@@ -130,8 +130,8 @@ export const OIDCCallbackQuerySchema = z.object({
 });
 
 export const OIDCLinkAccountSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
+  email: z.string().email().optional(), // Optional if user is logged in
+  password: z.string().min(1).optional(), // Optional if user is logged in
   state: z.string().min(1), // State from pending link
 });
 
