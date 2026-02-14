@@ -99,14 +99,13 @@ export default function PostClient(props: { params: Promise<{ id: string }> }) {
           </div>
         </div>
         {post.banner_url && (
-          <div className="relative w-full h-64 mb-8">
+          <div className="relative w-full h-64 mb-8 overflow-hidden rounded-lg">
             <Image
               src={post.banner_url}
               alt={post.title}
-              className="object-cover rounded-lg"
+              className="object-cover"
               unoptimized
-              width={1200}
-              height={600}
+              fill
             />
           </div>
         )}
