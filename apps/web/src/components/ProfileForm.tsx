@@ -8,6 +8,9 @@ import { LoadingSpinner } from "./LoadingSpinner";
 import toast from "react-hot-toast";
 import { FaTwitter, FaYoutube, FaReddit, FaLinkedin, FaGlobe, FaMoneyBill, FaFont, FaGithub } from "react-icons/fa";
 import { useMutation, useQuery } from "react-query";
+import { schnorr } from "@noble/curves/secp256k1.js";
+import { bytesToHex } from "@noble/curves/utils.js";
+import { bech32 } from "@scure/base";
 
 interface ProfileData {
   full_name?: string;
@@ -340,16 +343,10 @@ export function ProfileForm({ username }: { username: string }) {
         </div>
       </div>
 
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">Nostr</h3>
-        <Input
-          label="Nostr Public Key (hex)"
-          value={data.nostr_pubkey || ""}
-          onChange={(e) => setData({ ...data, nostr_pubkey: e.target.value })}
-          placeholder="64-character hex pubkey"
-          maxLength={64}
-        />
-      </div>
+      <NostrSection
+        pubkey={data.nostr_pubkey || ""}
+        onPubkeyChange={(pubkey) => setData({ ...data, nostr_pubkey: pubkey })}
+      />
 
       <div className="flex justify-end">
         <Button type="submit" disabled={saving}>
@@ -357,5 +354,126 @@ export function ProfileForm({ username }: { username: string }) {
         </Button>
       </div>
     </form>
+  );
+}
+
+function hexToNpub(hex: string): string {
+  const bytes = Uint8Array.from(hex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
+  const words = bech32.toWords(bytes);
+  return bech32.encode("npub", words, 1500);
+}
+
+function hexToNsec(hex: string): string {
+  const bytes = Uint8Array.from(hex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
+  const words = bech32.toWords(bytes);
+  return bech32.encode("nsec", words, 1500);
+}
+
+function NostrSection({
+  pubkey,
+  onPubkeyChange,
+}: {
+  pubkey: string;
+  onPubkeyChange: (pubkey: string) => void;
+}) {
+  const [generatedKeys, setGeneratedKeys] = useState<{
+    privkeyHex: string;
+    pubkeyHex: string;
+    nsec: string;
+    npub: string;
+  } | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const handleGenerate = () => {
+    const privkey = schnorr.utils.randomSecretKey();
+    const pubkeyBytes = schnorr.getPublicKey(privkey);
+    const privkeyHex = bytesToHex(privkey);
+    const pubkeyHex = bytesToHex(pubkeyBytes);
+
+    setGeneratedKeys({
+      privkeyHex,
+      pubkeyHex,
+      nsec: hexToNsec(privkeyHex),
+      npub: hexToNpub(pubkeyHex),
+    });
+    onPubkeyChange(pubkeyHex);
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(label);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">Nostr</h3>
+      <div className="flex items-end gap-3">
+        <div className="flex-1">
+          <Input
+            label="Public Key (hex)"
+            value={pubkey}
+            onChange={(e) => onPubkeyChange(e.target.value)}
+            placeholder="64-character hex pubkey"
+            maxLength={64}
+          />
+        </div>
+        <Button type="button" variant="outline" onClick={handleGenerate}>
+          Generate
+        </Button>
+      </div>
+      {pubkey && /^[0-9a-f]{64}$/.test(pubkey) && (
+        <p className="text-xs text-light-muted dark:text-dark-muted font-mono break-all">
+          npub: {hexToNpub(pubkey)}
+        </p>
+      )}
+
+      {generatedKeys && (
+        <div className="rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-3">
+          <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200 font-semibold text-sm">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            Save your private key now! It won&apos;t be shown again.
+          </div>
+
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs font-medium text-light-muted dark:text-dark-muted">Private Key (nsec) — import this into Iris or other Nostr clients</label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 text-xs bg-light-surface dark:bg-dark-surface px-3 py-2 rounded border border-light-highlight-med dark:border-dark-highlight-med font-mono break-all">
+                  {generatedKeys.nsec}
+                </code>
+                <Button type="button" size="sm" variant="outline" onClick={() => copyToClipboard(generatedKeys.nsec, "nsec")}>
+                  {copied === "nsec" ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-light-muted dark:text-dark-muted">Private Key (hex)</label>
+              <div className="flex items-center gap-2 mt-1">
+                <code className="flex-1 text-xs bg-light-surface dark:bg-dark-surface px-3 py-2 rounded border border-light-highlight-med dark:border-dark-highlight-med font-mono break-all">
+                  {generatedKeys.privkeyHex}
+                </code>
+                <Button type="button" size="sm" variant="outline" onClick={() => copyToClipboard(generatedKeys.privkeyHex, "hex")}>
+                  {copied === "hex" ? "Copied!" : "Copy"}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setGeneratedKeys(null)}
+            className="text-yellow-700 dark:text-yellow-300"
+          >
+            I&apos;ve saved my key — dismiss
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
