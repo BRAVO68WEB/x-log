@@ -7,6 +7,17 @@ import { useQuery } from "react-query";
 import Image from "next/image";
 import { FaGithub, FaGlobe, FaLinkedin, FaMastodon, FaReddit, FaTwitter, FaYoutube } from "react-icons/fa";
 
+function actorUrlToHandle(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const username = segments[segments.length - 1] || url;
+    return `@${username}@${parsed.hostname}`;
+  } catch {
+    return url;
+  }
+}
+
 export default function UserProfileClient(
   props: { params: Promise<{ username: string }> }
 ) {
@@ -31,6 +42,7 @@ export default function UserProfileClient(
   const [loading, setLoading] = useState(true);
   const [followers, setFollowers] = useState<Array<{ remote_actor: string; approved: boolean }>>([]);
   const [following, setFollowing] = useState<Array<{ remote_actor: string; accepted: boolean }>>([]);
+  const [copied, setCopied] = useState(false);
 
   const query = useQuery<Profile>(
     ["profile", params.username],
@@ -82,7 +94,14 @@ export default function UserProfileClient(
     }
   );
 
-  
+  const handleCopyHandle = () => {
+    if (!profile?.instance_domain) return;
+    const handle = `@${params.username}@${profile.instance_domain}`;
+    navigator.clipboard.writeText(handle).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
 
   if (loading || query.isLoading) {
     return (
@@ -147,10 +166,27 @@ export default function UserProfileClient(
                 <h1 className="text-3xl font-bold text-light-text dark:text-dark-text">
                   {profile.full_name || params.username}
                 </h1>
-                <p className="mt-1 text-light-muted dark:text-dark-muted">
+                <p className="mt-1 text-light-pine dark:text-dark-foam font-mono text-sm">
                   @{params.username}
                   {profile.instance_domain && `@${profile.instance_domain}`}
                 </p>
+                {profile.instance_domain && (
+                  <button
+                    onClick={handleCopyHandle}
+                    className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium bg-light-overlay dark:bg-dark-overlay text-light-muted dark:text-dark-muted hover:text-light-pine dark:hover:text-dark-foam transition-colors border border-light-highlight-med dark:border-dark-highlight-med"
+                  >
+                    {copied ? (
+                      "Copied!"
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Copy Fediverse Handle
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
             {profile.bio && (
@@ -247,8 +283,8 @@ export default function UserProfileClient(
               <ul className="space-y-2">
                 {followers.map((f) => (
                   <li key={f.remote_actor} className="flex items-center justify-between bg-light-surface dark:bg-dark-surface rounded border border-light-highlight-med dark:border-dark-highlight-med px-3 py-2">
-                    <a href={f.remote_actor} target="_blank" rel="noreferrer" className="text-light-pine dark:text-dark-foam hover:underline truncate">
-                      {f.remote_actor}
+                    <a href={f.remote_actor} target="_blank" rel="noreferrer" title={f.remote_actor} className="text-light-pine dark:text-dark-foam hover:underline truncate">
+                      {actorUrlToHandle(f.remote_actor)}
                     </a>
                     <span className="text-xs px-2 py-1 rounded bg-light-overlay dark:bg-dark-overlay text-light-muted dark:text-dark-muted">{f.approved ? "approved" : "pending"}</span>
                   </li>
@@ -266,8 +302,8 @@ export default function UserProfileClient(
               <ul className="space-y-2">
                 {following.map((f) => (
                   <li key={f.remote_actor} className="flex items-center justify-between bg-light-surface dark:bg-dark-surface rounded border border-light-highlight-med dark:border-dark-highlight-med px-3 py-2">
-                    <a href={f.remote_actor} target="_blank" rel="noreferrer" className="text-light-pine dark:text-dark-foam hover:underline truncate">
-                      {f.remote_actor}
+                    <a href={f.remote_actor} target="_blank" rel="noreferrer" title={f.remote_actor} className="text-light-pine dark:text-dark-foam hover:underline truncate">
+                      {actorUrlToHandle(f.remote_actor)}
                     </a>
                     <span className="text-xs px-2 py-1 rounded bg-light-overlay dark:bg-dark-overlay text-light-muted dark:text-dark-muted">{f.accepted ? "accepted" : "pending"}</span>
                   </li>

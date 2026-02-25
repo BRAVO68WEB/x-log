@@ -24,6 +24,7 @@ export function PostCard({
   published_at,
   banner_url,
   hashtags,
+  like_count,
 }: PostCardProps) {
   return (
     <article className="bg-light-surface dark:bg-dark-surface opacity-100 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border border-light-highlight-med dark:border-dark-highlight-med hover:border-light-highlight-high dark:hover:border-dark-highlight-high">
@@ -79,9 +80,12 @@ export function PostCard({
               </>
             )}
           </div>
-          {/* <div className="flex items-center gap-4">
-            <span>❤️ {like_count}</span>
-          </div> */}
+          <div className="flex items-center gap-1 text-light-muted dark:text-dark-muted">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            <span>{like_count}</span>
+          </div>
         </div>
         {hashtags.length > 0 && (
           <div className="flex flex-wrap gap-2">

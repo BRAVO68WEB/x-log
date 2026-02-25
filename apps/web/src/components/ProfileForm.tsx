@@ -124,7 +124,12 @@ export function ProfileForm({ username }: { username: string }) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Failed to update profile" }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+      const msg = typeof err.error === "string"
+        ? err.error
+        : Array.isArray(err.error)
+          ? err.error.map((e: any) => e.message || String(e)).join(", ")
+          : `HTTP ${res.status}`;
+      throw new Error(msg);
     }
     return res.json();
   }, {
@@ -142,7 +147,14 @@ export function ProfileForm({ username }: { username: string }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    updateMutation.mutate(data);
+    // Strip null/empty values for optional URL fields to avoid validation errors
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value === null || value === undefined) continue;
+      if (typeof value === "string" && value.trim() === "") continue;
+      cleaned[key] = value;
+    }
+    updateMutation.mutate(cleaned as ProfileData);
   };
 
   if (loading || profileQuery.isLoading) {
@@ -165,14 +177,16 @@ export function ProfileForm({ username }: { username: string }) {
             onChange={(e) => setData({ ...data, avatar_url: e.target.value })}
           />
           <div className="flex items-center gap-3">
-            <Image
-              src={avatarPreview || data.avatar_url || ""}
-              alt="Avatar"
-              width={48}
-              height={48}
-              className="rounded-full border border-light-highlight-med dark:border-dark-highlight-med"
-              unoptimized
-            />
+            {(avatarPreview || data.avatar_url) && (
+              <Image
+                src={avatarPreview || data.avatar_url!}
+                alt="Avatar"
+                width={48}
+                height={48}
+                className="rounded-full border border-light-highlight-med dark:border-dark-highlight-med"
+                unoptimized
+              />
+            )}
             <Button
               type="button"
               size="sm"
