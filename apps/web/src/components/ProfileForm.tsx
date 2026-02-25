@@ -26,6 +26,8 @@ interface ProfileData {
   avatar_url?: string;
   banner_url?: string;
   nostr_pubkey?: string;
+  nostr_privkey?: string;
+  has_nostr_privkey?: boolean;
 }
 
 export function ProfileForm({ username }: { username: string }) {
@@ -345,7 +347,8 @@ export function ProfileForm({ username }: { username: string }) {
 
       <NostrSection
         pubkey={data.nostr_pubkey || ""}
-        onPubkeyChange={(pubkey) => setData({ ...data, nostr_pubkey: pubkey })}
+        hasStoredPrivkey={data.has_nostr_privkey || false}
+        onKeysChange={(pubkey, privkey) => setData({ ...data, nostr_pubkey: pubkey, nostr_privkey: privkey })}
       />
 
       <div className="flex justify-end">
@@ -371,17 +374,14 @@ function hexToNsec(hex: string): string {
 
 function NostrSection({
   pubkey,
-  onPubkeyChange,
+  hasStoredPrivkey,
+  onKeysChange,
 }: {
   pubkey: string;
-  onPubkeyChange: (pubkey: string) => void;
+  hasStoredPrivkey: boolean;
+  onKeysChange: (pubkey: string, privkey?: string) => void;
 }) {
-  const [generatedKeys, setGeneratedKeys] = useState<{
-    privkeyHex: string;
-    pubkeyHex: string;
-    nsec: string;
-    npub: string;
-  } | null>(null);
+  const [generatedNsec, setGeneratedNsec] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
   const handleGenerate = () => {
@@ -390,13 +390,8 @@ function NostrSection({
     const privkeyHex = bytesToHex(privkey);
     const pubkeyHex = bytesToHex(pubkeyBytes);
 
-    setGeneratedKeys({
-      privkeyHex,
-      pubkeyHex,
-      nsec: hexToNsec(privkeyHex),
-      npub: hexToNpub(pubkeyHex),
-    });
-    onPubkeyChange(pubkeyHex);
+    setGeneratedNsec(hexToNsec(privkeyHex));
+    onKeysChange(pubkeyHex, privkeyHex);
   };
 
   const copyToClipboard = (text: string, label: string) => {
@@ -414,63 +409,56 @@ function NostrSection({
           <Input
             label="Public Key (hex)"
             value={pubkey}
-            onChange={(e) => onPubkeyChange(e.target.value)}
+            onChange={(e) => onKeysChange(e.target.value)}
             placeholder="64-character hex pubkey"
             maxLength={64}
           />
         </div>
         <Button type="button" variant="outline" onClick={handleGenerate}>
-          Generate
+          {pubkey ? "Regenerate" : "Generate"}
         </Button>
       </div>
+
       {pubkey && /^[0-9a-f]{64}$/.test(pubkey) && (
-        <p className="text-xs text-light-muted dark:text-dark-muted font-mono break-all">
-          npub: {hexToNpub(pubkey)}
-        </p>
+        <div className="flex items-center gap-2 text-xs text-light-muted dark:text-dark-muted">
+          <span className="font-mono break-all">npub: {hexToNpub(pubkey)}</span>
+          {hasStoredPrivkey && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Private key stored
+            </span>
+          )}
+        </div>
       )}
 
-      {generatedKeys && (
+      {generatedNsec && (
         <div className="rounded-lg border border-yellow-500/50 bg-yellow-50 dark:bg-yellow-900/20 p-4 space-y-3">
           <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200 font-semibold text-sm">
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            Save your private key now! It won&apos;t be shown again.
+            Copy your nsec to use in Nostr clients (Iris, Damus, etc.)
           </div>
-
-          <div className="space-y-2">
-            <div>
-              <label className="text-xs font-medium text-light-muted dark:text-dark-muted">Private Key (nsec) — import this into Iris or other Nostr clients</label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="flex-1 text-xs bg-light-surface dark:bg-dark-surface px-3 py-2 rounded border border-light-highlight-med dark:border-dark-highlight-med font-mono break-all">
-                  {generatedKeys.nsec}
-                </code>
-                <Button type="button" size="sm" variant="outline" onClick={() => copyToClipboard(generatedKeys.nsec, "nsec")}>
-                  {copied === "nsec" ? "Copied!" : "Copy"}
-                </Button>
-              </div>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-light-muted dark:text-dark-muted">Private Key (hex)</label>
-              <div className="flex items-center gap-2 mt-1">
-                <code className="flex-1 text-xs bg-light-surface dark:bg-dark-surface px-3 py-2 rounded border border-light-highlight-med dark:border-dark-highlight-med font-mono break-all">
-                  {generatedKeys.privkeyHex}
-                </code>
-                <Button type="button" size="sm" variant="outline" onClick={() => copyToClipboard(generatedKeys.privkeyHex, "hex")}>
-                  {copied === "hex" ? "Copied!" : "Copy"}
-                </Button>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 text-xs bg-light-surface dark:bg-dark-surface px-3 py-2 rounded border border-light-highlight-med dark:border-dark-highlight-med font-mono break-all">
+              {generatedNsec}
+            </code>
+            <Button type="button" size="sm" variant="outline" onClick={() => copyToClipboard(generatedNsec, "nsec")}>
+              {copied === "nsec" ? "Copied!" : "Copy"}
+            </Button>
           </div>
-
+          <p className="text-xs text-yellow-700 dark:text-yellow-300">
+            The private key will be saved to your account when you click Save Profile. You can also import this nsec into any Nostr client.
+          </p>
           <Button
             type="button"
             size="sm"
             variant="outline"
-            onClick={() => setGeneratedKeys(null)}
-            className="text-yellow-700 dark:text-yellow-300"
+            onClick={() => setGeneratedNsec(null)}
           >
-            I&apos;ve saved my key — dismiss
+            Dismiss
           </Button>
         </div>
       )}

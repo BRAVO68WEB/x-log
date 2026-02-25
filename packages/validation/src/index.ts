@@ -61,6 +61,7 @@ export const ProfileUpdateSchema = z.object({
   avatar_url: z.string().url().optional(),
   banner_url: z.string().url().optional(),
   nostr_pubkey: z.string().regex(/^[0-9a-f]{64}$/, "Must be a 64-character hex public key").optional(),
+  nostr_privkey: z.string().regex(/^[0-9a-f]{64}$/, "Must be a 64-character hex private key").optional(),
 });
 
 export const ProfileResponseSchema = z.object({
@@ -78,6 +79,7 @@ export const ProfileResponseSchema = z.object({
   avatar_url: z.string().url().nullable(),
   banner_url: z.string().url().nullable(),
   nostr_pubkey: z.string().nullable(),
+  has_nostr_privkey: z.boolean(),
 });
 
 // Onboarding schemas

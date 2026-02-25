@@ -58,6 +58,7 @@ profilesRoutes.get(
         "user_profiles.avatar_url",
         "user_profiles.banner_url",
         "user_profiles.nostr_pubkey",
+        "user_profiles.nostr_privkey",
       ])
       .where("users.username", "=", username)
       .executeTakeFirst();
@@ -69,8 +70,10 @@ profilesRoutes.get(
     const settings = await getInstanceSettings();
     const actorUrl = getActorUrlSync(username, settings.instance_domain);
 
+    const { nostr_privkey, ...rest } = user;
     return c.json({
-      ...user,
+      ...rest,
+      has_nostr_privkey: !!nostr_privkey,
       instance_domain: settings.instance_domain,
       actor_url: actorUrl,
     });
@@ -413,10 +416,12 @@ profilesRoutes.patch(
         "user_profiles.avatar_url",
         "user_profiles.banner_url",
         "user_profiles.nostr_pubkey",
+        "user_profiles.nostr_privkey",
       ])
       .where("users.username", "=", username)
       .executeTakeFirst();
 
-    return c.json(updated!);
+    const { nostr_privkey: _, ...rest } = updated!;
+    return c.json({ ...rest, has_nostr_privkey: !!updated!.nostr_privkey });
   }
 );

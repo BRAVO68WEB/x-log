@@ -29,6 +29,7 @@ export interface UserProfilesTable {
   avatar_url: string | null;
   banner_url: string | null;
   nostr_pubkey: string | null;
+  nostr_privkey: string | null;
 }
 
 export interface UserKeysTable {
