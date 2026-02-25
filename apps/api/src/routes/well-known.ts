@@ -39,22 +39,28 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
 
   const jrd = {
     subject: resource,
+    aliases: [profileUrl, actorId],
     links: [
+      {
+        rel: "http://webfinger.net/rel/profile-page",
+        type: "text/html",
+        href: profileUrl,
+      },
       {
         rel: "self",
         type: "application/activity+json",
         href: actorId,
       },
       {
-        rel: "http://webfinger.net/rel/profile-page",
-        type: "text/html",
-        href: profileUrl,
+        rel: "http://ostatus.org/schema/1.0/subscribe",
+        template: `https://${settings.instance_domain}/authorize_interaction?uri={uri}`,
       },
     ],
   };
 
   return c.json(jrd, 200, {
     "Content-Type": "application/jrd+json",
+    "Cache-Control": "max-age=300",
   });
 });
 
@@ -76,6 +82,7 @@ wellKnownRoutes.get("/.well-known/nodeinfo", async (c) => {
 
   return c.json(nodeInfo, 200, {
     "Content-Type": "application/json",
+    "Cache-Control": "max-age=1800",
   });
 });
 
@@ -129,6 +136,7 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
   return c.json(nodeInfo, 200, {
     "Content-Type":
       'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+    "Cache-Control": "max-age=1800",
   });
 });
 
@@ -180,6 +188,7 @@ wellKnownRoutes.get("/nodeinfo/2.0", async (c) => {
   return c.json(nodeInfo, 200, {
     "Content-Type":
       'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.0#"',
+    "Cache-Control": "max-age=1800",
   });
 });
 
@@ -193,6 +202,7 @@ wellKnownRoutes.get("/.well-known/host-meta", async (c) => {
 
   return c.text(xml, 200, {
     "Content-Type": "application/xrd+xml",
+    "Cache-Control": "max-age=1800",
   });
 });
 
@@ -209,6 +219,7 @@ wellKnownRoutes.get("/.well-known/host-meta.json", async (c) => {
 
   return c.json(jrd, 200, {
     "Content-Type": "application/jrd+json",
+    "Cache-Control": "max-age=1800",
   });
 });
 

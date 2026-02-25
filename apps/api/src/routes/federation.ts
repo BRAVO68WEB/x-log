@@ -226,6 +226,7 @@ federationRoutes.get("/ap/users/:username", async (c) => {
 
   return c.json(actor, 200, {
     "Content-Type": "application/activity+json",
+    "Cache-Control": "max-age=180",
   });
 });
 
@@ -291,6 +292,7 @@ federationRoutes.get("/post/:id", async (c) => {
 
   return c.json(article, 200, {
     "Content-Type": "application/activity+json",
+    "Cache-Control": "max-age=180",
   });
 });
 
@@ -335,6 +337,7 @@ federationRoutes.get("/ap/users/:username/outbox", async (c) => {
     };
     return c.json(collection, 200, {
       "Content-Type": "application/activity+json",
+      "Cache-Control": "max-age=60",
     });
   }
 
@@ -397,6 +400,7 @@ federationRoutes.get("/ap/users/:username/outbox", async (c) => {
 
   return c.json(collectionPage, 200, {
     "Content-Type": "application/activity+json",
+    "Cache-Control": "max-age=60",
   });
 });
 
@@ -439,6 +443,7 @@ federationRoutes.get("/ap/users/:username/followers", async (c) => {
     };
     return c.json(collection, 200, {
       "Content-Type": "application/activity+json",
+      "Cache-Control": "max-age=60",
     });
   }
 
@@ -473,6 +478,7 @@ federationRoutes.get("/ap/users/:username/followers", async (c) => {
 
   return c.json(collectionPage, 200, {
     "Content-Type": "application/activity+json",
+    "Cache-Control": "max-age=60",
   });
 });
 
@@ -514,6 +520,7 @@ federationRoutes.get("/ap/users/:username/following", async (c) => {
     };
     return c.json(collection, 200, {
       "Content-Type": "application/activity+json",
+      "Cache-Control": "max-age=60",
     });
   }
 
@@ -548,6 +555,7 @@ federationRoutes.get("/ap/users/:username/following", async (c) => {
 
   return c.json(collectionPage, 200, {
     "Content-Type": "application/activity+json",
+    "Cache-Control": "max-age=60",
   });
 });
 

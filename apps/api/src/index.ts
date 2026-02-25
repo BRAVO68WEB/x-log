@@ -22,19 +22,8 @@ app.use("*", logger());
 app.use(
   "*",
   cors({
-    origin: (origin) => {
-      // Allow all origins for federation endpoints
-      if (origin?.includes("/ap/") || origin?.includes("/.well-known/")) {
-        return origin;
-      }
-      const env = getEnv();
-      // In production, restrict to your frontend domain
-      if (env.NODE_ENV === "production") {
-        return env.INSTANCE_DOMAIN;
-      }
-      return origin || "*";
-    },
-    credentials: true,
+    origin: "*",
+    credentials: false,
   })
 );
 
