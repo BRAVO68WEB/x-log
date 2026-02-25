@@ -19,6 +19,7 @@ export default function EditorClient() {
     banner_url?: string;
     hashtags: string[];
     visibility: "public" | "unlisted" | "private";
+    summary?: string;
   }) => {
     const res = await fetch(`/api/posts`, {
       method: "POST",
@@ -47,6 +48,7 @@ export default function EditorClient() {
       banner_url?: string;
       hashtags?: string[];
       visibility?: "public" | "unlisted" | "private";
+      summary?: string;
     };
   }) => {
     const res = await fetch(`/api/posts/${id}`, {
@@ -121,7 +123,8 @@ export default function EditorClient() {
     markdown: string,
     title: string,
     hashtags: string[],
-    bannerUrl?: string
+    bannerUrl?: string,
+    summary?: string
   ) => {
     try {
       setSaving(true);
@@ -136,6 +139,7 @@ export default function EditorClient() {
           banner_url: bannerUrl,
           hashtags,
           visibility: "public",
+          summary,
         });
         id = post.id;
         setPostId(id);
@@ -149,6 +153,7 @@ export default function EditorClient() {
             banner_url: bannerUrl,
             hashtags,
             visibility: "public",
+            summary,
           },
         });
       }

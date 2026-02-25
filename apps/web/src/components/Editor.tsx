@@ -27,12 +27,13 @@ const turndownService = new TurndownService({
 interface EditorProps {
   initialContent?: JSONContent | string;
   onSave?: (content: JSONContent | string, markdown: string, bannerUrl?: string) => void;
-  onPublish?: (content: JSONContent | string, markdown: string, title: string, hashtags: string[], bannerUrl?: string) => void;
+  onPublish?: (content: JSONContent | string, markdown: string, title: string, hashtags: string[], bannerUrl?: string, summary?: string) => void;
   saving?: boolean;
 }
 
 export function Editor({ initialContent, onSave, onPublish, saving = false }: EditorProps) {
   const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
   const [hashtags, setHashtags] = useState<string[]>([]);
   const [hashtagInput, setHashtagInput] = useState("");
   const editorRef = useRef<TipTapEditor | null>(null);
@@ -342,7 +343,7 @@ export function Editor({ initialContent, onSave, onPublish, saving = false }: Ed
     const json = editor.getJSON();
     const html = editor.getHTML();
     const markdown = turndownService.turndown(html);
-    onPublish(json, markdown, title || "Untitled", hashtags, bannerUrl || undefined);
+    onPublish(json, markdown, title || "Untitled", hashtags, bannerUrl || undefined, summary || undefined);
   };
 
   const addHashtag = (tag?: string) => {
@@ -397,9 +398,16 @@ export function Editor({ initialContent, onSave, onPublish, saving = false }: Ed
             placeholder="Post title..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-5xl font-bold w-full border-none outline-none bg-transparent text-light-text dark:text-dark-text placeholder:text-light-muted dark:placeholder:text-dark-muted mb-6"
+            className="text-5xl font-bold w-full border-none outline-none bg-transparent text-light-text dark:text-dark-text placeholder:text-light-muted dark:placeholder:text-dark-muted mb-4"
           />
-          
+          <textarea
+            placeholder="Write a brief summary or excerpt (optional)..."
+            value={summary}
+            onChange={(e) => setSummary(e.target.value)}
+            rows={2}
+            className="w-full border-none outline-none bg-transparent text-light-muted dark:text-dark-muted placeholder:text-light-muted dark:placeholder:text-dark-muted mb-6 resize-none text-sm leading-relaxed"
+          />
+
           <div className="flex items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {hashtags.map((tag) => (

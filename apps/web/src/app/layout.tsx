@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import "./globals.css";
 import "./theme.css";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
 import { Dotted } from "@/components/Backgrounds/Dotted";
 import { ThemeProvider } from 'next-themes'
@@ -74,6 +75,7 @@ export default function RootLayout({
             <div className="min-h-[calc(100vh-4rem)]">
               <ThemeProvider>{children}</ThemeProvider>
             </div>
+            <Footer />
           </QueryProvider>
         </OnboardingGuard>
         <Dotted />

@@ -64,6 +64,10 @@ wellKnownRoutes.get("/.well-known/nodeinfo", async (c) => {
   const nodeInfo = {
     links: [
       {
+        rel: "http://nodeinfo.diaspora.software/ns/schema/2.0",
+        href: `https://${settings.instance_domain}/nodeinfo/2.0`,
+      },
+      {
         rel: "http://nodeinfo.diaspora.software/ns/schema/2.1",
         href: `https://${settings.instance_domain}/nodeinfo/2.1`,
       },
@@ -101,6 +105,8 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
     software: {
       name: "x-log",
       version: "0.2.0",
+      repository: "https://github.com/BRAVO68WEB/x-log",
+      homepage: "https://github.com/BRAVO68WEB/x-log",
     },
     protocols: ["activitypub"],
     services: {
@@ -121,7 +127,59 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
   };
 
   return c.json(nodeInfo, 200, {
-    "Content-Type": "application/json",
+    "Content-Type":
+      'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+  });
+});
+
+// NodeInfo 2.0
+wellKnownRoutes.get("/nodeinfo/2.0", async (c) => {
+  const db = getDb();
+
+  const userCount = await db
+    .selectFrom("users")
+    .select((eb) => eb.fn.count<number>("id").as("count"))
+    .executeTakeFirst();
+
+  const postCount = await db
+    .selectFrom("posts")
+    .select((eb) => eb.fn.count<number>("id").as("count"))
+    .where("published_at", "is not", null)
+    .executeTakeFirst();
+
+  const settings = await db
+    .selectFrom("instance_settings")
+    .selectAll()
+    .where("id", "=", 1)
+    .executeTakeFirst();
+
+  const nodeInfo = {
+    version: "2.0",
+    software: {
+      name: "x-log",
+      version: "0.2.0",
+    },
+    protocols: ["activitypub"],
+    services: {
+      inbound: [],
+      outbound: [],
+    },
+    openRegistrations: settings?.open_registrations || false,
+    usage: {
+      users: {
+        total: Number(userCount?.count || 0),
+      },
+      localPosts: Number(postCount?.count || 0),
+    },
+    metadata: {
+      nodeName: settings?.instance_name || "x-log",
+      nodeDescription: settings?.instance_description || null,
+    },
+  };
+
+  return c.json(nodeInfo, 200, {
+    "Content-Type":
+      'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.0#"',
   });
 });
 
