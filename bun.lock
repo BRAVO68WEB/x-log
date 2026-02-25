@@ -34,6 +34,7 @@
         "bcryptjs": "^3.0.3",
         "hono": "^4.0.0",
         "hono-openapi": "^1.1.1",
+        "ioredis": "^5.4.1",
         "kysely": "^0.28.8",
         "zod": "^3.22.4",
         "zod-openapi": "4",

@@ -1,7 +1,15 @@
+import crypto from "crypto";
 import Redis from "ioredis";
 import { getEnv } from "@xlog/config";
 import { getDb } from "@xlog/db";
-import { signRequest, createCreateActivity, createArticleObject, getActorUrl } from "@xlog/ap";
+import {
+  signRequest,
+  createCreateActivity,
+  createUpdateActivity,
+  createArticleObject,
+  getActorUrl,
+  getFollowersUrl,
+} from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
 
 const env = getEnv();
@@ -15,6 +23,12 @@ interface DeliveryJob {
   userId: string;
   postId: string;
   inboxUrl: string;
+  activityType?: "Create" | "Update" | "Delete";
+  activityJson?: string;
+}
+
+function computeDigest(body: string): string {
+  return `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
 }
 
 // Process federation delivery jobs
@@ -65,66 +79,93 @@ async function deliverActivity(delivery: DeliveryJob) {
       throw new Error("Missing delivery metadata (userId, postId, inboxUrl)");
     }
 
-    const post = await db
-      .selectFrom("posts")
-      .innerJoin("users", "users.id", "posts.author_id")
-      .select([
-        "posts.id as post_id",
-        "posts.title",
-        "posts.content_markdown",
-        "posts.hashtags",
-        "posts.summary",
-        "posts.banner_url",
-        "posts.published_at",
-        "users.id as user_id",
-        "users.username",
-      ])
-      .where("posts.id", "=", delivery.postId)
-      .executeTakeFirst();
+    let body: string;
 
-    if (!post || !post.published_at) {
-      throw new Error("Post not found or not published");
+    if (delivery.activityType === "Delete" && delivery.activityJson) {
+      // For Delete activities, use pre-built JSON (post may already be deleted)
+      body = delivery.activityJson;
+    } else {
+      // For Create and Update, build activity from post data
+      const post = await db
+        .selectFrom("posts")
+        .innerJoin("users", "users.id", "posts.author_id")
+        .select([
+          "posts.id as post_id",
+          "posts.title",
+          "posts.content_markdown",
+          "posts.hashtags",
+          "posts.summary",
+          "posts.banner_url",
+          "posts.published_at",
+          "posts.updated_at",
+          "users.id as user_id",
+          "users.username",
+        ])
+        .where("posts.id", "=", delivery.postId)
+        .executeTakeFirst();
+
+      if (!post || !post.published_at) {
+        throw new Error("Post not found or not published");
+      }
+
+      const actorId = await getActorUrl(post.username);
+      const followersUrl = await getFollowersUrl(post.username);
+      const contentHtml = renderMarkdownSync(post.content_markdown);
+      const article = await createArticleObject(
+        (post as any).post_id,
+        actorId,
+        post.title,
+        contentHtml,
+        post.published_at,
+        post.hashtags,
+        post.summary || undefined,
+        post.banner_url,
+        {
+          updated: delivery.activityType === "Update" ? post.updated_at : undefined,
+          visibility: "public",
+          followersUrl,
+        }
+      );
+
+      let activity;
+      if (delivery.activityType === "Update") {
+        activity = createUpdateActivity(
+          delivery.activityId,
+          actorId,
+          article,
+          post.published_at
+        );
+      } else {
+        activity = createCreateActivity(
+          delivery.activityId,
+          actorId,
+          article,
+          post.published_at
+        );
+      }
+
+      await db
+        .insertInto("outbox_activities")
+        .values({
+          id: crypto.randomUUID(),
+          user_id: (post as any).user_id,
+          activity_id: delivery.activityId,
+          type: delivery.activityType || "Create",
+          object_id: article.id,
+          raw: activity as any,
+        })
+        .onConflict((oc) => oc.columns(["activity_id"]).doNothing())
+        .execute();
+
+      body = JSON.stringify(activity);
     }
 
-    const actorId = await getActorUrl(post.username);
-    const contentHtml = renderMarkdownSync(post.content_markdown);
-    const article = await createArticleObject(
-      (post as any).post_id,
-      actorId,
-      post.title,
-      contentHtml,
-      post.published_at,
-      post.hashtags,
-      post.summary || undefined,
-      post.banner_url
-    );
-
-    const activity = createCreateActivity(
-      delivery.activityId,
-      actorId,
-      article,
-      post.published_at
-    );
-
-    await db
-      .insertInto("outbox_activities")
-      .values({
-        id: crypto.randomUUID(),
-        user_id: (post as any).user_id,
-        activity_id: delivery.activityId,
-        type: "Create",
-        object_id: article.id,
-        raw: activity as any,
-      })
-      .onConflict((oc) => oc.columns(["activity_id"]).doNothing())
-      .execute();
-
-    const body = JSON.stringify(activity);
     const signature = await signRequest("POST", inboxUrl, body, userId);
+    const digest = computeDigest(body);
 
     await db
       .updateTable("deliveries")
-      .set({ activity_json: activity as any })
+      .set({ activity_json: JSON.parse(body) as any })
       .where("activity_id", "=", delivery.activityId)
       .execute();
 
@@ -133,6 +174,7 @@ async function deliverActivity(delivery: DeliveryJob) {
       headers: {
         "Content-Type": "application/activity+json",
         Signature: signature,
+        Digest: digest,
         Date: new Date().toUTCString(),
         Host: new URL(inboxUrl).host,
       },

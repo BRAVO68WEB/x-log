@@ -281,7 +281,22 @@ profilesRoutes.post(
 
   try {
     const remoteActorUrl = await resolveActorUrl(remote);
-    const inboxUrl = remoteActorUrl.replace(/\/$/, "") + "/inbox";
+
+    // Fetch the remote actor to get the correct inbox URL
+    let inboxUrl: string;
+    try {
+      const actorResp = await fetch(remoteActorUrl, {
+        headers: { Accept: "application/activity+json, application/ld+json" },
+      });
+      if (actorResp.ok) {
+        const actorData = (await actorResp.json()) as { inbox?: string };
+        inboxUrl = actorData.inbox || remoteActorUrl.replace(/\/$/, "") + "/inbox";
+      } else {
+        inboxUrl = remoteActorUrl.replace(/\/$/, "") + "/inbox";
+      }
+    } catch {
+      inboxUrl = remoteActorUrl.replace(/\/$/, "") + "/inbox";
+    }
     const settings = await getInstanceSettings();
     const actorId = getActorUrlSync(username, settings.instance_domain);
 

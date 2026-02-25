@@ -9,12 +9,19 @@ import {
 } from "@xlog/validation";
 import { getDb, getInstanceSettings } from "@xlog/db";
 import { generateId } from "@xlog/snowflake";
-import { getPostUrlSync } from "@xlog/ap";
+import {
+  getPostUrlSync,
+  getActorUrlSync,
+  getFollowersUrlSync,
+  createArticleObjectSync,
+  createDeleteActivity,
+} from "@xlog/ap";
 import { renderMarkdown } from "@xlog/markdown";
 import {
   sessionMiddleware,
   requireAuth,
 } from "../middleware/session";
+import { enqueueDeliveriesToFollowers } from "../lib/redis";
 
 export const postsRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -82,24 +89,26 @@ postsRoutes.get(
     const items = posts.slice(0, limit);
     const settings = await getInstanceSettings();
 
-    const response = items.map((post) => ({
-      id: post.id,
-      url: getPostUrlSync(post.id, settings.instance_domain),
-      title: post.title,
-      banner_url: post.banner_url,
-      content_html: post.content_markdown, // TODO: Render markdown
-      content_markdown: post.content_markdown,
-      hashtags: post.hashtags,
-      like_count: post.like_count,
-      author: {
-        username: post.username,
-        full_name: post.full_name || null,
-        avatar_url: post.avatar_url || null,
-      },
-      published_at: post.published_at?.toISOString() || null,
-      updated_at: post.updated_at.toISOString(),
-      visibility: post.visibility,
-    }));
+    const response = await Promise.all(
+      items.map(async (post) => ({
+        id: post.id,
+        url: getPostUrlSync(post.id, settings.instance_domain),
+        title: post.title,
+        banner_url: post.banner_url,
+        content_html: await renderMarkdown(post.content_markdown),
+        content_markdown: post.content_markdown,
+        hashtags: post.hashtags,
+        like_count: post.like_count,
+        author: {
+          username: post.username,
+          full_name: post.full_name || null,
+          avatar_url: post.avatar_url || null,
+        },
+        published_at: post.published_at?.toISOString() || null,
+        updated_at: post.updated_at.toISOString(),
+        visibility: post.visibility,
+      }))
+    );
 
     return c.json({
       items: response,
@@ -308,7 +317,7 @@ postsRoutes.patch(
     // Check authorization
     const post = await db
       .selectFrom("posts")
-      .select("author_id")
+      .select(["author_id", "published_at", "visibility"])
       .where("id", "=", id)
       .executeTakeFirst();
 
@@ -330,6 +339,25 @@ postsRoutes.patch(
       })
       .where("id", "=", id)
       .execute();
+
+    // Trigger federation Update if post is published and not private
+    if (post.published_at && post.visibility !== "private") {
+      try {
+        const settings = await getInstanceSettings();
+        if (settings.federation_enabled) {
+          const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+          await enqueueDeliveriesToFollowers(
+            post.author_id,
+            id,
+            activityId,
+            "Update",
+            settings.instance_domain
+          );
+        }
+      } catch (err) {
+        console.error("Failed to enqueue Update deliveries:", err);
+      }
+    }
 
     return c.json({ message: "Post updated" });
   }
@@ -358,8 +386,9 @@ postsRoutes.delete(
     // Check authorization
     const post = await db
       .selectFrom("posts")
-      .select("author_id")
-      .where("id", "=", id)
+      .innerJoin("users", "users.id", "posts.author_id")
+      .select(["posts.author_id", "posts.published_at", "posts.visibility", "posts.ap_object_id", "users.username"])
+      .where("posts.id", "=", id)
       .executeTakeFirst();
 
     if (!post) {
@@ -368,6 +397,34 @@ postsRoutes.delete(
 
     if (post.author_id !== user.id && user.role !== "admin") {
       return c.json({ error: "Forbidden" }, 403);
+    }
+
+    // Build Delete activity before deleting the post from DB
+    if (post.published_at && post.visibility !== "private" && post.ap_object_id) {
+      try {
+        const settings = await getInstanceSettings();
+        if (settings.federation_enabled) {
+          const actorId = getActorUrlSync(post.username, settings.instance_domain);
+          const followersUrl = getFollowersUrlSync(post.username, settings.instance_domain);
+          const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+          const deleteActivity = createDeleteActivity(
+            activityId,
+            actorId,
+            post.ap_object_id,
+            followersUrl
+          );
+          await enqueueDeliveriesToFollowers(
+            post.author_id,
+            id,
+            activityId,
+            "Delete",
+            settings.instance_domain,
+            JSON.stringify(deleteActivity)
+          );
+        }
+      } catch (err) {
+        console.error("Failed to enqueue Delete deliveries:", err);
+      }
     }
 
     await db.deleteFrom("posts").where("id", "=", id).execute();
@@ -399,7 +456,7 @@ postsRoutes.post(
     // Check authorization
     const post = await db
       .selectFrom("posts")
-      .select("author_id")
+      .select(["author_id", "visibility"])
       .where("id", "=", id)
       .executeTakeFirst();
 
@@ -420,8 +477,24 @@ postsRoutes.post(
       .where("id", "=", id)
       .execute();
 
-    // TODO: Trigger federation delivery
-    // This will be handled by the worker service
+    // Trigger federation delivery
+    if (post.visibility !== "private") {
+      try {
+        const settings = await getInstanceSettings();
+        if (settings.federation_enabled) {
+          const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+          await enqueueDeliveriesToFollowers(
+            post.author_id,
+            id,
+            activityId,
+            "Create",
+            settings.instance_domain
+          );
+        }
+      } catch (err) {
+        console.error("Failed to enqueue Create deliveries:", err);
+      }
+    }
 
     return c.json({ message: "Post published" });
   }
