@@ -57,6 +57,7 @@ profilesRoutes.get(
         "user_profiles.support_text",
         "user_profiles.avatar_url",
         "user_profiles.banner_url",
+        "user_profiles.nostr_pubkey",
       ])
       .where("users.username", "=", username)
       .executeTakeFirst();
@@ -411,6 +412,7 @@ profilesRoutes.patch(
         "user_profiles.support_text",
         "user_profiles.avatar_url",
         "user_profiles.banner_url",
+        "user_profiles.nostr_pubkey",
       ])
       .where("users.username", "=", username)
       .executeTakeFirst();

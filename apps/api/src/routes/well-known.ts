@@ -212,3 +212,32 @@ wellKnownRoutes.get("/.well-known/host-meta.json", async (c) => {
   });
 });
 
+// NIP-05 Nostr verification
+wellKnownRoutes.get("/.well-known/nostr.json", async (c) => {
+  const name = c.req.query("name");
+  if (!name) {
+    return c.json({ names: {}, relays: {} });
+  }
+
+  const db = getDb();
+  const user = await db
+    .selectFrom("users")
+    .innerJoin("user_profiles", "user_profiles.user_id", "users.id")
+    .select(["users.username", "user_profiles.nostr_pubkey"])
+    .where("users.username", "=", name)
+    .executeTakeFirst();
+
+  if (!user || !user.nostr_pubkey) {
+    return c.json({ names: {}, relays: {} });
+  }
+
+  return c.json({
+    names: {
+      [user.username]: user.nostr_pubkey,
+    },
+    relays: {},
+  }, 200, {
+    "Access-Control-Allow-Origin": "*",
+  });
+});
+

@@ -28,6 +28,7 @@ export interface UserProfilesTable {
   support_text: string | null;
   avatar_url: string | null;
   banner_url: string | null;
+  nostr_pubkey: string | null;
 }
 
 export interface UserKeysTable {

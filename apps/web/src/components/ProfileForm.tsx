@@ -22,6 +22,7 @@ interface ProfileData {
   support_text?: string;
   avatar_url?: string;
   banner_url?: string;
+  nostr_pubkey?: string;
 }
 
 export function ProfileForm({ username }: { username: string }) {
@@ -337,6 +338,17 @@ export function ProfileForm({ username }: { username: string }) {
             placeholder="Buy me a coffee"
           />
         </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-light-text dark:text-dark-text">Nostr</h3>
+        <Input
+          label="Nostr Public Key (hex)"
+          value={data.nostr_pubkey || ""}
+          onChange={(e) => setData({ ...data, nostr_pubkey: e.target.value })}
+          placeholder="64-character hex pubkey"
+          maxLength={64}
+        />
       </div>
 
       <div className="flex justify-end">
