@@ -12,10 +12,10 @@ const InstanceSettingsUpdateSchema = z.object({
   instance_name: z.string().min(1).optional(),
   instance_description: z.string().optional().nullable(),
   instance_domain: z.string().min(1).optional(),
-  open_registrations: z.boolean().optional(),
   admin_email: z.string().email().optional().nullable(),
   smtp_url: z.string().url().optional().nullable(),
   federation_enabled: z.boolean().optional(),
+  following_enabled: z.boolean().optional(),
 });
 
 const InstanceSettingsResponseSchema = z.object({
@@ -23,10 +23,10 @@ const InstanceSettingsResponseSchema = z.object({
   instance_name: z.string(),
   instance_description: z.string().nullable(),
   instance_domain: z.string(),
-  open_registrations: z.boolean(),
   admin_email: z.string().nullable(),
   smtp_url: z.string().nullable(),
   federation_enabled: z.boolean(),
+  following_enabled: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -72,10 +72,10 @@ settingsRoutes.get(
       instance_name: settings.instance_name,
       instance_description: settings.instance_description,
       instance_domain: settings.instance_domain,
-      open_registrations: settings.open_registrations,
       admin_email: settings.admin_email,
       smtp_url: settings.smtp_url,
       federation_enabled: settings.federation_enabled,
+      following_enabled: settings.following_enabled,
       created_at: settings.created_at.toISOString(),
       updated_at: settings.updated_at.toISOString(),
     });
@@ -133,9 +133,6 @@ settingsRoutes.patch(
     if (data.instance_domain !== undefined) {
       updateData.instance_domain = data.instance_domain;
     }
-    if (data.open_registrations !== undefined) {
-      updateData.open_registrations = data.open_registrations;
-    }
     if (data.admin_email !== undefined) {
       updateData.admin_email = data.admin_email;
     }
@@ -144,6 +141,9 @@ settingsRoutes.patch(
     }
     if (data.federation_enabled !== undefined) {
       updateData.federation_enabled = data.federation_enabled;
+    }
+    if (data.following_enabled !== undefined) {
+      updateData.following_enabled = data.following_enabled;
     }
 
     // Update settings
@@ -168,10 +168,10 @@ settingsRoutes.patch(
       instance_name: updated!.instance_name,
       instance_description: updated!.instance_description,
       instance_domain: updated!.instance_domain,
-      open_registrations: updated!.open_registrations,
       admin_email: updated!.admin_email,
       smtp_url: updated!.smtp_url,
       federation_enabled: updated!.federation_enabled,
+      following_enabled: updated!.following_enabled,
       created_at: updated!.created_at.toISOString(),
       updated_at: updated!.updated_at.toISOString(),
     });

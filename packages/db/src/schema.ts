@@ -66,6 +66,8 @@ export interface FollowersTable {
   local_user_id: string; // FK users.id
   remote_actor: string;
   inbox_url: string;
+  remote_username: string | null;
+  remote_domain: string | null;
   approved: boolean; // default true
   created_at: ColumnType<Date, never, never>;
 }
@@ -126,6 +128,7 @@ export interface InstanceSettingsTable {
   admin_email: string | null;
   smtp_url: string | null;
   federation_enabled: boolean;
+  following_enabled: boolean;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
 }

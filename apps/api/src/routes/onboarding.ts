@@ -129,10 +129,11 @@ onboardingRoutes.post(
         instance_name: data.instance_name,
         instance_description: data.instance_description || null,
         instance_domain: data.instance_domain,
-        open_registrations: data.open_registrations,
+        open_registrations: false,
         admin_email: data.admin_email || null,
         smtp_url: data.smtp_url || null,
         federation_enabled: true,
+        following_enabled: false,
       })
       .execute();
 

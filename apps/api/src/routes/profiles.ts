@@ -95,6 +95,9 @@ profilesRoutes.get(
                 items: z.array(
                   z.object({
                     remote_actor: z.string(),
+                    remote_username: z.string().nullable(),
+                    remote_domain: z.string().nullable(),
+                    handle: z.string(),
                     inbox_url: z.string(),
                     approved: z.boolean(),
                     created_at: z.string(),
@@ -123,19 +126,26 @@ profilesRoutes.get(
 
     const rows = await db
       .selectFrom("followers")
-      .select(["remote_actor", "inbox_url", "approved", "created_at"])
+      .select(["remote_actor", "remote_username", "remote_domain", "inbox_url", "approved", "created_at"])
       .where("local_user_id", "=", user.id)
       .orderBy("created_at", "desc")
       .limit(200)
       .execute();
 
     return c.json({
-      items: rows.map((r) => ({
-        remote_actor: r.remote_actor,
-        inbox_url: r.inbox_url,
-        approved: r.approved,
-        created_at: r.created_at.toISOString(),
-      })),
+      items: rows.map((r) => {
+        const domain = r.remote_domain || new URL(r.remote_actor).hostname;
+        const name = r.remote_username || r.remote_actor.split("/").pop() || "unknown";
+        return {
+          remote_actor: r.remote_actor,
+          remote_username: r.remote_username,
+          remote_domain: r.remote_domain,
+          handle: `@${name}@${domain}`,
+          inbox_url: r.inbox_url,
+          approved: r.approved,
+          created_at: r.created_at.toISOString(),
+        };
+      }),
     });
   }
 );
@@ -171,6 +181,11 @@ profilesRoutes.get(
   }),
   validator("param", z.object({ username: z.string() })),
   async (c) => {
+    const settings = await getInstanceSettings();
+    if (!settings.following_enabled) {
+      return c.json({ items: [] });
+    }
+
     const { username } = c.req.valid("param");
     const db = getDb();
 
@@ -237,6 +252,11 @@ profilesRoutes.post(
   ),
   requireAuth,
   async (c) => {
+    const settings = await getInstanceSettings();
+    if (!settings.following_enabled) {
+      return c.json({ error: "Following is currently disabled" }, 403);
+    }
+
     const currentUser = c.get("user")!;
     const { username } = c.req.valid("param");
     const { remote } = c.req.valid("json");
