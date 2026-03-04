@@ -35,7 +35,7 @@ export default function OnboardingClient() {
 
   if (loading || query.isLoading) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+      <main className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </main>
     );
@@ -43,14 +43,14 @@ export default function OnboardingClient() {
 
   if (completed) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-gray-50">
+      <main className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen py-8 bg-gray-50">
+    <main className="min-h-screen py-8">
       <OnboardingWizard />
     </main>
   );

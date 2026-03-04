@@ -3,8 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    @apply border-border;
+  }
   body {
-    @apply bg-light-base dark:bg-dark-base text-light-text dark:text-dark-text transition-colors;
+    @apply bg-background text-foreground;
   }
 }
 
@@ -14,39 +17,39 @@
 }
 
 .prose h1 {
-  @apply text-4xl font-bold mt-8 mb-4 text-light-text dark:text-dark-text;
+  @apply text-4xl font-bold mt-8 mb-4 font-heading text-foreground;
 }
 
 .prose h2 {
-  @apply text-3xl font-bold mt-6 mb-3 text-light-text dark:text-dark-text;
+  @apply text-3xl font-bold mt-6 mb-3 font-heading text-foreground;
 }
 
 .prose h3 {
-  @apply text-2xl font-bold mt-4 mb-2 text-light-text dark:text-dark-text;
+  @apply text-2xl font-bold mt-4 mb-2 font-heading text-foreground;
 }
 
 .prose p {
-  @apply mb-4 leading-relaxed text-light-text dark:text-dark-text;
+  @apply mb-4 leading-relaxed text-foreground;
 }
 
 .prose ul {
-  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-disc;
+  @apply mb-4 ml-6 text-foreground list-disc;
 }
 
 .prose ol {
-  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-decimal;
+  @apply mb-4 ml-6 text-foreground list-decimal;
 }
 
 .prose li {
-  @apply mb-2 text-light-text dark:text-dark-text;
+  @apply mb-2 text-foreground;
 }
 
 .prose ul li::marker {
-  @apply text-light-pine dark:text-dark-foam;
+  @apply text-primary;
 }
 
 .prose ol li::marker {
-  @apply text-light-pine dark:text-dark-foam font-semibold;
+  @apply text-primary font-semibold;
 }
 
 .prose ul ul,
@@ -57,19 +60,19 @@
 }
 
 .prose code {
-  @apply bg-light-highlight-low dark:bg-dark-highlight-low px-1.5 py-0.5 rounded text-sm font-mono text-light-pine dark:text-dark-foam;
+  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-primary;
 }
 
 .prose pre {
-  @apply bg-light-overlay dark:bg-dark-overlay p-4 rounded-lg overflow-x-auto mb-4 border border-light-highlight-med dark:border-dark-highlight-med;
+  @apply bg-muted p-4 rounded-lg overflow-x-auto mb-4 border border-border;
 }
 
 .prose pre code {
-  @apply bg-transparent p-0 text-light-text dark:text-dark-text;
+  @apply bg-transparent p-0 text-foreground;
 }
 
 .prose a {
-  @apply text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine underline transition-colors;
+  @apply text-primary hover:text-primary/80 underline transition-colors;
 }
 
 .prose img {
@@ -77,7 +80,48 @@
 }
 
 .prose blockquote {
-  @apply border-l-4 border-light-pine dark:border-dark-pine pl-4 italic my-4 text-light-muted dark:text-dark-muted bg-light-overlay/50 dark:bg-dark-overlay/50 py-2;
+  @apply border-l-4 border-primary pl-4 italic my-4 text-muted-foreground bg-muted/50 py-2;
+}
+
+.prose .table-wrapper {
+  @apply w-full overflow-x-auto mb-6;
+}
+.prose table {
+  @apply w-full border-collapse text-foreground text-sm;
+  table-layout: auto;
+}
+.prose thead {
+  @apply border-b-2 border-border;
+}
+.prose th {
+  @apply px-3 py-2.5 text-left font-semibold text-foreground bg-muted/50 border border-border whitespace-nowrap;
+}
+.prose td {
+  @apply px-3 py-2.5 text-foreground border border-border;
+}
+.prose tr {
+  @apply border-b border-border;
+}
+.prose tbody tr:last-child {
+  @apply border-b-0;
+}
+.prose tbody tr:nth-child(even) {
+  @apply bg-muted/30;
+}
+
+.prose h1[id], .prose h2[id], .prose h3[id],
+.prose h4[id], .prose h5[id], .prose h6[id] {
+  @apply scroll-mt-24;
+}
+
+.prose .mermaid-diagram {
+  @apply my-6 flex justify-center;
+}
+.prose .mermaid-diagram svg {
+  @apply max-w-full h-auto;
+}
+.prose pre.mermaid-error {
+  @apply border-2 border-destructive/50;
 }
 
 /* TipTap Editor Styles */
@@ -86,7 +130,7 @@
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
-  @apply text-light-muted dark:text-dark-muted;
+  @apply text-muted-foreground;
   content: attr(data-placeholder);
   float: left;
   height: 0;
@@ -94,39 +138,39 @@
 }
 
 .ProseMirror h1 {
-  @apply text-4xl font-bold mt-8 mb-4 text-light-text dark:text-dark-text;
+  @apply text-4xl font-bold mt-8 mb-4 font-heading text-foreground;
 }
 
 .ProseMirror h2 {
-  @apply text-3xl font-bold mt-6 mb-3 text-light-text dark:text-dark-text;
+  @apply text-3xl font-bold mt-6 mb-3 font-heading text-foreground;
 }
 
 .ProseMirror h3 {
-  @apply text-2xl font-bold mt-4 mb-2 text-light-text dark:text-dark-text;
+  @apply text-2xl font-bold mt-4 mb-2 font-heading text-foreground;
 }
 
 .ProseMirror p {
-  @apply mb-4 leading-relaxed text-light-text dark:text-dark-text;
+  @apply mb-4 leading-relaxed text-foreground;
 }
 
 .ProseMirror ul {
-  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-disc;
+  @apply mb-4 ml-6 text-foreground list-disc;
 }
 
 .ProseMirror ol {
-  @apply mb-4 ml-6 text-light-text dark:text-dark-text list-decimal;
+  @apply mb-4 ml-6 text-foreground list-decimal;
 }
 
 .ProseMirror li {
-  @apply mb-2 text-light-text dark:text-dark-text;
+  @apply mb-2 text-foreground;
 }
 
 .ProseMirror ul li::marker {
-  @apply text-light-pine dark:text-dark-foam;
+  @apply text-primary;
 }
 
 .ProseMirror ol li::marker {
-  @apply text-light-pine dark:text-dark-foam font-semibold;
+  @apply text-primary font-semibold;
 }
 
 .ProseMirror ul ul,
@@ -137,19 +181,19 @@
 }
 
 .ProseMirror code {
-  @apply bg-light-highlight-low dark:bg-dark-highlight-low px-1.5 py-0.5 rounded text-sm font-mono text-light-pine dark:text-dark-foam;
+  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-primary;
 }
 
 .ProseMirror pre {
-  @apply bg-light-overlay dark:bg-dark-overlay p-4 rounded-lg overflow-x-auto mb-4 border border-light-highlight-med dark:border-dark-highlight-med;
+  @apply bg-muted p-4 rounded-lg overflow-x-auto mb-4 border border-border;
 }
 
 .ProseMirror pre code {
-  @apply bg-transparent p-0 text-light-text dark:text-dark-text;
+  @apply bg-transparent p-0 text-foreground;
 }
 
 .ProseMirror a {
-  @apply text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine underline transition-colors;
+  @apply text-primary hover:text-primary/80 underline transition-colors;
 }
 
 .ProseMirror img {
@@ -157,29 +201,56 @@
 }
 
 .ProseMirror blockquote {
-  @apply border-l-4 border-light-pine dark:border-dark-pine pl-4 italic my-4 text-light-muted dark:text-dark-muted bg-light-overlay/50 dark:bg-dark-overlay/50 py-2;
+  @apply border-l-4 border-primary pl-4 italic my-4 text-muted-foreground bg-muted/50 py-2;
 }
 
 .ProseMirror strong {
-  @apply font-bold text-light-text dark:text-dark-text;
+  @apply font-bold text-foreground;
 }
 
 .ProseMirror em {
-  @apply italic text-light-text dark:text-dark-text;
+  @apply italic text-foreground;
 }
 
 .ProseMirror hr {
-  @apply my-8 border-0 border-t border-light-highlight-med dark:border-dark-highlight-med;
+  @apply my-8 border-0 border-t border-border;
 }
 
 .ProseMirror mark {
-  @apply bg-light-gold/30 dark:bg-dark-gold/30 text-light-text dark:text-dark-text px-1 rounded;
+  @apply bg-secondary/30 text-foreground px-1 rounded;
+}
+
+.ProseMirror table {
+  @apply w-full border-collapse mb-6 text-foreground text-sm;
+  table-layout: auto;
+}
+.ProseMirror thead {
+  @apply border-b-2 border-border;
+}
+.ProseMirror th {
+  @apply px-3 py-2.5 text-left font-semibold text-foreground bg-muted/50 border border-border whitespace-nowrap;
+}
+.ProseMirror td {
+  @apply px-3 py-2.5 text-foreground border border-border;
+}
+.ProseMirror tr {
+  @apply border-b border-border;
+}
+.ProseMirror tbody tr:last-child {
+  @apply border-b-0;
+}
+.ProseMirror tbody tr:nth-child(even) {
+  @apply bg-muted/30;
+}
+.ProseMirror th p,
+.ProseMirror td p {
+  @apply mb-0;
 }
 
 .ProseMirror::selection {
-  @apply bg-light-pine/20 dark:bg-dark-pine/30;
+  @apply bg-primary/20;
 }
 
 .ProseMirror *::selection {
-  @apply bg-light-pine/20 dark:bg-dark-pine/30;
+  @apply bg-primary/20;
 }

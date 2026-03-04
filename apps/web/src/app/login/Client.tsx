@@ -2,8 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useMutation } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,8 +31,7 @@ export default function LoginClient() {
       const redirect = searchParams.get("redirect") || "/";
       router.replace(redirect);
     }
-    
-    // Check for OIDC errors in query params
+
     const oidcError = searchParams.get("error");
     const oidcDescription = searchParams.get("description");
     if (oidcError) {
@@ -73,92 +81,98 @@ export default function LoginClient() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to initiate OIDC login" }));
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Failed to initiate OIDC login" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       const data = (await res.json()) as { auth_url: string };
       window.location.href = data.auth_url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to initiate OIDC login");
+      setError(
+        err instanceof Error ? err.message : "Failed to initiate OIDC login"
+      );
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-light-base dark:bg-dark-base py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-light-text dark:text-dark-text">
-            Sign in to your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <Input
-              label="Username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoComplete="username"
-              className="rounded-t-md"
-            />
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-              className="rounded-b-md"
-            />
-          </div>
-
-          {error && (
-            <div className="rounded-md bg-light-love/10 dark:bg-dark-love/20 p-4 border border-light-love/20 dark:border-dark-love/20">
-              <div className="text-sm text-light-love dark:text-dark-love">{error}</div>
+    <main className="min-h-screen flex items-center justify-center py-12 px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle className="text-3xl font-heading">Sign in</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+                placeholder="Enter your username"
+              />
             </div>
-          )}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+                placeholder="Enter your password"
+              />
+            </div>
 
-          <div>
-            <Button type="submit" disabled={loading || !username || !password} className="w-full">
+            {error && (
+              <div className="rounded-md bg-destructive/10 p-3 border border-destructive/20">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              disabled={loading || !username || !password}
+              className="w-full"
+            >
               {loading ? (
-                <span className="flex items-center justify-center">
-                  <span className="mr-2">
-                    <LoadingSpinner size="sm" />
-                  </span>
+                <span className="flex items-center justify-center gap-2">
+                  <LoadingSpinner size="sm" />
                   Signing in...
                 </span>
               ) : (
                 "Sign in"
               )}
             </Button>
-          </div>
-
-          <div className="relative">
+          </form>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-4">
+          <div className="relative w-full">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-light-overlay dark:border-dark-overlay"></div>
+              <Separator />
             </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-light-base dark:bg-dark-base text-light-subtle dark:text-dark-subtle">
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
                 Or continue with
               </span>
             </div>
           </div>
-
-          <div>
-            <Button 
-              type="button" 
-              onClick={handleOIDCLogin}
-              disabled={loading}
-              className="w-full"
-              variant="secondary"
-            >
-              Sign in with OIDC
-            </Button>
-          </div>
-        </form>
-      </div>
+          <Button
+            type="button"
+            onClick={handleOIDCLogin}
+            disabled={loading}
+            className="w-full"
+            variant="outline"
+          >
+            Sign in with OIDC
+          </Button>
+        </CardFooter>
+      </Card>
     </main>
   );
 }

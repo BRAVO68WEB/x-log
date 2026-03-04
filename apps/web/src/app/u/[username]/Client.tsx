@@ -3,18 +3,50 @@
 import { useState, use } from "react";
 import { PostList } from "@/components/PostList";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { useQuery } from "react-query";
 import Image from "next/image";
-import { FaGithub, FaGlobe, FaLinkedin, FaMastodon, FaReddit, FaTwitter, FaYoutube } from "react-icons/fa";
+import {
+  FaGithub,
+  FaGlobe,
+  FaLinkedin,
+  FaMastodon,
+  FaReddit,
+  FaTwitter,
+  FaYoutube,
+} from "react-icons/fa";
 
-function actorUrlToHandle(url: string): string {
+function actorUrlToHandle(data: {
+  remote_actor: string;
+  remote_domain: string;
+  remote_username: string;
+}): {
+  url: string;
+  handle: string;
+} {
   try {
-    const parsed = new URL(url);
+    if (data.remote_username && data.remote_domain) {
+      return {
+        url: `https://${data.remote_domain}/@${data.remote_username}`,
+        handle: `@${data.remote_username}@${data.remote_domain}`,
+      };
+    }
+    const parsed = new URL(data.remote_actor);
     const segments = parsed.pathname.split("/").filter(Boolean);
-    const username = segments[segments.length - 1] || url;
-    return `@${username}@${parsed.hostname}`;
+    const username = segments[segments.length - 1] || data.remote_actor;
+    return {
+      url: data.remote_actor,
+      handle: `@${username}@${parsed.hostname}`,
+    };
   } catch {
-    return url;
+    return {
+      url: data.remote_actor,
+      handle: data.remote_actor,
+    };
   }
 }
 
@@ -40,8 +72,24 @@ export default function UserProfileClient(
   }
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [followers, setFollowers] = useState<Array<{ remote_actor: string; approved: boolean }>>([]);
-  const [following, setFollowing] = useState<Array<{ remote_actor: string; accepted: boolean }>>([]);
+  const [followers, setFollowers] = useState<
+    Array<{
+      remote_actor: string;
+      approved: boolean;
+      created_at: string;
+      remote_domain: string;
+      remote_username: string;
+    }>
+  >([]);
+  const [following, setFollowing] = useState<
+    Array<{
+      remote_actor: string;
+      accepted: boolean;
+      created_at: string;
+      remote_domain: string;
+      remote_username: string;
+    }>
+  >([]);
   const [copied, setCopied] = useState(false);
 
   const query = useQuery<Profile>(
@@ -64,33 +112,80 @@ export default function UserProfileClient(
     }
   );
 
-  const followersQuery = useQuery<{ items: { remote_actor: string; inbox_url: string; approved: boolean; created_at: string }[] }>(
+  const followersQuery = useQuery<{
+    items: {
+      remote_actor: string;
+      inbox_url: string;
+      approved: boolean;
+      created_at: string;
+      remote_domain: string;
+      remote_username: string;
+    }[];
+  }>(
     ["followers", params.username],
     async () => {
-      const res = await fetch(`/api/profiles/${params.username}/followers`, { credentials: "include" });
+      const res = await fetch(
+        `/api/profiles/${params.username}/followers`,
+        { credentials: "include" }
+      );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to load followers" }));
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Failed to load followers" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
     },
     {
-      onSuccess: (data) => setFollowers(data.items.map((i) => ({ remote_actor: i.remote_actor, approved: i.approved }))),
+      onSuccess: (data) =>
+        setFollowers(
+          data.items.map((i) => ({
+            remote_actor: i.remote_actor,
+            approved: i.approved,
+            created_at: i.created_at,
+            remote_domain: i.remote_domain,
+            remote_username: i.remote_username,
+          }))
+        ),
     }
   );
 
-  const followingQuery = useQuery<{ items: { remote_actor: string; inbox_url: string; activity_id: string; accepted: boolean; created_at: string }[] }>(
+  const followingQuery = useQuery<{
+    items: {
+      remote_actor: string;
+      inbox_url: string;
+      activity_id: string;
+      accepted: boolean;
+      created_at: string;
+      remote_domain: string;
+      remote_username: string;
+    }[];
+  }>(
     ["following", params.username],
     async () => {
-      const res = await fetch(`/api/profiles/${params.username}/following`, { credentials: "include" });
+      const res = await fetch(
+        `/api/profiles/${params.username}/following`,
+        { credentials: "include" }
+      );
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Failed to load following" }));
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Failed to load following" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
     },
     {
-      onSuccess: (data) => setFollowing(data.items.map((i) => ({ remote_actor: i.remote_actor, accepted: i.accepted }))),
+      onSuccess: (data) =>
+        setFollowing(
+          data.items.map((i) => ({
+            remote_actor: i.remote_actor,
+            accepted: i.accepted,
+            created_at: i.created_at,
+            remote_domain: i.remote_domain,
+            remote_username: i.remote_username,
+          }))
+        ),
     }
   );
 
@@ -116,18 +211,33 @@ export default function UserProfileClient(
   if (!profile) {
     return (
       <main className="min-h-screen py-8 px-4">
-        <div className="max-w-4xl mx-auto bg-light-surface dark:bg-dark-surface opacity-100 rounded-lg shadow-md p-8 text-center border border-light-highlight-med dark:border-dark-highlight-med">
-          <h1 className="text-4xl font-bold mb-4 text-light-text dark:text-dark-text">Profile not found</h1>
-          <p className="text-light-muted dark:text-dark-muted">The user&apos;re looking for doesn&apos;t exist.</p>
-        </div>
+        <Card className="max-w-4xl mx-auto">
+          <CardContent className="p-8 text-center">
+            <h1 className="text-4xl font-bold mb-4 font-heading">
+              Profile not found
+            </h1>
+            <p className="text-muted-foreground">
+              The user you&apos;re looking for doesn&apos;t exist.
+            </p>
+          </CardContent>
+        </Card>
       </main>
     );
   }
 
+  const socialLinks = [
+    { url: profile.social_github, icon: FaGithub, label: "GitHub" },
+    { url: profile.social_website, icon: FaGlobe, label: "Website" },
+    { url: profile.social_twitter, icon: FaTwitter, label: "Twitter" },
+    { url: profile.social_reddit, icon: FaReddit, label: "Reddit" },
+    { url: profile.social_youtube, icon: FaYoutube, label: "YouTube" },
+    { url: profile.social_linkedin, icon: FaLinkedin, label: "LinkedIn" },
+  ].filter((link) => link.url);
+
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="relative bg-light-surface dark:bg-dark-surface opacity-100 rounded-lg shadow-md overflow-hidden mb-8 border border-light-highlight-med dark:border-dark-highlight-med">
+        <Card className="overflow-hidden mb-8">
           <div className="relative w-full h-56 sm:h-64">
             {profile.banner_url ? (
               <Image
@@ -140,177 +250,185 @@ export default function UserProfileClient(
               />
             ) : (
               <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage:
-                    "repeating-linear-gradient(45deg, rgba(239,68,68,0.18) 0px, rgba(239,68,68,0.18) 10px, transparent 10px, transparent 20px)",
-                }}
+                className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20"
               />
             )}
             {profile.avatar_url && (
               <div className="absolute left-6 -bottom-12">
-                <Image
-                  src={profile.avatar_url}
-                  alt={profile.full_name?.split(" ")[0] || params.username}
-                  width={180}
-                  height={180}
-                  className="rounded-full border-2 border-light-highlight-med dark:border-dark-highlight-med bg-light-surface dark:bg-dark-surface"
-                  unoptimized
-                />
+                <Avatar className="h-[120px] w-[120px] border-4 border-card">
+                  <AvatarImage
+                    src={profile.avatar_url}
+                    alt={
+                      profile.full_name?.split(" ")[0] || params.username
+                    }
+                  />
+                  <AvatarFallback className="text-3xl">
+                    {(profile.full_name || params.username)[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
               </div>
             )}
           </div>
-          <div className="px-6 pt-16 pb-6">
+          <CardContent className="px-6 pt-16 pb-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
-                <h1 className="text-3xl font-bold text-light-text dark:text-dark-text">
+                <h1 className="text-3xl font-bold font-heading">
                   {profile.full_name || params.username}
                 </h1>
-                <p className="mt-1 text-light-pine dark:text-dark-foam font-mono text-sm">
+                <p className="mt-1 text-primary font-mono text-sm">
                   @{params.username}
                   {profile.instance_domain && `@${profile.instance_domain}`}
                 </p>
                 {profile.instance_domain && (
-                  <button
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={handleCopyHandle}
-                    className="mt-2 inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium bg-light-overlay dark:bg-dark-overlay text-light-muted dark:text-dark-muted hover:text-light-pine dark:hover:text-dark-foam transition-colors border border-light-highlight-med dark:border-dark-highlight-med"
+                    className="mt-2"
                   >
                     {copied ? (
                       "Copied!"
                     ) : (
                       <>
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        <svg
+                          className="w-3.5 h-3.5 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          />
                         </svg>
                         Copy Fediverse Handle
                       </>
                     )}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
             {profile.bio && (
-              <p className="mt-4 text-light-text dark:text-dark-text leading-relaxed">
-                {profile.bio}
-              </p>
+              <p className="mt-4 leading-relaxed">{profile.bio}</p>
             )}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap gap-4">
-                {profile.social_github && (
-                  <a
-                    href={profile.social_github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine hover:underline transition-colors"
-                  >
-                    <FaGithub className="inline-block mr-1 text-xl" />
-                  </a>
-                )}
-                {profile.social_website && (
-                  <a
-                    href={profile.social_website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine hover:underline transition-colors"
-                  >
-                    <FaGlobe className="inline-block mr-1 text-xl" />
-                  </a>
-                )}
-                {profile.social_twitter && (
-                  <a
-                    href={profile.social_twitter}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine hover:underline transition-colors"
-                  >
-                    <FaTwitter className="inline-block mr-1 text-xl" />
-                  </a>
-                )}
-                {profile.social_reddit && (
-                  <a
-                    href={profile.social_reddit}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine hover:underline transition-colors"
-                  >
-                    <FaReddit className="inline-block mr-1 text-xl" />
-                  </a>
-                )}
-                {profile.social_youtube && (
-                  <a
-                    href={profile.social_youtube}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine hover:underline transition-colors"
-                  >
-                    <FaYoutube className="inline-block mr-1 text-xl" />
-                  </a>
-                )}
-                {profile.social_linkedin && (
-                  <a
-                    href={profile.social_linkedin}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-light-pine dark:text-dark-foam hover:text-light-foam dark:hover:text-dark-pine hover:underline transition-colors"
-                  >
-                    <FaLinkedin className="inline-block mr-1 text-xl" />
-                  </a>
-                )}
-              </div>
+              {socialLinks.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {socialLinks.map((link) => (
+                    <a
+                      key={link.label}
+                      href={link.url!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:bg-accent gap-1.5 py-1"
+                      >
+                        <link.icon className="text-sm" />
+                        {link.label}
+                      </Badge>
+                    </a>
+                  ))}
+                </div>
+              )}
               {profile.support_url && (
                 <a
                   href={profile.support_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center rounded-full border-2 border-black bg-yellow-400 hover:bg-yellow-300 text-black px-4 py-2 shadow-sm"
                 >
-                  {profile.support_text || "Support me !!"}
+                  <Button className="bg-yellow-400 hover:bg-yellow-300 text-black border-2 border-black">
+                    {profile.support_text || "Support me !!"}
+                  </Button>
                 </a>
               )}
             </div>
-          </div>
-        </div>
-        <h2 className="text-2xl font-bold mb-6 text-light-text dark:text-dark-text">Posts</h2>
+          </CardContent>
+        </Card>
+
+        <h2 className="text-2xl font-bold mb-6 font-heading">Posts</h2>
         <PostList author={params.username} />
-        <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-xl font-semibold mb-3 text-light-text dark:text-dark-text">Followers</h3>
-            {followersQuery.isLoading ? (
-              <div className="py-4"><LoadingSpinner size="sm" /></div>
-            ) : followers.length === 0 ? (
-              <p className="text-light-muted dark:text-dark-muted">No followers yet</p>
-            ) : (
-              <ul className="space-y-2">
-                {followers.map((f) => (
-                  <li key={f.remote_actor} className="flex items-center justify-between bg-light-surface dark:bg-dark-surface rounded border border-light-highlight-med dark:border-dark-highlight-med px-3 py-2">
-                    <a href={f.remote_actor} target="_blank" rel="noreferrer" title={f.remote_actor} className="text-light-pine dark:text-dark-foam hover:underline truncate">
-                      {actorUrlToHandle(f.remote_actor)}
-                    </a>
-                    <span className="text-xs px-2 py-1 rounded bg-light-overlay dark:bg-dark-overlay text-light-muted dark:text-dark-muted">{f.approved ? "approved" : "pending"}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div>
-            <h3 className="text-xl font-semibold mb-3 text-light-text dark:text-dark-text">Following</h3>
-            {followingQuery.isLoading ? (
-              <div className="py-4"><LoadingSpinner size="sm" /></div>
-            ) : following.length === 0 ? (
-              <p className="text-light-muted dark:text-dark-muted">Not following anyone yet</p>
-            ) : (
-              <ul className="space-y-2">
-                {following.map((f) => (
-                  <li key={f.remote_actor} className="flex items-center justify-between bg-light-surface dark:bg-dark-surface rounded border border-light-highlight-med dark:border-dark-highlight-med px-3 py-2">
-                    <a href={f.remote_actor} target="_blank" rel="noreferrer" title={f.remote_actor} className="text-light-pine dark:text-dark-foam hover:underline truncate">
-                      {actorUrlToHandle(f.remote_actor)}
-                    </a>
-                    <span className="text-xs px-2 py-1 rounded bg-light-overlay dark:bg-dark-overlay text-light-muted dark:text-dark-muted">{f.accepted ? "accepted" : "pending"}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+
+        <Separator className="my-10" />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-heading">Followers</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {followersQuery.isLoading ? (
+                <div className="py-4">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : followers.length === 0 ? (
+                <p className="text-muted-foreground">No followers yet</p>
+              ) : (
+                <ul className="space-y-2">
+                  {followers.map((f) => (
+                    <li
+                      key={f.remote_actor}
+                      className="flex items-center justify-between rounded-md border px-3 py-2"
+                    >
+                      <a
+                        href={actorUrlToHandle(f).url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={f.remote_actor}
+                        className="text-primary hover:underline truncate"
+                      >
+                        {actorUrlToHandle(f).handle}
+                      </a>
+                      <Badge variant={f.approved ? "default" : "secondary"}>
+                        {f.approved ? "approved" : "pending"}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-heading">Following</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {followingQuery.isLoading ? (
+                <div className="py-4">
+                  <LoadingSpinner size="sm" />
+                </div>
+              ) : following.length === 0 ? (
+                <p className="text-muted-foreground">
+                  Not following anyone yet
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {following.map((f) => (
+                    <li
+                      key={f.remote_actor}
+                      className="flex items-center justify-between rounded-md border px-3 py-2"
+                    >
+                      <a
+                        href={actorUrlToHandle(f).url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={f.remote_actor}
+                        className="text-primary hover:underline truncate"
+                      >
+                        {actorUrlToHandle(f).handle}
+                      </a>
+                      <Badge variant={f.accepted ? "default" : "secondary"}>
+                        {f.accepted ? "accepted" : "pending"}
+                      </Badge>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </main>
