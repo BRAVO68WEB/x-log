@@ -549,7 +549,7 @@ async function handleToolCall(toolName: string, args: any): Promise<any> {
                 instance_name: settings.instance_name,
                 instance_domain: settings.instance_domain,
                 instance_description: settings.instance_description,
-                open_registrations: settings.open_registrations,
+                open_registrations: false,
                 federation_enabled: settings.federation_enabled,
                 stats: {
                   users: Number(stats?.user_count || 0),

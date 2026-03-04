@@ -22,20 +22,29 @@ function computeDigest(body: string): string {
 }
 
 // Fetch a remote actor's inbox URL by dereferencing their actor object
-async function fetchRemoteInbox(actorUrl: string): Promise<{ inbox: string; sharedInbox?: string }> {
+async function fetchRemoteActor(actorUrl: string): Promise<{
+  inbox: string;
+  sharedInbox?: string;
+  preferredUsername?: string;
+}> {
   try {
     const resp = await fetch(actorUrl, {
       headers: { Accept: "application/activity+json, application/ld+json" },
     });
     if (resp.ok) {
-      const actor = (await resp.json()) as { inbox?: string; endpoints?: { sharedInbox?: string } };
+      const actor = (await resp.json()) as {
+        inbox?: string;
+        endpoints?: { sharedInbox?: string };
+        preferredUsername?: string;
+      };
       return {
         inbox: actor.inbox || actorUrl.replace(/\/$/, "") + "/inbox",
         sharedInbox: actor.endpoints?.sharedInbox,
+        preferredUsername: actor.preferredUsername,
       };
     }
   } catch (err) {
-    console.error("Failed to fetch remote actor inbox:", err);
+    console.error("Failed to fetch remote actor:", err);
   }
   return { inbox: actorUrl.replace(/\/$/, "") + "/inbox" };
 }
@@ -59,8 +68,9 @@ async function processInboxActivity(
   // Handle Follow activity
   if (activity.type === "Follow") {
     const remoteActor = activity.actor;
-    const { inbox, sharedInbox } = await fetchRemoteInbox(remoteActor);
+    const { inbox, sharedInbox, preferredUsername } = await fetchRemoteActor(remoteActor);
     const inboxUrl = sharedInbox || inbox;
+    const remoteDomain = new URL(remoteActor).hostname;
 
     // Check if already following
     const existing = await db
@@ -78,6 +88,8 @@ async function processInboxActivity(
           local_user_id: userId,
           remote_actor: remoteActor,
           inbox_url: inboxUrl,
+          remote_username: preferredUsername || null,
+          remote_domain: remoteDomain,
           approved: true,
         })
         .execute();
@@ -531,10 +543,33 @@ federationRoutes.get("/ap/users/:username/followers", async (c) => {
 // Following endpoint (A10: paginated)
 federationRoutes.get("/ap/users/:username/following", async (c) => {
   const username = c.req.param("username");
-  const page = c.req.query("page");
   const db = getDb();
   const settings = await getInstanceSettings();
   const followingId = getFollowingUrlSync(username, settings.instance_domain);
+
+  // If following is disabled, return empty collection
+  if (!settings.following_enabled) {
+    const user = await db
+      .selectFrom("users")
+      .select("id")
+      .where("username", "=", username)
+      .executeTakeFirst();
+    if (!user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+    return c.json({
+      "@context": "https://www.w3.org/ns/activitystreams",
+      id: followingId,
+      type: "OrderedCollection",
+      totalItems: 0,
+      orderedItems: [],
+    }, 200, {
+      "Content-Type": "application/activity+json",
+      "Cache-Control": "max-age=60",
+    });
+  }
+
+  const page = c.req.query("page");
   const PAGE_SIZE = 20;
 
   const user = await db

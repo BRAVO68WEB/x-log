@@ -84,6 +84,13 @@ export async function verifySignature(
   body: string
 ): Promise<boolean> {
   try {
+    // Behind a reverse proxy or tunnel, the Host header often gets
+    // rewritten to the upstream address (e.g. localhost:8080). Use the
+    // configured instance domain as the canonical host — it always
+    // matches what remote servers signed against.
+    const settings = await getInstanceSettings();
+    headers = { ...headers, host: settings.instance_domain };
+
     const db = getDb();
     const digestHeader = headers["digest"] || headers["Digest"];
     if (digestHeader) {
@@ -243,6 +250,9 @@ function verifySignatureWithKey(
         return `${headerName.toLowerCase()}: ${headerValue}`;
       })
       .join("\n");
+
+    console.warn(`[SIG DEBUG] Signed headers: ${signedHeaders.join(", ")}`);
+    console.warn(`[SIG DEBUG] Signature string:\n${signatureString}`);
 
     const verify = crypto.createVerify("RSA-SHA256");
     verify.update(signatureString);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "react-query";
+import { Separator } from "@/components/ui/separator";
 
 interface InstanceSettings {
   instance_name: string;
@@ -20,12 +21,13 @@ export function Footer() {
   );
 
   return (
-    <footer className="border-t border-light-highlight-med dark:border-dark-highlight-med bg-light-surface dark:bg-dark-surface mt-auto">
+    <footer className="mt-auto">
+      <Separator />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-light-muted dark:text-dark-muted">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex flex-col items-center sm:items-start gap-1">
             {settings?.instance_name && (
-              <span className="font-medium text-light-text dark:text-dark-text">
+              <span className="font-heading font-medium text-foreground">
                 {settings.instance_name}
               </span>
             )}
@@ -41,7 +43,7 @@ export function Footer() {
               href="https://github.com/BRAVO68WEB/x-log"
               target="_blank"
               rel="noopener noreferrer"
-              className="hover:text-light-pine dark:hover:text-dark-foam transition-colors"
+              className="hover:text-primary transition-colors"
             >
               Powered by x-log
             </a>

@@ -121,7 +121,7 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
       inbound: [],
       outbound: [],
     },
-    openRegistrations: settings?.open_registrations || false,
+    openRegistrations: false,
     usage: {
       users: {
         total: Number(userCount?.count || 0),
@@ -173,7 +173,7 @@ wellKnownRoutes.get("/nodeinfo/2.0", async (c) => {
       inbound: [],
       outbound: [],
     },
-    openRegistrations: settings?.open_registrations || false,
+    openRegistrations: false,
     usage: {
       users: {
         total: Number(userCount?.count || 0),
@@ -220,6 +220,40 @@ wellKnownRoutes.get("/.well-known/host-meta.json", async (c) => {
 
   return c.json(jrd, 200, {
     "Content-Type": "application/jrd+json",
+    "Cache-Control": "max-age=1800",
+  });
+});
+
+// NodeInfo2 (x-nodeinfo2) — direct document without discovery step
+wellKnownRoutes.get("/.well-known/x-nodeinfo2", async (c) => {
+  const settings = await getInstanceSettings();
+  const db = getDb();
+  const userCount = await db
+    .selectFrom("users")
+    .select(db.fn.countAll().as("count"))
+    .executeTakeFirst();
+  const postCount = await db
+    .selectFrom("posts")
+    .select(db.fn.countAll().as("count"))
+    .where("visibility", "=", "public")
+    .executeTakeFirst();
+
+  return c.json({
+    version: "1.0",
+    server: {
+      baseUrl: `https://${settings.instance_domain}`,
+      name: settings.instance_name,
+      software: "x-log",
+      version: "0.3.0",
+    },
+    openRegistrations: false,
+    protocols: ["activitypub"],
+    usage: {
+      users: { total: Number(userCount?.count || 0) },
+      localPosts: Number(postCount?.count || 0),
+    },
+  }, 200, {
+    "Content-Type": "application/json",
     "Cache-Control": "max-age=1800",
   });
 });

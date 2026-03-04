@@ -2,7 +2,7 @@
 
 import { PostCard } from "./PostCard";
 import { LoadingSpinner } from "./LoadingSpinner";
-import { Button } from "./Button";
+import { Button } from "@/components/ui/button";
 import { usePosts } from "@/hooks/usePosts";
 
 interface PostListProps {
@@ -27,7 +27,7 @@ export function PostList({ author }: PostListProps) {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-light-love dark:text-dark-love">Error: {error}</p>
+        <p className="text-destructive">Error: {error}</p>
       </div>
     );
   }
@@ -35,7 +35,7 @@ export function PostList({ author }: PostListProps) {
   if (posts.length === 0) {
     return (
       <div className="text-center py-12">
-        <p className="text-light-muted dark:text-dark-muted">No posts found.</p>
+        <p className="text-muted-foreground">No posts found.</p>
       </div>
     );
   }
@@ -49,7 +49,7 @@ export function PostList({ author }: PostListProps) {
       </div>
       {hasMore && (
         <div className="flex justify-center py-6">
-          <Button onClick={loadMore} disabled={loading}>
+          <Button variant="outline" onClick={loadMore} disabled={loading}>
             {loading ? "Loading..." : "Load More"}
           </Button>
         </div>

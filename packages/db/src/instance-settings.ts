@@ -4,8 +4,8 @@ let cachedSettings: {
   instance_domain: string;
   instance_name: string;
   instance_description: string | null;
-  open_registrations: boolean;
   federation_enabled: boolean;
+  following_enabled: boolean;
 } | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute cache
@@ -25,8 +25,8 @@ export async function getInstanceSettings() {
       "instance_domain",
       "instance_name",
       "instance_description",
-      "open_registrations",
       "federation_enabled",
+      "following_enabled",
     ])
     .where("id", "=", 1)
     .executeTakeFirst();
@@ -39,8 +39,8 @@ export async function getInstanceSettings() {
       instance_domain: env.INSTANCE_DOMAIN,
       instance_name: env.INSTANCE_NAME || "x-log",
       instance_description: null,
-      open_registrations: false,
       federation_enabled: true,
+      following_enabled: false,
     };
   }
 
@@ -48,8 +48,8 @@ export async function getInstanceSettings() {
     instance_domain: settings.instance_domain,
     instance_name: settings.instance_name,
     instance_description: settings.instance_description,
-    open_registrations: settings.open_registrations,
     federation_enabled: settings.federation_enabled,
+    following_enabled: settings.following_enabled,
   };
   cacheTimestamp = now;
 

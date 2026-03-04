@@ -1,41 +1,48 @@
 import * as React from "react";
-import type { ButtonHTMLAttributes } from "react";
+import {
+  Button as ShadcnButton,
+  type ButtonProps as ShadcnButtonProps,
+} from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
+type VariantMap = "primary" | "secondary" | "danger" | "ghost" | "outline";
+
+interface ButtonProps
+  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+  variant?: VariantMap;
   size?: "sm" | "md" | "lg";
   children: React.ReactNode;
 }
 
+const variantMapping: Record<VariantMap, ShadcnButtonProps["variant"]> = {
+  primary: "default",
+  secondary: "secondary",
+  danger: "destructive",
+  ghost: "ghost",
+  outline: "outline",
+};
+
+const sizeMapping: Record<string, ShadcnButtonProps["size"]> = {
+  sm: "sm",
+  md: "default",
+  lg: "lg",
+};
+
 export function Button({
   variant = "primary",
   size = "md",
-  className = "",
+  className,
   children,
   ...props
 }: ButtonProps) {
-  const baseStyles = "font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
-  
-  const variants = {
-    primary: "bg-light-pine dark:bg-dark-pine opacity-100 text-white hover:bg-light-foam dark:hover:bg-dark-foam focus:ring-light-pine dark:focus:ring-dark-pine",
-    secondary: "bg-light-overlay dark:bg-dark-overlay opacity-100 text-light-text dark:text-dark-text hover:bg-light-highlight-low dark:hover:bg-dark-highlight-low focus:ring-light-muted dark:focus:ring-dark-muted",
-    danger: "bg-light-love dark:bg-dark-love opacity-100 text-white hover:bg-light-rose dark:hover:bg-dark-rose focus:ring-light-love dark:focus:ring-dark-love",
-    ghost: "bg-transparent text-light-text dark:text-dark-text hover:bg-light-overlay dark:hover:bg-dark-overlay focus:ring-light-muted dark:focus:ring-dark-muted",
-    outline: "border border-light-highlight-med dark:border-dark-highlight-med bg-light-surface dark:bg-dark-surface opacity-100 text-light-text dark:text-dark-text hover:bg-light-overlay dark:hover:bg-dark-overlay focus:ring-light-muted dark:focus:ring-dark-muted",
-  };
-
-  const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg",
-  };
-
   return (
-    <button
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+    <ShadcnButton
+      variant={variantMapping[variant]}
+      size={sizeMapping[size]}
+      className={cn(className)}
       {...props}
     >
       {children}
-    </button>
+    </ShadcnButton>
   );
 }

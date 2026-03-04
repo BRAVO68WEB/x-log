@@ -95,7 +95,6 @@ export const OnboardingCompleteSchema = z.object({
   admin_username: z.string().min(1).max(255),
   admin_password: z.string().min(8),
   admin_email: z.string().email().optional(),
-  open_registrations: z.boolean().default(false),
   smtp_url: z.string().url().optional(),
 });
 

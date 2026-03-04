@@ -36,8 +36,16 @@ usersRoutes.get(
 
     const dbUser = await db
       .selectFrom("users")
-      .selectAll()
-      .where("id", "=", user.id)
+      .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+      .select([
+        "users.id",
+        "users.username",
+        "users.email",
+        "users.role",
+        "users.created_at",
+        "user_profiles.avatar_url",
+      ])
+      .where("users.id", "=", user.id)
       .executeTakeFirst();
 
     if (!dbUser) {
@@ -50,6 +58,7 @@ usersRoutes.get(
       email: dbUser.email,
       role: dbUser.role,
       created_at: dbUser.created_at.toISOString(),
+      avatar_url: dbUser.avatar_url ?? null,
     });
   }
 );
