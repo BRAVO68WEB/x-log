@@ -5,6 +5,10 @@ import { useSearchParams } from "next/navigation";
 import { SearchBar } from "@/components/SearchBar";
 import { PostCard } from "@/components/PostCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useInfiniteQuery, useQuery } from "react-query";
 
@@ -37,7 +41,11 @@ function SearchResults() {
 
   const isHashtagMode = Boolean(hashtag) && type === "post";
 
-  const infinite = useInfiniteQuery<{ items: SearchPost[]; nextCursor?: string; hasMore: boolean }>(
+  const infinite = useInfiniteQuery<{
+    items: SearchPost[];
+    nextCursor?: string;
+    hasMore: boolean;
+  }>(
     ["search-hashtag", hashtag],
     async ({ pageParam }) => {
       const params = new URLSearchParams();
@@ -45,12 +53,20 @@ function SearchResults() {
       params.set("type", "post");
       params.set("limit", String(9));
       if (pageParam) params.set("cursor", String(pageParam));
-      const res = await fetch(`/api/search?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/search?${params.toString()}`, {
+        credentials: "include",
+      });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Search failed" }));
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Search failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      return res.json() as Promise<{ items: SearchPost[]; nextCursor?: string; hasMore: boolean }>;
+      return res.json() as Promise<{
+        items: SearchPost[];
+        nextCursor?: string;
+        hasMore: boolean;
+      }>;
     },
     {
       enabled: isHashtagMode,
@@ -58,17 +74,25 @@ function SearchResults() {
     }
   );
 
-  const { data, isLoading } = useQuery<{ items: (SearchPost | SearchProfile)[] }>(
+  const { data, isLoading } = useQuery<{
+    items: (SearchPost | SearchProfile)[];
+  }>(
     ["search", query, type],
     async () => {
       const params = new URLSearchParams({ q: query });
       params.set("type", type);
-      const res = await fetch(`/api/search?${params.toString()}`, { credentials: "include" });
+      const res = await fetch(`/api/search?${params.toString()}`, {
+        credentials: "include",
+      });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Search failed" }));
+        const err = await res
+          .json()
+          .catch(() => ({ error: "Search failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
-      return res.json() as Promise<{ items: (SearchPost | SearchProfile)[] }>;
+      return res.json() as Promise<{
+        items: (SearchPost | SearchProfile)[];
+      }>;
     },
     { enabled: Boolean(query) && !isHashtagMode }
   );
@@ -80,65 +104,124 @@ function SearchResults() {
         : data?.items ?? [],
     [isHashtagMode, infinite.data, data]
   );
-  const hasMore = isHashtagMode ? Boolean(infinite.data?.pages.at(-1)?.hasMore) : false;
+  const hasMore = isHashtagMode
+    ? Boolean(infinite.data?.pages.at(-1)?.hasMore)
+    : false;
   const loading = isHashtagMode ? infinite.isLoading : isLoading;
+
+  const postResults = (
+    <>
+      <div className="space-y-6">
+        {results.map((post) => (
+          <PostCard
+            key={(post as SearchPost).id}
+            {...(post as SearchPost)}
+          />
+        ))}
+      </div>
+      {hasMore && (
+        <div className="flex justify-center py-6">
+          <Button
+            variant="outline"
+            onClick={() => infinite.fetchNextPage()}
+            disabled={infinite.isFetching}
+          >
+            {infinite.isFetching ? "Loading..." : "Load More"}
+          </Button>
+        </div>
+      )}
+    </>
+  );
+
+  const profileResults = (
+    <div className="space-y-4">
+      {results.map((profile) => (
+        <Link
+          key={(profile as SearchProfile).username}
+          href={`/u/${(profile as SearchProfile).username}`}
+        >
+          <Card className="hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-6 flex items-center gap-4">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback>
+                  {(
+                    (profile as SearchProfile).full_name ||
+                    (profile as SearchProfile).username ||
+                    "?"
+                  )[0].toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="text-lg font-semibold font-heading">
+                  {(profile as SearchProfile).full_name?.split(" ")[0] ||
+                    (profile as SearchProfile).username}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  @{(profile as SearchProfile).username}
+                </p>
+                {(profile as SearchProfile).bio && (
+                  <p className="mt-1 text-sm">
+                    {(profile as SearchProfile).bio}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
+    </div>
+  );
 
   return (
     <div>
+      {isHashtagMode && (
+        <div className="mb-6 flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Showing posts tagged</span>
+          <Badge variant="secondary" className="text-sm">#{hashtag}</Badge>
+        </div>
+      )}
       {loading ? (
         <div className="flex justify-center py-12">
           <LoadingSpinner size="lg" />
         </div>
       ) : results.length > 0 ? (
-        <>
-          {type === "post" ? (
-            <>
-              <div className="space-y-6">
-                {results.map((post) => (
-                  <PostCard key={(post as SearchPost).id} {...(post as SearchPost)} />
-                ))}
-              </div>
-              {hasMore && (
-                <div className="flex justify-center py-6">
-                  <button
-                    onClick={() => infinite.fetchNextPage()}
-                    disabled={infinite.isFetching}
-                    className="px-4 py-2 rounded-md bg-light-overlay dark:bg-dark-overlay opacity-100 border border-light-highlight-med dark:border-dark-highlight-med text-light-text dark:text-dark-text"
-                  >
-                    {infinite.isFetching ? "Loading..." : "Load More"}
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="space-y-4">
-              {results.map((profile) => (
-                <Link
-                  key={(profile as SearchProfile).username}
-                  href={`/u/${(profile as SearchProfile).username}`}
-                  className="block bg-light-surface dark:bg-dark-surface opacity-100 rounded-lg shadow-md p-6 border border-light-highlight-med dark:border-dark-highlight-med hover:shadow-lg transition-shadow"
-                >
-                  <h3 className="text-xl font-bold text-light-text dark:text-dark-text">
-                    {(profile as SearchProfile).full_name?.split(" ")[0] ||
-                      (profile as SearchProfile).username}
-                  </h3>
-                  <p className="text-light-muted dark:text-dark-muted">
-                    @{(profile as SearchProfile).username}
-                  </p>
-                  {(profile as SearchProfile).bio && (
-                    <p className="mt-2 text-light-text dark:text-dark-text">
-                      {(profile as SearchProfile).bio}
-                    </p>
-                  )}
-                </Link>
-              ))}
+        isHashtagMode ? (
+          postResults
+        ) : (
+          <div>
+            <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground mb-6">
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&type=post`}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                  type === "post"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "hover:bg-background/50 hover:text-foreground"
+                }`}
+              >
+                Posts
+              </Link>
+              <Link
+                href={`/search?q=${encodeURIComponent(query)}&type=profile`}
+                className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
+                  type === "profile"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "hover:bg-background/50 hover:text-foreground"
+                }`}
+              >
+                Profiles
+              </Link>
             </div>
-          )}
-        </>
+            {type === "post" ? postResults : profileResults}
+          </div>
+        )
       ) : hashtag || query ? (
-        <p className="text-center text-light-muted dark:text-dark-muted py-12">No results found.</p>
+        <p className="text-center text-muted-foreground py-12">
+          No results found.
+        </p>
       ) : (
-        <p className="text-center text-light-muted dark:text-dark-muted py-12">Enter a search query to get started.</p>
+        <p className="text-center text-muted-foreground py-12">
+          Enter a search query to get started.
+        </p>
       )}
     </div>
   );
@@ -148,7 +231,7 @@ export default function SearchClient() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-light-text dark:text-dark-text">Search</h1>
+        <h1 className="text-4xl font-bold mb-8 font-heading">Search</h1>
         <div className="mb-8">
           <SearchBar />
         </div>
