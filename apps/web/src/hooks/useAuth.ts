@@ -10,6 +10,7 @@ interface User {
   email?: string;
   role: "admin" | "author" | "reader";
   created_at: string;
+  avatar_url?: string | null;
 }
 
 export function useAuth() {

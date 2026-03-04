@@ -4,15 +4,17 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "./Button";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "./ThemeToggle";
+import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Hide navbar on onboarding and login pages
   if (pathname === "/onboarding" || pathname === "/login") {
     return null;
   }
@@ -28,79 +30,97 @@ export function Navbar() {
     { href: "/settings", label: "Settings" },
   ];
 
-  const allNavItems = [...publicNavItems, ...(isAuthenticated ? authNavItems : [])];
+  const allNavItems = [
+    ...publicNavItems,
+    ...(isAuthenticated ? authNavItems : []),
+  ];
 
   return (
-    <nav className="border-b border-light-highlight-med dark:border-dark-highlight-med bg-light-surface dark:bg-dark-surface opacity-100 shadow-sm sticky top-0 z-50">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center mr-8">
-              <span className="relative inline-block" aria-label="x-log">
-                <span className="text-2xl sm:text-3xl font-extrabold leading-none text-white dark:text-white">x-log</span>
-                <span
-                  aria-hidden="true"
-                  className="absolute inset-0 -z-10 blur-lg opacity-35 pointer-events-none"
-                  style={{
-                    backgroundImage:
-                      "linear-gradient(90deg, #8b5cf6 0%, #60a5fa 20%, #22c55e 40%, #f59e0b 60%, #ef4444 80%, #ec4899 100%)",
-                    filter: "blur(10px)",
-                  }}
-                />
+              <span className="text-2xl sm:text-3xl font-extrabold leading-none font-heading bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-green-500">
+                x-log
               </span>
             </Link>
-            <div className="hidden sm:flex sm:space-x-4">
+            <div className="hidden sm:flex sm:space-x-1">
               {allNavItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`inline-flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    pathname === item.href
-                      ? "bg-light-pine/10 dark:bg-dark-pine/20 text-light-pine dark:text-dark-foam"
-                      : "text-light-muted dark:text-dark-muted hover:bg-light-overlay dark:hover:bg-dark-overlay hover:text-light-text dark:hover:text-dark-text"
-                  }`}
-                >
-                  {item.label}
+                <Link key={item.href} href={item.href}>
+                  <Button
+                    variant={pathname === item.href ? "secondary" : "ghost"}
+                    size="sm"
+                    className={cn(
+                      "text-sm",
+                      pathname === item.href && "font-semibold"
+                    )}
+                  >
+                    {item.label}
+                  </Button>
                 </Link>
               ))}
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            {/* Mobile hamburger button */}
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className="sm:hidden p-2 rounded-md text-light-muted dark:text-dark-muted hover:bg-light-overlay dark:hover:bg-dark-overlay transition-colors"
+              className="sm:hidden p-2 rounded-md text-muted-foreground hover:bg-accent transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               aria-label="Toggle menu"
             >
               {mobileMenuOpen ? (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
               )}
             </button>
             <ThemeToggle />
             {isAuthenticated ? (
               <>
-                <span className="text-sm text-light-muted dark:text-dark-muted hidden sm:inline">
+                <Avatar className="h-7 w-7">
+                  {user?.avatar_url ? (
+                    <AvatarImage src={user.avatar_url} alt={user.username || ""} />
+                  ) : (
+                    <AvatarFallback className="text-xs">
+                      {user?.username?.[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <span className="text-sm text-muted-foreground hidden sm:inline">
                   {user?.username}
                 </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={logout}
-                  className="text-sm"
-                >
+                <Button variant="outline" size="sm" onClick={logout}>
                   Logout
                 </Button>
               </>
             ) : (
               <Link href="/login">
-                <Button variant="outline" size="sm" className="text-sm">
+                <Button variant="outline" size="sm">
                   Login
                 </Button>
               </Link>
@@ -108,23 +128,26 @@ export function Navbar() {
           </div>
         </div>
       </div>
-      {/* Mobile menu panel */}
       {mobileMenuOpen && (
-        <div className="sm:hidden border-t border-light-highlight-med dark:border-dark-highlight-med bg-light-surface dark:bg-dark-surface">
+        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-md">
           <div className="px-4 py-3 space-y-1">
-            {allNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-base font-medium transition-colors ${
-                  pathname === item.href
-                    ? "bg-light-pine/10 dark:bg-dark-pine/20 text-light-pine dark:text-dark-foam"
-                    : "text-light-muted dark:text-dark-muted hover:bg-light-overlay dark:hover:bg-dark-overlay hover:text-light-text dark:hover:text-dark-text"
-                }`}
-              >
-                {item.label}
-              </Link>
+            {allNavItems.map((item, index) => (
+              <div key={item.href}>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Button
+                    variant={pathname === item.href ? "secondary" : "ghost"}
+                    className="w-full justify-start"
+                  >
+                    {item.label}
+                  </Button>
+                </Link>
+                {index < allNavItems.length - 1 && (
+                  <Separator className="my-1" />
+                )}
+              </div>
             ))}
           </div>
         </div>
