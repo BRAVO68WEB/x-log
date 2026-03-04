@@ -10,6 +10,7 @@ import { mediaRoutes } from "./media";
 import { settingsRoutes } from "./settings";
 import { mcpRoutes } from "./mcp";
 import { adminRoutes } from "./admin";
+import { mastodonRoutes } from "./mastodon";
 
 export const apiRoutes = new Hono()
   .route("/auth", authRoutes)
@@ -21,6 +22,7 @@ export const apiRoutes = new Hono()
   .route("/search", searchRoutes)
   .route("/media", mediaRoutes)
   .route("/settings", settingsRoutes)
-  .route("/mcp", mcpRoutes);
+  .route("/mcp", mcpRoutes)
+  .route("/v1", mastodonRoutes);
 
 export const adminApiRoutes = new Hono().route("/admin", adminRoutes);

@@ -27,6 +27,14 @@ app.use(
   })
 );
 
+// Log all error responses (4xx and 5xx)
+app.use("*", async (c, next) => {
+  await next();
+  if (c.res.status >= 400) {
+    console.error(`[ERROR] ${c.req.method} ${c.req.path} - ${c.res.status}`);
+  }
+});
+
 app.get(
   "/api/openapi.json",
   openAPIRouteHandler(app, {
@@ -68,6 +76,18 @@ app.get('/docs', Scalar({ url: '/api/openapi.json',
   "slug": "api-1",
   "title": "API #1" })
 )
+
+// Global error handler
+app.onError((err, c) => {
+  console.error(`[ERROR] ${c.req.method} ${c.req.path}:`, err.message);
+  console.error(err.stack);
+
+  const status = "status" in err ? (err as any).status : 500;
+  return c.json(
+    { error: status === 500 ? "Internal server error" : err.message },
+    status
+  );
+});
 
 // Routes
 app.route("/api", apiRoutes);

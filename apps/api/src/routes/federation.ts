@@ -613,18 +613,21 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   // Validate Content-Type
   const ct = c.req.header("content-type") || "";
   if (!ct.includes("application/activity+json") && !ct.includes("application/ld+json") && !ct.includes("application/json")) {
+    console.warn(`Inbox rejected: unsupported content-type: ${ct}`);
     return c.json({ error: "Unsupported content type" }, 415);
   }
 
   // Require HTTP Signature on all inbox POSTs
   const signatureHeader = c.req.header("signature");
   if (!signatureHeader) {
+    console.warn(`Inbox rejected: missing Signature header for /ap/users/${username}/inbox`);
     return c.json({ error: "Missing signature" }, 401);
   }
 
   // Payload size limit (1MB)
   const body = await c.req.text();
   if (body.length > 1_048_576) {
+    console.warn(`Inbox rejected: payload too large (${body.length} bytes)`);
     return c.json({ error: "Payload too large" }, 413);
   }
 
@@ -645,6 +648,7 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   );
 
   if (!isValid) {
+    console.warn(`Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`);
     return c.json({ error: "Invalid signature" }, 401);
   }
 
@@ -653,6 +657,7 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
   const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
   if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
+    console.warn(`Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`);
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 
@@ -702,18 +707,21 @@ federationRoutes.post("/ap/inbox", async (c) => {
   // Validate Content-Type
   const ct = c.req.header("content-type") || "";
   if (!ct.includes("application/activity+json") && !ct.includes("application/ld+json") && !ct.includes("application/json")) {
+    console.warn(`Inbox rejected: unsupported content-type: ${ct}`);
     return c.json({ error: "Unsupported content type" }, 415);
   }
 
   // Require HTTP Signature on all inbox POSTs
   const signatureHeader = c.req.header("signature");
   if (!signatureHeader) {
+    console.warn("Inbox rejected: missing Signature header for /ap/inbox");
     return c.json({ error: "Missing signature" }, 401);
   }
 
   // Payload size limit (1MB)
   const body = await c.req.text();
   if (body.length > 1_048_576) {
+    console.warn(`Inbox rejected: payload too large (${body.length} bytes)`);
     return c.json({ error: "Payload too large" }, 413);
   }
 
@@ -734,6 +742,7 @@ federationRoutes.post("/ap/inbox", async (c) => {
   );
 
   if (!isValid) {
+    console.warn(`Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`);
     return c.json({ error: "Invalid signature" }, 401);
   }
 
@@ -742,6 +751,7 @@ federationRoutes.post("/ap/inbox", async (c) => {
   const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
   const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
   if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
+    console.warn(`Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`);
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 

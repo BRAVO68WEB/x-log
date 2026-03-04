@@ -85,13 +85,14 @@ export async function verifySignature(
 ): Promise<boolean> {
   try {
     const db = getDb();
-    const digestHeader = headers["digest"] || headers["Digest"]; 
+    const digestHeader = headers["digest"] || headers["Digest"];
     if (digestHeader) {
       const expectedDigest = `SHA-256=${crypto
         .createHash("sha256")
         .update(body)
         .digest("base64")}`;
       if (digestHeader !== expectedDigest) {
+        console.warn("Sig verify failed: digest mismatch");
         return false;
       }
     }
@@ -100,11 +101,13 @@ export async function verifySignature(
     if (dateHeader) {
       const parsed = new Date(dateHeader).getTime();
       if (Number.isNaN(parsed)) {
+        console.warn("Sig verify failed: invalid date header");
         return false;
       }
       const diffMs = Math.abs(Date.now() - parsed);
       const maxSkewMs = 5 * 60 * 1000;
       if (diffMs > maxSkewMs) {
+        console.warn(`Sig verify failed: date skew too large (${Math.round(diffMs / 1000)}s)`);
         return false;
       }
     }
@@ -120,8 +123,11 @@ export async function verifySignature(
 
     const keyId = signatureParts.keyId;
     if (!keyId) {
+      console.warn("Sig verify failed: missing keyId");
       return false;
     }
+
+    console.warn(`Verifying signature for keyId: ${keyId}`);
 
     const replayKey = `${signatureParts.signature || ""}:${dateHeader || ""}`;
     const replay = await db
@@ -131,6 +137,7 @@ export async function verifySignature(
       .executeTakeFirst();
     const now = Date.now();
     if (replay && now - new Date(replay.created_at as any).getTime() < SIGNATURE_TTL_MS) {
+      console.warn(`Sig verify failed: replay cache hit for keyId=${keyId}`);
       return false;
     }
     await db
@@ -160,6 +167,7 @@ export async function verifySignature(
         .executeTakeFirst();
 
       if (!userKey) {
+        console.warn("Sig verify failed: local user key not found");
         return false;
       }
 
@@ -173,6 +181,7 @@ export async function verifySignature(
       );
     } else {
       if (!actorUrl.startsWith("https://")) {
+        console.warn("Sig verify failed: non-HTTPS actor URL");
         return false;
       }
       const resp = await fetch(actorUrl, {
@@ -181,6 +190,7 @@ export async function verifySignature(
         },
       });
       if (!resp.ok) {
+        console.warn(`Sig verify failed: remote actor fetch failed (status=${resp.status})`);
         return false;
       }
       const actor = (await resp.json()) as { publicKey?: { publicKeyPem?: string; owner?: string; id?: string } };
@@ -188,12 +198,15 @@ export async function verifySignature(
       const publicKeyOwner = actor.publicKey?.owner;
       const publicKeyId = actor.publicKey?.id;
       if (!publicKeyPem) {
+        console.warn("Sig verify failed: no publicKeyPem in actor");
         return false;
       }
       if (publicKeyOwner && publicKeyOwner !== actorUrl) {
+        console.warn(`Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl})`);
         return false;
       }
       if (publicKeyId && publicKeyId !== keyId) {
+        console.warn(`Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`);
         return false;
       }
       return verifySignatureWithKey(
@@ -235,7 +248,11 @@ function verifySignatureWithKey(
     verify.update(signatureString);
     verify.end();
 
-    return verify.verify(publicKeyPem, signatureParts.signature || "", "base64");
+    const result = verify.verify(publicKeyPem, signatureParts.signature || "", "base64");
+    if (!result) {
+      console.warn("Sig verify failed: RSA-SHA256 verification failed");
+    }
+    return result;
   } catch (error) {
     console.error("Signature verification error:", error);
     return false;
