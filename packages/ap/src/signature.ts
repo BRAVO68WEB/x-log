@@ -148,7 +148,7 @@ export async function verifySignature(
     const user = await db
       .selectFrom("users")
       .select("id")
-      .where("id", "=", actorId || "")
+      .where("username", "=", actorId || "")
       .executeTakeFirst();
 
     if (user) {
@@ -172,6 +172,9 @@ export async function verifySignature(
         userKey.public_key_pem
       );
     } else {
+      if (!actorUrl.startsWith("https://")) {
+        return false;
+      }
       const resp = await fetch(actorUrl, {
         headers: {
           Accept: "application/activity+json",

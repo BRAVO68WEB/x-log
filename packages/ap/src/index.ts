@@ -78,6 +78,7 @@ export interface ActivityPubDelete {
     id: string;
     type: "Tombstone";
     formerType: "Article";
+    deleted?: string;
   };
 }
 
@@ -435,6 +436,7 @@ export function createDeleteActivity(
       id: objectId,
       type: "Tombstone",
       formerType: "Article",
+      deleted: new Date().toISOString(),
     },
   };
 }

@@ -241,6 +241,23 @@ async function processRetryJobs() {
   }
 }
 
+// Periodic replay cache cleanup
+async function cleanupReplayCache() {
+  while (true) {
+    try {
+      const cutoff = new Date(Date.now() - 30 * 60 * 1000); // 30 min
+      await db
+        .deleteFrom("replay_cache")
+        .where("created_at", "<", cutoff)
+        .execute();
+    } catch (err) {
+      console.error("Replay cache cleanup error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 300_000)); // Every 5 min
+  }
+}
+
 // Start workers
 processDeliveryJobs();
 processRetryJobs();
+cleanupReplayCache();

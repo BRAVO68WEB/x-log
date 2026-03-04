@@ -22,20 +22,22 @@ function computeDigest(body: string): string {
 }
 
 // Fetch a remote actor's inbox URL by dereferencing their actor object
-async function fetchRemoteInbox(actorUrl: string): Promise<string> {
+async function fetchRemoteInbox(actorUrl: string): Promise<{ inbox: string; sharedInbox?: string }> {
   try {
     const resp = await fetch(actorUrl, {
       headers: { Accept: "application/activity+json, application/ld+json" },
     });
     if (resp.ok) {
-      const actor = (await resp.json()) as { inbox?: string };
-      if (actor.inbox) return actor.inbox;
+      const actor = (await resp.json()) as { inbox?: string; endpoints?: { sharedInbox?: string } };
+      return {
+        inbox: actor.inbox || actorUrl.replace(/\/$/, "") + "/inbox",
+        sharedInbox: actor.endpoints?.sharedInbox,
+      };
     }
   } catch (err) {
     console.error("Failed to fetch remote actor inbox:", err);
   }
-  // Fallback to naive derivation
-  return actorUrl.replace(/\/$/, "") + "/inbox";
+  return { inbox: actorUrl.replace(/\/$/, "") + "/inbox" };
 }
 
 // Shared inbox activity processing
@@ -45,10 +47,20 @@ async function processInboxActivity(
   username: string,
   db: ReturnType<typeof getDb>
 ) {
+  // Validate attributedTo on Create activities
+  if (activity.type === "Create") {
+    const obj = activity.object;
+    if (obj && typeof obj === "object" && obj.attributedTo !== activity.actor) {
+      console.warn("Create attributedTo mismatch:", obj.attributedTo, "vs", activity.actor);
+      return;
+    }
+  }
+
   // Handle Follow activity
   if (activity.type === "Follow") {
     const remoteActor = activity.actor;
-    const inboxUrl = await fetchRemoteInbox(remoteActor);
+    const { inbox, sharedInbox } = await fetchRemoteInbox(remoteActor);
+    const inboxUrl = sharedInbox || inbox;
 
     // Check if already following
     const existing = await db
@@ -109,6 +121,20 @@ async function processInboxActivity(
   // Handle Like activity
   if (activity.type === "Like") {
     const objectId = activity.object;
+    const resolvedObjectId = typeof objectId === "string" ? objectId : objectId?.id;
+
+    // Check for duplicate like from same actor
+    if (resolvedObjectId) {
+      const existingLike = await db
+        .selectFrom("inbox_objects")
+        .select("id")
+        .where("type", "=", "Like")
+        .where("actor", "=", activity.actor)
+        .where("object_id", "=", resolvedObjectId)
+        .executeTakeFirst();
+      if (existingLike) return;
+    }
+
     const postId = typeof objectId === "string" ? objectId.split("/").pop() : null;
     if (postId) {
       await db
@@ -182,6 +208,9 @@ async function processInboxActivity(
         .execute();
     }
   }
+
+  // Handle Announce (boost/reblog) - stored as inbox object above
+  // No additional processing needed currently; can be extended to track boosts.
 }
 
 // Actor endpoint (A8: enriched with avatar, banner, created_at)
@@ -265,6 +294,23 @@ federationRoutes.get("/post/:id", async (c) => {
     .executeTakeFirst();
 
   if (!post || !post.published_at) {
+    // Check if this was a previously published post (now deleted) → 410 Gone
+    const settings410 = await getInstanceSettings();
+    const apObjectId = `https://${settings410.instance_domain}/post/${id}`;
+    const wasPublished = await db
+      .selectFrom("outbox_activities")
+      .select("id")
+      .where("object_id", "=", apObjectId)
+      .executeTakeFirst();
+    if (wasPublished) {
+      return c.json({
+        "@context": "https://www.w3.org/ns/activitystreams",
+        id: apObjectId,
+        type: "Tombstone",
+        formerType: "Article",
+        deleted: new Date().toISOString(),
+      }, 410, { "Content-Type": "application/activity+json" });
+    }
     return c.json({ error: "Not found" }, 404);
   }
 
@@ -373,7 +419,7 @@ federationRoutes.get("/ap/users/:username/outbox", async (c) => {
       { visibility: "public", followersUrl }
     );
 
-    const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+    const activityId = `https://${settings.instance_domain}/ap/activities/create/${post.id}`;
     return createCreateActivity(
       activityId,
       actorId,
@@ -564,28 +610,50 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   const username = c.req.param("username");
   const db = getDb();
 
-  // Verify HTTP Signature
+  // Validate Content-Type
+  const ct = c.req.header("content-type") || "";
+  if (!ct.includes("application/activity+json") && !ct.includes("application/ld+json") && !ct.includes("application/json")) {
+    return c.json({ error: "Unsupported content type" }, 415);
+  }
+
+  // Require HTTP Signature on all inbox POSTs
   const signatureHeader = c.req.header("signature");
+  if (!signatureHeader) {
+    return c.json({ error: "Missing signature" }, 401);
+  }
+
+  // Payload size limit (1MB)
   const body = await c.req.text();
+  if (body.length > 1_048_576) {
+    return c.json({ error: "Payload too large" }, 413);
+  }
+
   const activity = JSON.parse(body);
 
-  if (signatureHeader) {
-    const headers: Record<string, string> = {};
-    c.req.raw.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
+  // Verify HTTP Signature
+  const headers: Record<string, string> = {};
+  c.req.raw.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
 
-    const isValid = await verifySignature(
-      "POST",
-      `/ap/users/${username}/inbox`,
-      headers,
-      signatureHeader,
-      body
-    );
+  const isValid = await verifySignature(
+    "POST",
+    `/ap/users/${username}/inbox`,
+    headers,
+    signatureHeader,
+    body
+  );
 
-    if (!isValid) {
-      return c.json({ error: "Invalid signature" }, 401);
-    }
+  if (!isValid) {
+    return c.json({ error: "Invalid signature" }, 401);
+  }
+
+  // Validate actor domain matches signer domain
+  const sigKeyId = signatureHeader.match(/keyId="([^"]+)"/)?.[1];
+  const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
+  const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
+  if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
+    return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 
   const user = await db
@@ -596,6 +664,18 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
 
   if (!user) {
     return c.json({ error: "User not found" }, 404);
+  }
+
+  // Activity ID deduplication
+  if (activity.id) {
+    const existing = await db
+      .selectFrom("inbox_objects")
+      .select("id")
+      .where("object_id", "=", activity.id)
+      .executeTakeFirst();
+    if (existing) {
+      return c.json({ success: true }, 202);
+    }
   }
 
   // Store inbox object
@@ -619,26 +699,61 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
 federationRoutes.post("/ap/inbox", async (c) => {
   const db = getDb();
 
+  // Validate Content-Type
+  const ct = c.req.header("content-type") || "";
+  if (!ct.includes("application/activity+json") && !ct.includes("application/ld+json") && !ct.includes("application/json")) {
+    return c.json({ error: "Unsupported content type" }, 415);
+  }
+
+  // Require HTTP Signature on all inbox POSTs
   const signatureHeader = c.req.header("signature");
+  if (!signatureHeader) {
+    return c.json({ error: "Missing signature" }, 401);
+  }
+
+  // Payload size limit (1MB)
   const body = await c.req.text();
+  if (body.length > 1_048_576) {
+    return c.json({ error: "Payload too large" }, 413);
+  }
+
   const activity = JSON.parse(body);
 
-  if (signatureHeader) {
-    const headers: Record<string, string> = {};
-    c.req.raw.headers.forEach((value, key) => {
-      headers[key] = value;
-    });
+  // Verify HTTP Signature
+  const headers: Record<string, string> = {};
+  c.req.raw.headers.forEach((value, key) => {
+    headers[key] = value;
+  });
 
-    const isValid = await verifySignature(
-      "POST",
-      `/ap/inbox`,
-      headers,
-      signatureHeader,
-      body
-    );
+  const isValid = await verifySignature(
+    "POST",
+    `/ap/inbox`,
+    headers,
+    signatureHeader,
+    body
+  );
 
-    if (!isValid) {
-      return c.json({ error: "Invalid signature" }, 401);
+  if (!isValid) {
+    return c.json({ error: "Invalid signature" }, 401);
+  }
+
+  // Validate actor domain matches signer domain
+  const sigKeyId = signatureHeader.match(/keyId="([^"]+)"/)?.[1];
+  const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
+  const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
+  if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
+    return c.json({ error: "Actor/signature domain mismatch" }, 403);
+  }
+
+  // Activity ID deduplication
+  if (activity.id) {
+    const existing = await db
+      .selectFrom("inbox_objects")
+      .select("id")
+      .where("object_id", "=", activity.id)
+      .executeTakeFirst();
+    if (existing) {
+      return c.json({ success: true }, 202);
     }
   }
 

@@ -61,6 +61,7 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
   return c.json(jrd, 200, {
     "Content-Type": "application/jrd+json",
     "Cache-Control": "max-age=300",
+    "Access-Control-Allow-Origin": "*",
   });
 });
 
