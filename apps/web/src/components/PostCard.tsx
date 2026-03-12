@@ -17,6 +17,7 @@ interface PostCardProps {
   banner_url?: string | null;
   hashtags: string[];
   like_count: number;
+  flat?: boolean;
 }
 
 export function PostCard({
@@ -28,9 +29,10 @@ export function PostCard({
   banner_url,
   hashtags,
   like_count,
+  flat = false,
 }: PostCardProps) {
-  return (
-    <Card className="overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
+  const content = (
+    <>
       {banner_url && (
         <Link href={`/post/${id}`}>
           <div className="relative w-full h-48">
@@ -109,6 +111,16 @@ export function PostCard({
           </div>
         )}
       </CardContent>
+    </>
+  );
+
+  if (flat) {
+    return <div className="overflow-hidden h-full">{content}</div>;
+  }
+
+  return (
+    <Card className="overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
+      {content}
     </Card>
   );
 }

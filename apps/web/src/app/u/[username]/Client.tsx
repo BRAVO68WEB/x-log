@@ -3,11 +3,16 @@
 import { useState, use } from "react";
 import { PostList } from "@/components/PostList";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import {
+  BentoGrid,
+  BentoCard,
+  BentoCardHeader,
+  BentoCardContent,
+} from "@/components/ui/bento-grid";
 import { useQuery } from "react-query";
 import Image from "next/image";
 import {
@@ -211,16 +216,18 @@ export default function UserProfileClient(
   if (!profile) {
     return (
       <main className="min-h-screen py-8 px-4">
-        <Card className="max-w-4xl mx-auto">
-          <CardContent className="p-8 text-center">
-            <h1 className="text-4xl font-bold mb-4 font-heading">
-              Profile not found
-            </h1>
-            <p className="text-muted-foreground">
-              The user you&apos;re looking for doesn&apos;t exist.
-            </p>
-          </CardContent>
-        </Card>
+        <BentoGrid columns={3}>
+          <BentoCard size="full" index={0}>
+            <BentoCardContent className="p-8 text-center">
+              <h1 className="text-4xl font-bold mb-4 font-heading">
+                Profile not found
+              </h1>
+              <p className="text-muted-foreground">
+                The user you&apos;re looking for doesn&apos;t exist.
+              </p>
+            </BentoCardContent>
+          </BentoCard>
+        </BentoGrid>
       </main>
     );
   }
@@ -237,84 +244,76 @@ export default function UserProfileClient(
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <Card className="overflow-hidden mb-8">
-          <div className="relative w-full h-56 sm:h-64">
-            {profile.banner_url ? (
-              <Image
-                src={profile.banner_url}
-                alt="Banner"
-                fill
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
-                className="object-cover"
-                unoptimized
-              />
-            ) : (
-              <div
-                className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20"
-              />
-            )}
-            {profile.avatar_url && (
-              <div className="absolute left-6 -bottom-12">
-                <Avatar className="h-[120px] w-[120px] border-4 border-card">
-                  <AvatarImage
-                    src={profile.avatar_url}
-                    alt={
-                      profile.full_name?.split(" ")[0] || params.username
-                    }
-                  />
-                  <AvatarFallback className="text-3xl">
-                    {(profile.full_name || params.username)[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            )}
-          </div>
-          <CardContent className="px-6 pt-16 pb-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold font-heading">
-                  {profile.full_name || params.username}
-                </h1>
-                <p className="mt-1 text-primary font-mono text-sm">
-                  @{params.username}
-                  {profile.instance_domain && `@${profile.instance_domain}`}
-                </p>
-                {profile.instance_domain && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyHandle}
-                    className="mt-2"
-                  >
-                    {copied ? (
-                      "Copied!"
-                    ) : (
-                      <>
-                        <svg
-                          className="w-3.5 h-3.5 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                          />
-                        </svg>
-                        Copy Fediverse Handle
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
+        <BentoGrid columns={3}>
+          {/* Banner + Avatar + Bio */}
+          <BentoCard size="full" index={0}>
+            <div className="relative w-full h-56 sm:h-64">
+              {profile.banner_url ? (
+                <Image
+                  src={profile.banner_url}
+                  alt="Banner"
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20" />
+              )}
+              {profile.avatar_url && (
+                <div className="absolute left-6 -bottom-12">
+                  <Avatar className="h-[120px] w-[120px] border-4 border-card">
+                    <AvatarImage
+                      src={profile.avatar_url}
+                      alt={
+                        profile.full_name?.split(" ")[0] || params.username
+                      }
+                    />
+                    <AvatarFallback className="text-3xl">
+                      {(profile.full_name || params.username)[0]?.toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+              )}
             </div>
-            {profile.bio && (
-              <p className="mt-4 leading-relaxed">{profile.bio}</p>
-            )}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-              {socialLinks.length > 0 && (
+            <div className="px-6 pt-16 pb-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h1 className="text-3xl font-bold font-heading">
+                    {profile.full_name || params.username}
+                  </h1>
+                  <p className="mt-1 text-primary font-mono text-sm">
+                    @{params.username}
+                    {profile.instance_domain && `@${profile.instance_domain}`}
+                  </p>
+                </div>
+              </div>
+              {profile.bio && (
+                <p className="mt-4 leading-relaxed">{profile.bio}</p>
+              )}
+              {profile.support_url && (
+                <div className="mt-4">
+                  <a
+                    href={profile.support_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button className="bg-yellow-400 hover:bg-yellow-300 text-black border-2 border-black">
+                      {profile.support_text || "Support me !!"}
+                    </Button>
+                  </a>
+                </div>
+              )}
+            </div>
+          </BentoCard>
+
+          {/* Social Links */}
+          {socialLinks.length > 0 && (
+            <BentoCard size="2x1" index={1} accent>
+              <BentoCardHeader>
+                <h2 className="text-lg font-semibold font-heading">Links</h2>
+              </BentoCardHeader>
+              <BentoCardContent>
                 <div className="flex flex-wrap gap-2">
                   {socialLinks.map((link) => (
                     <a
@@ -333,29 +332,66 @@ export default function UserProfileClient(
                     </a>
                   ))}
                 </div>
-              )}
-              {profile.support_url && (
-                <a
-                  href={profile.support_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
+              </BentoCardContent>
+            </BentoCard>
+          )}
+
+          {/* Fediverse Handle */}
+          {profile.instance_domain && (
+            <BentoCard size="1x1" index={2} accent>
+              <BentoCardHeader>
+                <h2 className="text-lg font-semibold font-heading">Fediverse</h2>
+              </BentoCardHeader>
+              <BentoCardContent>
+                <p className="text-sm text-muted-foreground font-mono mb-3">
+                  @{params.username}@{profile.instance_domain}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyHandle}
                 >
-                  <Button className="bg-yellow-400 hover:bg-yellow-300 text-black border-2 border-black">
-                    {profile.support_text || "Support me !!"}
-                  </Button>
-                </a>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  {copied ? (
+                    "Copied!"
+                  ) : (
+                    <>
+                      <svg
+                        className="w-3.5 h-3.5 mr-1"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                        />
+                      </svg>
+                      Copy Handle
+                    </>
+                  )}
+                </Button>
+              </BentoCardContent>
+            </BentoCard>
+          )}
 
-        <h2 className="text-2xl font-bold mb-6 font-heading">Posts</h2>
-        <PostList author={params.username} />
+          {/* Posts section heading */}
+          <BentoCard size="full" index={3} className="bg-transparent border-none shadow-none">
+            <BentoCardContent className="px-0 py-2">
+              <h2 className="text-2xl font-bold font-heading">Posts</h2>
+            </BentoCardContent>
+          </BentoCard>
+        </BentoGrid>
 
-        <Separator className="my-10" />
+        {/* Posts list - uses its own grid internally */}
+        <div className="mb-8">
+          <PostList author={params.username} />
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <Card>
+        {/* Followers & Following */}
+        <BentoGrid columns={2}>
+          <BentoCard size="1x1" index={0} accent>
             <CardHeader>
               <CardTitle className="text-xl font-heading">Followers</CardTitle>
             </CardHeader>
@@ -390,8 +426,9 @@ export default function UserProfileClient(
                 </ul>
               )}
             </CardContent>
-          </Card>
-          <Card>
+          </BentoCard>
+
+          <BentoCard size="1x1" index={1} accent>
             <CardHeader>
               <CardTitle className="text-xl font-heading">Following</CardTitle>
             </CardHeader>
@@ -428,8 +465,8 @@ export default function UserProfileClient(
                 </ul>
               )}
             </CardContent>
-          </Card>
-        </div>
+          </BentoCard>
+        </BentoGrid>
       </div>
     </main>
   );

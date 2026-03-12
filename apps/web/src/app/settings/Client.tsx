@@ -5,9 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { Textarea } from "@/components/Input";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import {
+  BentoGrid,
+  BentoCard,
+  BentoCardHeader,
+  BentoCardContent,
+} from "@/components/ui/bento-grid";
 import { useMutation, useQuery } from "react-query";
 
 export default function SettingsClient() {
@@ -149,12 +154,13 @@ export default function SettingsClient() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="font-heading">General</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
+          <BentoGrid columns={3}>
+            {/* General settings - 2x1 */}
+            <BentoCard size="2x1" index={0} accent>
+              <BentoCardHeader>
+                <h2 className="text-xl font-semibold font-heading">General</h2>
+              </BentoCardHeader>
+              <BentoCardContent className="space-y-6">
                 <Input
                   label="Instance Name"
                   value={settings.instance_name}
@@ -189,14 +195,15 @@ export default function SettingsClient() {
                   placeholder="example.com"
                   required
                 />
-              </CardContent>
-            </Card>
+              </BentoCardContent>
+            </BentoCard>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="font-heading">Federation</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+            {/* Federation - 1x1 */}
+            <BentoCard size="1x1" index={1} accent>
+              <BentoCardHeader>
+                <h2 className="text-xl font-semibold font-heading">Federation</h2>
+              </BentoCardHeader>
+              <BentoCardContent className="space-y-4">
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <Label className="font-medium">Enable federation</Label>
@@ -232,40 +239,41 @@ export default function SettingsClient() {
                     }
                   />
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </BentoCardContent>
+            </BentoCard>
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-heading">Email Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Input
-                  label="Admin Email"
-                  type="email"
-                  value={settings.admin_email}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      admin_email: e.target.value,
-                    })
-                  }
-                  placeholder="admin@example.com"
-                />
-                <Input
-                  label="SMTP URL"
-                  type="url"
-                  value={settings.smtp_url}
-                  onChange={(e) =>
-                    setSettings({ ...settings, smtp_url: e.target.value })
-                  }
-                  placeholder="smtp://user:pass@smtp.example.com:587"
-                />
-              </div>
-            </CardContent>
-          </Card>
+            {/* Email settings - full */}
+            <BentoCard size="full" index={2} accent>
+              <BentoCardHeader>
+                <h2 className="text-xl font-semibold font-heading">Email Settings</h2>
+              </BentoCardHeader>
+              <BentoCardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Input
+                    label="Admin Email"
+                    type="email"
+                    value={settings.admin_email}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        admin_email: e.target.value,
+                      })
+                    }
+                    placeholder="admin@example.com"
+                  />
+                  <Input
+                    label="SMTP URL"
+                    type="url"
+                    value={settings.smtp_url}
+                    onChange={(e) =>
+                      setSettings({ ...settings, smtp_url: e.target.value })
+                    }
+                    placeholder="smtp://user:pass@smtp.example.com:587"
+                  />
+                </div>
+              </BentoCardContent>
+            </BentoCard>
+          </BentoGrid>
 
           <div className="flex justify-end">
             <Button type="submit" disabled={saving}>

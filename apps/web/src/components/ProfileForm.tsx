@@ -5,9 +5,14 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { Textarea } from "@/components/Input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import {
+  BentoGrid,
+  BentoCard,
+  BentoCardHeader,
+  BentoCardContent,
+} from "@/components/ui/bento-grid";
 import { LoadingSpinner } from "./LoadingSpinner";
 import toast from "react-hot-toast";
 import {
@@ -215,275 +220,279 @@ export function ProfileForm({ username }: { username: string }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold font-heading mb-4">
-          Basic Info
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaFont /> Full Name
-              </span>
-            }
-            value={data.full_name || ""}
-            onChange={(e) =>
-              setData({ ...data, full_name: e.target.value })
-            }
-          />
-          <div className="space-y-2">
-            <Input
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <FaGlobe /> Avatar URL
-                </span>
-              }
-              type="url"
-              value={data.avatar_url || ""}
-              onChange={(e) =>
-                setData({ ...data, avatar_url: e.target.value })
-              }
-            />
-            <div className="flex items-center gap-3">
-              {(avatarPreview || data.avatar_url) && (
-                <Avatar className="h-12 w-12">
-                  <AvatarImage
-                    src={avatarPreview || data.avatar_url!}
-                    alt="Avatar"
-                  />
-                  <AvatarFallback>
-                    {(data.full_name || username)[0]?.toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-              )}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => avatarFileRef.current?.click()}
-                disabled={avatarUploading}
-              >
-                {avatarUploading ? "Uploading..." : "Upload Avatar"}
-              </Button>
-              <input
-                ref={avatarFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarFileChange}
+      <BentoGrid columns={3}>
+        {/* Basic Info - 2x1 */}
+        <BentoCard size="2x1" index={0} accent>
+          <BentoCardHeader>
+            <h3 className="text-lg font-semibold font-heading">Basic Info</h3>
+          </BentoCardHeader>
+          <BentoCardContent>
+            <div className="space-y-4">
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaFont /> Full Name
+                  </span>
+                }
+                value={data.full_name || ""}
+                onChange={(e) =>
+                  setData({ ...data, full_name: e.target.value })
+                }
               />
-              {data.avatar_url && (
-                <a
-                  href={data.avatar_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-primary"
-                >
-                  View
-                </a>
-              )}
-            </div>
-          </div>
-          <div className="md:col-span-2 space-y-2">
-            <Input
-              label={
-                <span className="inline-flex items-center gap-2">
-                  <FaGlobe /> Banner URL
-                </span>
-              }
-              type="url"
-              value={data.banner_url || ""}
-              onChange={(e) =>
-                setData({ ...data, banner_url: e.target.value })
-              }
-            />
-            <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => bannerFileRef.current?.click()}
-                disabled={bannerUploading}
-              >
-                {bannerUploading ? "Uploading..." : "Upload Banner"}
-              </Button>
-              <input
-                ref={bannerFileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleBannerFileChange}
+              <Textarea
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaFont /> Bio
+                  </span>
+                }
+                value={data.bio || ""}
+                onChange={(e) => setData({ ...data, bio: e.target.value })}
+                rows={4}
               />
-              {data.banner_url && (
-                <a
-                  href={data.banner_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-sm text-primary"
-                >
-                  View
-                </a>
-              )}
             </div>
-            {(bannerPreview || data.banner_url) && (
-              <div className="relative w-full h-32">
-                <Image
-                  src={bannerPreview || data.banner_url || ""}
-                  alt="Banner"
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 1200px"
-                  className="object-cover rounded-lg border border-border"
-                  unoptimized
+          </BentoCardContent>
+        </BentoCard>
+
+        {/* Avatar / Banner upload - 1x1 */}
+        <BentoCard size="1x1" index={1} accent>
+          <BentoCardHeader>
+            <h3 className="text-lg font-semibold font-heading">Media</h3>
+          </BentoCardHeader>
+          <BentoCardContent>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Input
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      <FaGlobe /> Avatar URL
+                    </span>
+                  }
+                  type="url"
+                  value={data.avatar_url || ""}
+                  onChange={(e) =>
+                    setData({ ...data, avatar_url: e.target.value })
+                  }
                 />
+                <div className="flex items-center gap-3">
+                  {(avatarPreview || data.avatar_url) && (
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage
+                        src={avatarPreview || data.avatar_url!}
+                        alt="Avatar"
+                      />
+                      <AvatarFallback>
+                        {(data.full_name || username)[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => avatarFileRef.current?.click()}
+                    disabled={avatarUploading}
+                  >
+                    {avatarUploading ? "Uploading..." : "Upload"}
+                  </Button>
+                  <input
+                    ref={avatarFileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarFileChange}
+                  />
+                </div>
               </div>
-            )}
-          </div>
-          <Textarea
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaFont /> Bio
-              </span>
-            }
-            value={data.bio || ""}
-            onChange={(e) => setData({ ...data, bio: e.target.value })}
-            rows={4}
-            className="md:col-span-2"
-          />
-        </div>
-      </div>
 
-      <Separator />
+              <div className="space-y-2">
+                <Input
+                  label={
+                    <span className="inline-flex items-center gap-2">
+                      <FaGlobe /> Banner URL
+                    </span>
+                  }
+                  type="url"
+                  value={data.banner_url || ""}
+                  onChange={(e) =>
+                    setData({ ...data, banner_url: e.target.value })
+                  }
+                />
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => bannerFileRef.current?.click()}
+                    disabled={bannerUploading}
+                  >
+                    {bannerUploading ? "Uploading..." : "Upload"}
+                  </Button>
+                  <input
+                    ref={bannerFileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBannerFileChange}
+                  />
+                </div>
+                {(bannerPreview || data.banner_url) && (
+                  <div className="relative w-full h-24">
+                    <Image
+                      src={bannerPreview || data.banner_url || ""}
+                      alt="Banner"
+                      fill
+                      sizes="(max-width: 768px) 100vw, 400px"
+                      className="object-cover rounded-lg border border-border"
+                      unoptimized
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </BentoCardContent>
+        </BentoCard>
 
-      <div>
-        <h3 className="text-lg font-semibold font-heading mb-4">
-          Social Links
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaGithub /> GitHub
-              </span>
-            }
-            type="url"
-            value={data.social_github || ""}
-            onChange={(e) =>
-              setData({ ...data, social_github: e.target.value })
-            }
-            placeholder="https://github.com/username"
-          />
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaTwitter /> X (Twitter)
-              </span>
-            }
-            type="url"
-            value={data.social_x || ""}
-            onChange={(e) =>
-              setData({ ...data, social_x: e.target.value })
-            }
-            placeholder="https://x.com/username"
-          />
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaYoutube /> YouTube
-              </span>
-            }
-            type="url"
-            value={data.social_youtube || ""}
-            onChange={(e) =>
-              setData({ ...data, social_youtube: e.target.value })
-            }
-            placeholder="https://youtube.com/@username"
-          />
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaReddit /> Reddit
-              </span>
-            }
-            type="url"
-            value={data.social_reddit || ""}
-            onChange={(e) =>
-              setData({ ...data, social_reddit: e.target.value })
-            }
-            placeholder="https://reddit.com/user/username"
-          />
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaLinkedin /> LinkedIn
-              </span>
-            }
-            type="url"
-            value={data.social_linkedin || ""}
-            onChange={(e) =>
-              setData({ ...data, social_linkedin: e.target.value })
-            }
-            placeholder="https://linkedin.com/in/username"
-          />
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaGlobe /> Website
-              </span>
-            }
-            type="url"
-            value={data.social_website || ""}
-            onChange={(e) =>
-              setData({ ...data, social_website: e.target.value })
-            }
-            placeholder="https://example.com"
-          />
-        </div>
-      </div>
+        {/* Social Links - full */}
+        <BentoCard size="full" index={2} accent>
+          <BentoCardHeader>
+            <h3 className="text-lg font-semibold font-heading">Social Links</h3>
+          </BentoCardHeader>
+          <BentoCardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaGithub /> GitHub
+                  </span>
+                }
+                type="url"
+                value={data.social_github || ""}
+                onChange={(e) =>
+                  setData({ ...data, social_github: e.target.value })
+                }
+                placeholder="https://github.com/username"
+              />
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaTwitter /> X (Twitter)
+                  </span>
+                }
+                type="url"
+                value={data.social_x || ""}
+                onChange={(e) =>
+                  setData({ ...data, social_x: e.target.value })
+                }
+                placeholder="https://x.com/username"
+              />
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaYoutube /> YouTube
+                  </span>
+                }
+                type="url"
+                value={data.social_youtube || ""}
+                onChange={(e) =>
+                  setData({ ...data, social_youtube: e.target.value })
+                }
+                placeholder="https://youtube.com/@username"
+              />
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaReddit /> Reddit
+                  </span>
+                }
+                type="url"
+                value={data.social_reddit || ""}
+                onChange={(e) =>
+                  setData({ ...data, social_reddit: e.target.value })
+                }
+                placeholder="https://reddit.com/user/username"
+              />
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaLinkedin /> LinkedIn
+                  </span>
+                }
+                type="url"
+                value={data.social_linkedin || ""}
+                onChange={(e) =>
+                  setData({ ...data, social_linkedin: e.target.value })
+                }
+                placeholder="https://linkedin.com/in/username"
+              />
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaGlobe /> Website
+                  </span>
+                }
+                type="url"
+                value={data.social_website || ""}
+                onChange={(e) =>
+                  setData({ ...data, social_website: e.target.value })
+                }
+                placeholder="https://example.com"
+              />
+            </div>
+          </BentoCardContent>
+        </BentoCard>
 
-      <Separator />
+        {/* Support - 1x1 */}
+        <BentoCard size="1x1" index={3} accent>
+          <BentoCardHeader>
+            <h3 className="text-lg font-semibold font-heading">Support</h3>
+          </BentoCardHeader>
+          <BentoCardContent>
+            <div className="space-y-4">
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaMoneyBill /> Support URL
+                  </span>
+                }
+                type="url"
+                value={data.support_url || ""}
+                onChange={(e) =>
+                  setData({ ...data, support_url: e.target.value })
+                }
+                placeholder="https://ko-fi.com/username"
+              />
+              <Input
+                label={
+                  <span className="inline-flex items-center gap-2">
+                    <FaFont /> Support Text
+                  </span>
+                }
+                value={data.support_text || ""}
+                onChange={(e) =>
+                  setData({ ...data, support_text: e.target.value })
+                }
+                placeholder="Buy me a coffee"
+              />
+            </div>
+          </BentoCardContent>
+        </BentoCard>
 
-      <div>
-        <h3 className="text-lg font-semibold font-heading mb-4">
-          Support
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaMoneyBill /> Support URL
-              </span>
-            }
-            type="url"
-            value={data.support_url || ""}
-            onChange={(e) =>
-              setData({ ...data, support_url: e.target.value })
-            }
-            placeholder="https://ko-fi.com/username"
-          />
-          <Input
-            label={
-              <span className="inline-flex items-center gap-2">
-                <FaFont /> Support Text
-              </span>
-            }
-            value={data.support_text || ""}
-            onChange={(e) =>
-              setData({ ...data, support_text: e.target.value })
-            }
-            placeholder="Buy me a coffee"
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      <NostrSection
-        pubkey={data.nostr_pubkey || ""}
-        hasStoredPrivkey={data.has_nostr_privkey || false}
-        onKeysChange={(pubkey, privkey) =>
-          setData({ ...data, nostr_pubkey: pubkey, nostr_privkey: privkey })
-        }
-      />
+        {/* Nostr - 1x1 (expands as needed) */}
+        <BentoCard size="2x1" index={4} accent>
+          <BentoCardHeader>
+            <h3 className="text-lg font-semibold font-heading">Nostr</h3>
+          </BentoCardHeader>
+          <BentoCardContent>
+            <NostrSection
+              pubkey={data.nostr_pubkey || ""}
+              hasStoredPrivkey={data.has_nostr_privkey || false}
+              onKeysChange={(pubkey, privkey) =>
+                setData({ ...data, nostr_pubkey: pubkey, nostr_privkey: privkey })
+              }
+            />
+          </BentoCardContent>
+        </BentoCard>
+      </BentoGrid>
 
       <div className="flex justify-end">
         <Button type="submit" disabled={saving}>
@@ -541,7 +550,6 @@ function NostrSection({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold font-heading">Nostr</h3>
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <Input
