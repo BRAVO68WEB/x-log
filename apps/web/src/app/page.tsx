@@ -1,15 +1,8 @@
-import { PostList } from "@/components/PostList";
 import type { Metadata } from "next";
+import HomeClient from "./HomeClient";
 
 export default function Home() {
-  return (
-    <main className="min-h-screen py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 font-heading">Latest Posts</h1>
-        <PostList />
-      </div>
-    </main>
-  );
+  return <HomeClient />;
 }
 
 export async function generateMetadata(): Promise<Metadata> {

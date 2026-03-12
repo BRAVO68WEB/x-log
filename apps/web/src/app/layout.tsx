@@ -9,6 +9,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
 import { Dotted } from "@/components/Backgrounds/Dotted";
+import { GeometryLines } from "@/components/Backgrounds/GeometryLines";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/QueryProvider";
 
@@ -93,6 +94,7 @@ export default function RootLayout({
           </QueryProvider>
         </OnboardingGuard>
         <Dotted />
+        <GeometryLines />
       </body>
     </html>
   );

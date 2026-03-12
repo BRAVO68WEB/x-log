@@ -5,10 +5,14 @@ import { useSearchParams } from "next/navigation";
 import { SearchBar } from "@/components/SearchBar";
 import { PostCard } from "@/components/PostCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  BentoGrid,
+  BentoCard,
+  BentoCardContent,
+} from "@/components/ui/bento-grid";
 import Link from "next/link";
 import { useInfiniteQuery, useQuery } from "react-query";
 
@@ -111,14 +115,13 @@ function SearchResults() {
 
   const postResults = (
     <>
-      <div className="space-y-6">
-        {results.map((post) => (
-          <PostCard
-            key={(post as SearchPost).id}
-            {...(post as SearchPost)}
-          />
+      <BentoGrid columns={3}>
+        {results.map((post, i) => (
+          <BentoCard key={(post as SearchPost).id} size="1x1" index={i}>
+            <PostCard {...(post as SearchPost)} flat />
+          </BentoCard>
         ))}
-      </div>
+      </BentoGrid>
       {hasMore && (
         <div className="flex justify-center py-6">
           <Button
@@ -134,14 +137,15 @@ function SearchResults() {
   );
 
   const profileResults = (
-    <div className="space-y-4">
-      {results.map((profile) => (
-        <Link
+    <BentoGrid columns={2}>
+      {results.map((profile, i) => (
+        <BentoCard
           key={(profile as SearchProfile).username}
-          href={`/u/${(profile as SearchProfile).username}`}
+          size="1x1"
+          index={i}
         >
-          <Card className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardContent className="p-6 flex items-center gap-4">
+          <Link href={`/u/${(profile as SearchProfile).username}`}>
+            <BentoCardContent className="p-6 flex items-center gap-4 cursor-pointer hover:bg-accent/50 transition-colors">
               <Avatar className="h-12 w-12">
                 <AvatarFallback>
                   {(
@@ -165,11 +169,11 @@ function SearchResults() {
                   </p>
                 )}
               </div>
-            </CardContent>
-          </Card>
-        </Link>
+            </BentoCardContent>
+          </Link>
+        </BentoCard>
       ))}
-    </div>
+    </BentoGrid>
   );
 
   return (
@@ -230,7 +234,7 @@ function SearchResults() {
 export default function SearchClient() {
   return (
     <main className="min-h-screen py-8 px-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold mb-8 font-heading">Search</h1>
         <div className="mb-8">
           <SearchBar />
