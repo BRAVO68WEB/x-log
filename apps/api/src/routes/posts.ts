@@ -23,6 +23,52 @@ import {
 } from "../middleware/session";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
 
+function extractImageUrls(doc: unknown): string[] {
+  const urls: string[] = [];
+  function walk(node: any) {
+    if (!node) return;
+    if (node.type === "image" && node.attrs?.src) {
+      urls.push(node.attrs.src);
+    }
+    if (Array.isArray(node.content)) {
+      node.content.forEach(walk);
+    }
+  }
+  walk(doc);
+  return urls;
+}
+
+async function linkMediaToPost(
+  db: ReturnType<typeof getDb>,
+  postId: string,
+  bannerUrl?: string | null,
+  contentBlocks?: unknown
+) {
+  try {
+    if (bannerUrl) {
+      await db
+        .updateTable("media")
+        .set({ post_id: postId, asset_type: "banner" })
+        .where("url", "=", bannerUrl)
+        .where("post_id", "is", null)
+        .execute();
+    }
+    if (contentBlocks && typeof contentBlocks === "object") {
+      const imageUrls = extractImageUrls(contentBlocks);
+      for (const url of imageUrls) {
+        await db
+          .updateTable("media")
+          .set({ post_id: postId })
+          .where("url", "=", url)
+          .where("post_id", "is", null)
+          .execute();
+      }
+    }
+  } catch (err) {
+    console.error("Failed to link media to post:", err);
+  }
+}
+
 export const postsRoutes = new Hono().use("*", sessionMiddleware);
 
 postsRoutes.get(
@@ -154,6 +200,8 @@ postsRoutes.get(
         "posts.title",
         "posts.banner_url",
         "posts.content_markdown",
+        "posts.content_blocks_json",
+        "posts.summary",
         "posts.hashtags",
         "posts.like_count",
         "posts.published_at",
@@ -189,6 +237,9 @@ postsRoutes.get(
       banner_url: post.banner_url,
       content_html: contentHtml,
       content_markdown: post.content_markdown,
+      content_blocks_json: post.content_blocks_json || null,
+      summary: post.summary || null,
+      author_id: post.author_id,
       hashtags: post.hashtags,
       like_count: post.like_count,
       author: {
@@ -246,6 +297,9 @@ postsRoutes.post(
         like_count: 0,
       })
       .execute();
+
+    // Link uploaded media to this post
+    await linkMediaToPost(db, postId, data.banner_url, data.content_blocks);
 
     const post = await db
       .selectFrom("posts")
@@ -339,6 +393,9 @@ postsRoutes.patch(
       })
       .where("id", "=", id)
       .execute();
+
+    // Link uploaded media to this post
+    await linkMediaToPost(db, id, data.banner_url, data.content_blocks);
 
     // Trigger federation Update if post is published and not private
     if (post.published_at && post.visibility !== "private") {

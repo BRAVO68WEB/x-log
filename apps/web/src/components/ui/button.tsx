@@ -39,7 +39,7 @@ export interface ButtonProps
   asChild?: boolean;
 }
 
-function Button({ className, variant, size, ...props }: ButtonProps) {
+function Button({ asChild: _asChild, className, variant, size, ...props }: ButtonProps) {
   return (
     <button
       className={cn(buttonVariants({ variant, size, className }))}
