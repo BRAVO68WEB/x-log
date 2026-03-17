@@ -124,7 +124,23 @@ export const postsApi = {
   },
 
   get: async (id: string) => {
-    return apiRequest(`/api/posts/${id}`);
+    return apiRequest<{
+      id: string;
+      url: string;
+      title: string;
+      banner_url: string | null;
+      content_html: string;
+      content_markdown: string;
+      content_blocks_json: import("@tiptap/core").JSONContent | null;
+      summary: string | null;
+      author_id: string;
+      hashtags: string[];
+      like_count: number;
+      author: { username: string; full_name?: string | null; avatar_url?: string | null };
+      published_at: string | null;
+      updated_at: string;
+      visibility: "public" | "unlisted" | "private";
+    }>(`/api/posts/${id}`);
   },
 
   create: async (data: {
@@ -220,10 +236,24 @@ export const searchApi = {
 };
 
 // Media API
+export interface MediaItem {
+  filename: string;
+  url: string;
+  size: number;
+  uploaded_at: string;
+  type: string;
+  asset_type: "banner" | "post_attachment" | null;
+  post_id: string | null;
+  post_title: string | null;
+}
+
 export const mediaApi = {
-  upload: async (file: File) => {
+  upload: async (file: File, assetType?: "banner" | "post_attachment") => {
     const formData = new FormData();
     formData.append("file", file);
+    if (assetType) {
+      formData.append("asset_type", assetType);
+    }
 
     const response = await fetch(`${API_BASE}/media/upload`, {
       method: "POST",
@@ -237,6 +267,16 @@ export const mediaApi = {
     }
 
     return response.json() as Promise<{ url: string }>;
+  },
+
+  list: async () => {
+    return apiRequest<{ items: MediaItem[] }>("/api/media");
+  },
+
+  delete: async (filename: string) => {
+    return apiRequest<{ message: string }>(`/api/media/${filename}`, {
+      method: "DELETE",
+    });
   },
 };
 

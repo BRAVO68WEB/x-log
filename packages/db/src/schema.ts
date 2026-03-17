@@ -3,6 +3,7 @@ import type { ColumnType } from "kysely";
 export type UserRole = "admin" | "author" | "reader";
 export type PostVisibility = "public" | "unlisted" | "private";
 export type DeliveryStatus = "pending" | "sent" | "failed" | "retrying";
+export type MediaAssetType = "banner" | "post_attachment";
 
 export interface UsersTable {
   id: string; // uuid
@@ -160,6 +161,18 @@ export interface OIDCPendingLinksTable {
   expires_at: Date;
 }
 
+export interface MediaTable {
+  id: ColumnType<string, string | undefined, string>; // uuid, auto-generated
+  filename: string;
+  url: string;
+  user_id: string; // FK users.id
+  asset_type: MediaAssetType;
+  post_id: string | null; // FK posts.id
+  size: number;
+  mime_type: string;
+  created_at: ColumnType<Date, never, never>;
+}
+
 export interface Database {
   users: UsersTable;
   user_profiles: UserProfilesTable;
@@ -175,4 +188,5 @@ export interface Database {
   replay_cache: ReplayCacheTable;
   oidc_accounts: OIDCAccountsTable;
   oidc_pending_links: OIDCPendingLinksTable;
+  media: MediaTable;
 }

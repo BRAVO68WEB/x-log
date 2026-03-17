@@ -26,6 +26,7 @@ export function Navbar() {
 
   const authNavItems = [
     { href: "/editor", label: "Write" },
+    { href: "/assets", label: "Assets" },
     { href: "/profile", label: "Profile" },
     { href: "/settings", label: "Settings" },
   ];

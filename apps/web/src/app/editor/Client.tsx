@@ -7,10 +7,28 @@ import toast, { Toaster } from "react-hot-toast";
 import { useMutation } from "react-query";
 import type { JSONContent } from "@tiptap/core";
 
-export default function EditorClient() {
+interface EditorClientProps {
+  postId?: string;
+  initialContent?: JSONContent | string;
+  initialTitle?: string;
+  initialSummary?: string;
+  initialHashtags?: string[];
+  initialBannerUrl?: string;
+  isPublished?: boolean;
+}
+
+export default function EditorClient({
+  postId: initialPostId,
+  initialContent,
+  initialTitle,
+  initialSummary,
+  initialHashtags,
+  initialBannerUrl,
+  isPublished = false,
+}: EditorClientProps) {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [postId, setPostId] = useState<string | null>(null);
+  const [postId, setPostId] = useState<string | null>(initialPostId || null);
 
   const createMutation = useMutation(async (payload: {
     title: string;
@@ -158,11 +176,12 @@ export default function EditorClient() {
         });
       }
 
-      if (id) {
+      // Skip publish call for already-published posts (PATCH alone triggers federation Update)
+      if (!isPublished && id) {
         await publishMutation.mutateAsync(id);
       }
 
-      toast.success("Post published!");
+      toast.success(isPublished ? "Post updated!" : "Post published!");
       router.push(`/post/${id}`);
     } catch (error) {
       console.error("Failed to publish:", error);
@@ -176,7 +195,17 @@ export default function EditorClient() {
 
   return (
     <>
-      <Editor onSave={handleSave} onPublish={handlePublish} saving={saving} />
+      <Editor
+        initialContent={initialContent}
+        initialTitle={initialTitle}
+        initialSummary={initialSummary}
+        initialHashtags={initialHashtags}
+        initialBannerUrl={initialBannerUrl}
+        onSave={handleSave}
+        onPublish={handlePublish}
+        saving={saving}
+        publishLabel={isPublished ? "Update" : "Publish"}
+      />
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
     </>
   );

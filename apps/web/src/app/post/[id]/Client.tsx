@@ -9,8 +9,10 @@ import { MermaidRenderer } from "@/components/MermaidRenderer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Post {
   id: string;
@@ -20,6 +22,7 @@ interface Post {
   published_at: string | null;
   hashtags: string[];
   like_count: number;
+  author_id: string;
   author: {
     username: string;
     full_name?: string | null;
@@ -31,6 +34,7 @@ export default function PostClient(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = use(props.params);
+  const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -118,15 +122,24 @@ export default function PostClient(props: {
                   ? new Date(post.published_at).toLocaleDateString()
                   : "Draft"}
               </span>
-              <div className="ml-auto flex items-center gap-1 text-muted-foreground">
-                <svg
-                  className="w-4 h-4"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-                <span>{post.like_count}</span>
+              <div className="ml-auto flex items-center gap-3">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <svg
+                    className="w-4 h-4"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                  </svg>
+                  <span>{post.like_count}</span>
+                </div>
+                {user && (user.id === post.author_id || user.role === "admin") && (
+                  <Link href={`/editor/${post.id}`}>
+                    <Button variant="outline" size="sm">
+                      Edit
+                    </Button>
+                  </Link>
+                )}
               </div>
             </div>
             <Separator className="mb-6" />

@@ -15,7 +15,7 @@ import { createLowlight } from "lowlight";
 import TurndownService from "turndown";
 import { useState, useRef, useEffect } from "react";
 import NextImage from "next/image";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -24,6 +24,7 @@ import type { Editor as TipTapEditor, JSONContent } from "@tiptap/core";
 import { renderMarkdownSync } from "@xlog/markdown";
 import toast from "react-hot-toast";
 import { useMutation } from "react-query";
+import { cn } from "@/lib/utils";
 
 // Swap Enter and Cmd+Enter behavior:
 //   Enter       → hard break (<br>, new line in same paragraph)
@@ -90,6 +91,10 @@ turndownService.addRule("table", {
 
 interface EditorProps {
   initialContent?: JSONContent | string;
+  initialTitle?: string;
+  initialSummary?: string;
+  initialHashtags?: string[];
+  initialBannerUrl?: string;
   onSave?: (
     content: JSONContent | string,
     markdown: string,
@@ -104,28 +109,35 @@ interface EditorProps {
     summary?: string
   ) => void;
   saving?: boolean;
+  publishLabel?: string;
 }
 
 export function Editor({
   initialContent,
+  initialTitle,
+  initialSummary,
+  initialHashtags,
+  initialBannerUrl,
   onSave,
   onPublish,
   saving = false,
+  publishLabel = "Publish",
 }: EditorProps) {
-  const [title, setTitle] = useState("");
-  const [summary, setSummary] = useState("");
-  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [title, setTitle] = useState(initialTitle || "");
+  const [summary, setSummary] = useState(initialSummary || "");
+  const [hashtags, setHashtags] = useState<string[]>(initialHashtags || []);
   const [hashtagInput, setHashtagInput] = useState("");
   const editorRef = useRef<TipTapEditor | null>(null);
 
-  const [bannerImage, setBannerImage] = useState<string>("");
-  const [bannerUrl, setBannerUrl] = useState<string>("");
+  const [bannerImage, setBannerImage] = useState<string>(initialBannerUrl || "");
+  const [bannerUrl, setBannerUrl] = useState<string>(initialBannerUrl || "");
   const [bannerUploading, setBannerUploading] = useState(false);
   const [imageUploading, setImageUploading] = useState(false);
 
   const uploadImageMutation = useMutation(async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("asset_type", "post_attachment");
     const res = await fetch(`/api/media/upload`, {
       method: "POST",
       credentials: "include",
@@ -143,6 +155,7 @@ export function Editor({
   const uploadBannerMutation = useMutation(async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
+    fd.append("asset_type", "banner");
     const res = await fetch(`/api/media/upload`, {
       method: "POST",
       credentials: "include",
@@ -597,17 +610,21 @@ export function Editor({
               </div>
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <label htmlFor="banner-upload">
-                <Button type="button" variant="outline" size="sm" asChild>
-                  <span>Upload Banner</span>
-                </Button>
+              <label
+                htmlFor="banner-upload"
+                className={cn(
+                  buttonVariants({ variant: "outline", size: "sm" }),
+                  "cursor-pointer"
+                )}
+              >
+                Upload Banner
               </label>
               <input
                 id="banner-upload"
                 type="file"
                 accept="image/*"
                 onChange={handleBannerUpload}
-                className="hidden"
+                className="sr-only"
               />
               {bannerUploading && (
                 <span className="text-sm text-muted-foreground">
@@ -784,7 +801,7 @@ export function Editor({
               onClick={handlePublish}
               disabled={saving || !title.trim()}
             >
-              {saving ? "Publishing..." : "Publish"}
+              {saving ? "Saving..." : publishLabel}
             </Button>
           </div>
         </div>
