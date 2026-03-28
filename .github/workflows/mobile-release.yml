@@ -235,6 +235,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Create release notes
         run: |
           cat <<EOF > mobile-release-notes.md
