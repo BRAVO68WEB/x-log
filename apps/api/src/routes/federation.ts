@@ -17,6 +17,63 @@ import { renderMarkdownSync } from "@xlog/markdown";
 
 export const federationRoutes = new Hono();
 
+const ACTIVITYPUB_ACCEPT_HEADER =
+  'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function buildRemoteActorCandidates(actorUrl: string): string[] {
+  const candidates = new Set<string>();
+
+  const add = (value: string) => {
+    if (value.startsWith("https://")) {
+      candidates.add(value);
+    }
+  };
+
+  try {
+    const url = new URL(actorUrl);
+    url.hash = "";
+
+    add(url.toString());
+
+    const withoutSlash = new URL(url.toString());
+    withoutSlash.pathname = trimTrailingSlash(withoutSlash.pathname) || "/";
+    add(withoutSlash.toString());
+
+    const withSlash = new URL(withoutSlash.toString());
+    if (!withSlash.pathname.endsWith("/")) {
+      withSlash.pathname = `${withSlash.pathname}/`;
+      add(withSlash.toString());
+    }
+
+    const hostVariants = new Set<string>([url.hostname]);
+    if (url.hostname.startsWith("www.")) {
+      hostVariants.add(url.hostname.slice(4));
+    } else {
+      hostVariants.add(`www.${url.hostname}`);
+    }
+
+    for (const hostname of hostVariants) {
+      const variant = new URL(withoutSlash.toString());
+      variant.hostname = hostname;
+      add(variant.toString());
+
+      const variantWithSlash = new URL(variant.toString());
+      if (!variantWithSlash.pathname.endsWith("/")) {
+        variantWithSlash.pathname = `${variantWithSlash.pathname}/`;
+        add(variantWithSlash.toString());
+      }
+    }
+  } catch {
+    add(actorUrl);
+  }
+
+  return [...candidates];
+}
+
 function computeDigest(body: string): string {
   return `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
 }
@@ -27,24 +84,26 @@ async function fetchRemoteActor(actorUrl: string): Promise<{
   sharedInbox?: string;
   preferredUsername?: string;
 }> {
-  try {
-    const resp = await fetch(actorUrl, {
-      headers: { Accept: "application/activity+json, application/ld+json" },
-    });
-    if (resp.ok) {
-      const actor = (await resp.json()) as {
-        inbox?: string;
-        endpoints?: { sharedInbox?: string };
-        preferredUsername?: string;
-      };
-      return {
-        inbox: actor.inbox || actorUrl.replace(/\/$/, "") + "/inbox",
-        sharedInbox: actor.endpoints?.sharedInbox,
-        preferredUsername: actor.preferredUsername,
-      };
+  for (const candidate of buildRemoteActorCandidates(actorUrl)) {
+    try {
+      const resp = await fetch(candidate, {
+        headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
+      });
+      if (resp.ok) {
+        const actor = (await resp.json()) as {
+          inbox?: string;
+          endpoints?: { sharedInbox?: string };
+          preferredUsername?: string;
+        };
+        return {
+          inbox: actor.inbox || candidate.replace(/\/$/, "") + "/inbox",
+          sharedInbox: actor.endpoints?.sharedInbox,
+          preferredUsername: actor.preferredUsername,
+        };
+      }
+    } catch (err) {
+      console.error("Failed to fetch remote actor:", err);
     }
-  } catch (err) {
-    console.error("Failed to fetch remote actor:", err);
   }
   return { inbox: actorUrl.replace(/\/$/, "") + "/inbox" };
 }

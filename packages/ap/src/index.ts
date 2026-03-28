@@ -166,6 +166,36 @@ export interface ActorOptions {
   createdAt?: Date | null;
 }
 
+function inferImageMediaType(url: string): string | undefined {
+  let pathname = url;
+
+  try {
+    pathname = new URL(url).pathname;
+  } catch {
+    pathname = url;
+  }
+
+  const normalized = pathname.toLowerCase();
+
+  if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) {
+    return "image/jpeg";
+  }
+  if (normalized.endsWith(".png")) {
+    return "image/png";
+  }
+  if (normalized.endsWith(".gif")) {
+    return "image/gif";
+  }
+  if (normalized.endsWith(".webp")) {
+    return "image/webp";
+  }
+  if (normalized.endsWith(".avif")) {
+    return "image/avif";
+  }
+
+  return undefined;
+}
+
 export async function createActorObject(
   username: string,
   name: string,
@@ -210,10 +240,18 @@ export async function createActorObject(
   };
 
   if (options?.avatarUrl) {
-    actor.icon = { type: "Image", url: options.avatarUrl };
+    actor.icon = {
+      type: "Image",
+      url: options.avatarUrl,
+      mediaType: inferImageMediaType(options.avatarUrl),
+    };
   }
   if (options?.bannerUrl) {
-    actor.image = { type: "Image", url: options.bannerUrl };
+    actor.image = {
+      type: "Image",
+      url: options.bannerUrl,
+      mediaType: inferImageMediaType(options.bannerUrl),
+    };
   }
   if (options?.createdAt) {
     actor.published = options.createdAt.toISOString();
@@ -266,10 +304,18 @@ export function createActorObjectSync(
   };
 
   if (options?.avatarUrl) {
-    actor.icon = { type: "Image", url: options.avatarUrl };
+    actor.icon = {
+      type: "Image",
+      url: options.avatarUrl,
+      mediaType: inferImageMediaType(options.avatarUrl),
+    };
   }
   if (options?.bannerUrl) {
-    actor.image = { type: "Image", url: options.bannerUrl };
+    actor.image = {
+      type: "Image",
+      url: options.bannerUrl,
+      mediaType: inferImageMediaType(options.bannerUrl),
+    };
   }
   if (options?.createdAt) {
     actor.published = options.createdAt.toISOString();

@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { getDb, getInstanceSettings } from "@xlog/db";
 const SIGNATURE_TTL_MS = 15 * 60 * 1000;
+const ACTIVITYPUB_ACCEPT_HEADER =
+  'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
 
 export interface SignatureHeaders {
   "(request-target)": string;
@@ -14,6 +16,146 @@ export function createSignatureString(headers: SignatureHeaders): string {
   return Object.entries(headers)
     .map(([key, value]) => `${key.toLowerCase()}: ${value}`)
     .join("\n");
+}
+
+function trimTrailingSlash(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+function normalizeActorUrl(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    url.pathname = trimTrailingSlash(url.pathname) || "/";
+    return url.toString();
+  } catch {
+    return trimTrailingSlash(value);
+  }
+}
+
+function normalizeKeyId(value: string): string {
+  try {
+    const url = new URL(value);
+    url.pathname = trimTrailingSlash(url.pathname) || "/";
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
+function normalizeActorHostname(value: string): string {
+  return value.replace(/^www\./, "");
+}
+
+function actorUrlsEquivalent(left: string, right: string): boolean {
+  try {
+    const a = new URL(normalizeActorUrl(left));
+    const b = new URL(normalizeActorUrl(right));
+    return (
+      a.protocol === b.protocol &&
+      normalizeActorHostname(a.hostname) === normalizeActorHostname(b.hostname) &&
+      a.pathname === b.pathname
+    );
+  } catch {
+    return normalizeActorUrl(left) === normalizeActorUrl(right);
+  }
+}
+
+function keyIdsEquivalent(left: string, right: string): boolean {
+  try {
+    const a = new URL(normalizeKeyId(left));
+    const b = new URL(normalizeKeyId(right));
+    return (
+      a.protocol === b.protocol &&
+      normalizeActorHostname(a.hostname) === normalizeActorHostname(b.hostname) &&
+      a.pathname === b.pathname &&
+      a.hash === b.hash
+    );
+  } catch {
+    return normalizeKeyId(left) === normalizeKeyId(right);
+  }
+}
+
+function getActorIdFromUrl(actorUrl: string): string {
+  try {
+    const parts = new URL(actorUrl).pathname.split("/").filter(Boolean);
+    return parts[parts.length - 1] || "";
+  } catch {
+    return actorUrl.split("/").filter(Boolean).pop() || "";
+  }
+}
+
+function buildRemoteActorCandidates(actorUrl: string): string[] {
+  const candidates = new Set<string>();
+
+  const add = (value: string) => {
+    if (value.startsWith("https://")) {
+      candidates.add(value);
+    }
+  };
+
+  try {
+    const url = new URL(actorUrl);
+    url.hash = "";
+
+    add(url.toString());
+
+    const withoutSlash = new URL(url.toString());
+    withoutSlash.pathname = trimTrailingSlash(withoutSlash.pathname) || "/";
+    add(withoutSlash.toString());
+
+    const withSlash = new URL(withoutSlash.toString());
+    if (!withSlash.pathname.endsWith("/")) {
+      withSlash.pathname = `${withSlash.pathname}/`;
+      add(withSlash.toString());
+    }
+
+    const hostVariants = new Set<string>([url.hostname]);
+    if (url.hostname.startsWith("www.")) {
+      hostVariants.add(url.hostname.slice(4));
+    } else {
+      hostVariants.add(`www.${url.hostname}`);
+    }
+
+    for (const hostname of hostVariants) {
+      const variant = new URL(withoutSlash.toString());
+      variant.hostname = hostname;
+      add(variant.toString());
+
+      const variantWithSlash = new URL(variant.toString());
+      if (!variantWithSlash.pathname.endsWith("/")) {
+        variantWithSlash.pathname = `${variantWithSlash.pathname}/`;
+        add(variantWithSlash.toString());
+      }
+    }
+  } catch {
+    add(actorUrl);
+  }
+
+  return [...candidates];
+}
+
+async function fetchRemoteActorDocument(actorUrl: string) {
+  const candidates = buildRemoteActorCandidates(actorUrl);
+
+  for (const candidate of candidates) {
+    const resp = await fetch(candidate, {
+      headers: {
+        Accept: ACTIVITYPUB_ACCEPT_HEADER,
+      },
+    });
+
+    if (resp.ok) {
+      return {
+        actorUrl: candidate,
+        actor: (await resp.json()) as {
+          publicKey?: { publicKeyPem?: string; owner?: string; id?: string };
+        },
+      };
+    }
+  }
+
+  return null;
 }
 
 export async function signRequest(
@@ -155,7 +297,7 @@ export async function verifySignature(
 
     // Extract actor URL from keyId
     const actorUrl = keyId.replace(/#main-key$/, "");
-    const actorId = actorUrl.split("/").pop();
+    const actorId = getActorIdFromUrl(actorUrl);
 
     // Fetch public key from database or remote
     // db already initialized above
@@ -191,16 +333,12 @@ export async function verifySignature(
         console.warn("Sig verify failed: non-HTTPS actor URL");
         return false;
       }
-      const resp = await fetch(actorUrl, {
-        headers: {
-          Accept: "application/activity+json",
-        },
-      });
-      if (!resp.ok) {
-        console.warn(`Sig verify failed: remote actor fetch failed (status=${resp.status})`);
+      const remoteActor = await fetchRemoteActorDocument(actorUrl);
+      if (!remoteActor) {
+        console.warn("Sig verify failed: remote actor fetch failed for all candidates");
         return false;
       }
-      const actor = (await resp.json()) as { publicKey?: { publicKeyPem?: string; owner?: string; id?: string } };
+      const { actor, actorUrl: resolvedActorUrl } = remoteActor;
       const publicKeyPem = actor.publicKey?.publicKeyPem;
       const publicKeyOwner = actor.publicKey?.owner;
       const publicKeyId = actor.publicKey?.id;
@@ -208,11 +346,13 @@ export async function verifySignature(
         console.warn("Sig verify failed: no publicKeyPem in actor");
         return false;
       }
-      if (publicKeyOwner && publicKeyOwner !== actorUrl) {
-        console.warn(`Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl})`);
+      if (publicKeyOwner && !actorUrlsEquivalent(publicKeyOwner, actorUrl)) {
+        console.warn(
+          `Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl}, resolved=${resolvedActorUrl})`
+        );
         return false;
       }
-      if (publicKeyId && publicKeyId !== keyId) {
+      if (publicKeyId && !keyIdsEquivalent(publicKeyId, keyId)) {
         console.warn(`Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`);
         return false;
       }
