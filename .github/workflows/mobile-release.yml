@@ -55,6 +55,7 @@ jobs:
       contents: read
     outputs:
       build_url: ${{ steps.parse.outputs.build_url }}
+      apk_url: ${{ steps.parse.outputs.apk_url }}
     env:
       EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       EXPO_PUBLIC_EAS_PROJECT_ID: ${{ secrets.EXPO_PUBLIC_EAS_PROJECT_ID }}
@@ -83,15 +84,15 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build Android bundle
+      - name: Build Android APK
         working-directory: apps/mobile
-        run: eas build --platform android --profile production --non-interactive --json --wait > android-build.json
+        run: eas build --platform android --profile production-apk --non-interactive --json --wait > android-build.json
 
       - name: Capture Android build metadata
         id: parse
         working-directory: apps/mobile
         run: |
-          BUILD_URL="$(node <<'NODE'
+          BUILD_METADATA="$(node <<'NODE'
           const fs = require('fs');
 
           function readBuild(file) {
@@ -122,14 +123,26 @@ jobs:
           }
 
           const build = readBuild('android-build.json');
-          process.stdout.write(build?.buildDetailsPageUrl || build?.artifacts?.buildUrl || '');
+          const buildUrl = build?.buildDetailsPageUrl || build?.artifacts?.buildUrl || '';
+          const apkUrl =
+            build?.artifacts?.applicationArchiveUrl ||
+            build?.applicationArchiveUrl ||
+            '';
+          process.stdout.write(JSON.stringify({ buildUrl, apkUrl }));
           NODE
           )"
+          BUILD_URL="$(printf '%s' "$BUILD_METADATA" | node -p "const data=JSON.parse(require('fs').readFileSync(0,'utf8')); data.buildUrl || ''")"
+          APK_URL="$(printf '%s' "$BUILD_METADATA" | node -p "const data=JSON.parse(require('fs').readFileSync(0,'utf8')); data.apkUrl || ''")"
           if [ -z "$BUILD_URL" ]; then
             echo "Unable to determine Android build URL."
             exit 1
           fi
+          if [ -z "$APK_URL" ]; then
+            echo "Unable to determine Android APK URL."
+            exit 1
+          fi
           echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+          echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
 
   # build-ios:
   #   runs-on: ubuntu-latest
@@ -229,17 +242,23 @@ jobs:
 
           Commit: ${{ github.sha }}
 
-          Android build:
+          Android build details:
           ${{ needs.build-android.outputs.build_url }}
+          EOF
 
-          # iOS build:
-          # ${{ needs.build-ios.outputs.build_url }}
-          # EOF
+      - name: Download Android APK
+        env:
+          APK_URL: ${{ needs.build-android.outputs.apk_url }}
+        run: |
+          APK_NAME="xlog-android-v${{ needs.validate.outputs.release_version }}.apk"
+          curl -L "$APK_URL" -o "$APK_NAME"
 
       - name: Publish GitHub release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          APK_NAME="xlog-android-v${{ needs.validate.outputs.release_version }}.apk"
           gh release create "${GITHUB_REF_NAME}" \
             --title "Mobile v${{ needs.validate.outputs.release_version }}" \
-            --notes-file mobile-release-notes.md
+            --notes-file mobile-release-notes.md \
+            "$APK_NAME#Android APK"
