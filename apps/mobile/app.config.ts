@@ -16,6 +16,9 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: false,
     bundleIdentifier: "com.xlog.mobile",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: true
+    }
   },
   android: {
     package: "com.xlog.mobile",
