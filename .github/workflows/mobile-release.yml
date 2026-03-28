@@ -1,0 +1,178 @@
+name: Mobile Release
+
+on:
+  push:
+    tags:
+      - "mobile-v*"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      release_version: ${{ steps.version.outputs.release_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Verify mobile tag matches app version
+        id: version
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#mobile-v}"
+          APP_VERSION="$(node -p "require('./apps/mobile/package.json').version")"
+
+          if [ "$TAG_VERSION" != "$APP_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match apps/mobile/package.json version ($APP_VERSION)."
+            exit 1
+          fi
+
+          echo "release_version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Type-check mobile app
+        run: bun run --cwd apps/mobile type-check
+
+      - name: Type-check API
+        run: bun run --cwd apps/api type-check
+
+  build-android:
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+    outputs:
+      build_url: ${{ steps.parse.outputs.build_url }}
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ secrets.EXPO_PUBLIC_EAS_PROJECT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: bun
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Android bundle
+        working-directory: apps/mobile
+        run: eas build --platform android --profile production --non-interactive --json --wait > android-build.json
+
+      - name: Capture Android build metadata
+        id: parse
+        working-directory: apps/mobile
+        run: |
+          BUILD_URL="$(node -e "const fs=require('fs'); const lines=fs.readFileSync('android-build.json','utf8').trim().split('\n').filter(Boolean); const data=JSON.parse(lines[lines.length-1]); const build=Array.isArray(data)?data[0]:data; process.stdout.write(build.buildDetailsPageUrl || build.artifacts?.buildUrl || '');")"
+          if [ -z "$BUILD_URL" ]; then
+            echo "Unable to determine Android build URL."
+            exit 1
+          fi
+          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+
+  build-ios:
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+    outputs:
+      build_url: ${{ steps.parse.outputs.build_url }}
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_EAS_PROJECT_ID: ${{ secrets.EXPO_PUBLIC_EAS_PROJECT_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Set up Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: bun
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build iOS archive
+        working-directory: apps/mobile
+        run: eas build --platform ios --profile production --non-interactive --json --wait > ios-build.json
+
+      - name: Capture iOS build metadata
+        id: parse
+        working-directory: apps/mobile
+        run: |
+          BUILD_URL="$(node -e "const fs=require('fs'); const lines=fs.readFileSync('ios-build.json','utf8').trim().split('\n').filter(Boolean); const data=JSON.parse(lines[lines.length-1]); const build=Array.isArray(data)?data[0]:data; process.stdout.write(build.buildDetailsPageUrl || build.artifacts?.buildUrl || '');")"
+          if [ -z "$BUILD_URL" ]; then
+            echo "Unable to determine iOS build URL."
+            exit 1
+          fi
+          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+
+  release:
+    runs-on: ubuntu-latest
+    needs:
+      - validate
+      - build-android
+      - build-ios
+    permissions:
+      contents: write
+    steps:
+      - name: Create release notes
+        run: |
+          cat <<EOF > mobile-release-notes.md
+          Mobile release ${{ needs.validate.outputs.release_version }}
+
+          Commit: ${{ github.sha }}
+
+          Android build:
+          ${{ needs.build-android.outputs.build_url }}
+
+          iOS build:
+          ${{ needs.build-ios.outputs.build_url }}
+          EOF
+
+      - name: Publish GitHub release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "Mobile v${{ needs.validate.outputs.release_version }}" \
+            --notes-file mobile-release-notes.md

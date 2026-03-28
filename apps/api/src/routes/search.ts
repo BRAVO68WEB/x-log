@@ -43,9 +43,7 @@ searchRoutes.get(
           ])
           .where("posts.visibility", "=", "public")
           .where("posts.published_at", "is not", null)
-          .where(
-            sql`posts.hashtags @> ARRAY[${hashtag.toLowerCase()}]::text[]`
-          )
+          .where(sql<boolean>`posts.hashtags @> ARRAY[${hashtag.toLowerCase()}]::text[]`)
           .orderBy("posts.published_at", "desc")
           .limit(limit + 1);
 

@@ -84,6 +84,21 @@ cd apps/api && bun run migrate
 - `make clean` - Remove containers, volumes, and images
 - `make help` - Show all available commands
 
+### Mobile App
+
+The repo now includes an Expo mobile app in `apps/mobile`.
+
+Useful commands:
+
+- `bun run mobile` - Start the Expo development server
+- `bun run mobile:ios` - Run the mobile app on iOS
+- `bun run mobile:android` - Run the mobile app on Android
+
+Environment variables:
+
+- `EXPO_PUBLIC_API_BASE_URL` - Direct backend API URL for native clients, for example `http://localhost:8080/api`
+- `EXPO_PUBLIC_EAS_PROJECT_ID` - EAS project ID used for release builds
+
 ### Services
 
 When running `make dev`, the following services will be available:
@@ -119,6 +134,7 @@ This architecture ensures:
 x-log/
 ├── apps/
 │   ├── api/          # Hono API server
+│   ├── mobile/       # Expo + React Native mobile app
 │   ├── web/          # Next.js frontend
 │   └── worker/       # Background job worker
 ├── packages/
@@ -137,3 +153,18 @@ x-log/
 
 AGPL-3.0 (to be confirmed)
 
+## Mobile Release Workflow
+
+Tagging a commit with `mobile-v<version>` triggers `.github/workflows/mobile-release.yml`.
+
+Example:
+
+```bash
+git tag mobile-v1.0.0
+git push origin mobile-v1.0.0
+```
+
+Required GitHub secrets:
+
+- `EXPO_TOKEN`
+- `EXPO_PUBLIC_EAS_PROJECT_ID`

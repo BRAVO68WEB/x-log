@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { 
   LoginSchema, 
+  MobileAuthResponseSchema,
   UserResponseSchema,
   OIDCCallbackQuerySchema,
   OIDCLinkAccountSchema,
@@ -11,12 +12,36 @@ import { getDb } from "@xlog/db";
 import bcrypt from "bcryptjs";
 import {
   createSession,
+  createMobileToken,
+  getMobileTokenExpiryIso,
   setSessionCookie,
   clearSessionCookie,
   sessionMiddleware,
+  requireAuth,
 } from "../middleware/session";
 import { getOIDCClient } from "@xlog/libs";
 import { getEnv } from "@xlog/config";
+
+async function authenticateUser(username: string, password: string) {
+  const db = getDb();
+
+  const user = await db
+    .selectFrom("users")
+    .selectAll()
+    .where("username", "=", username)
+    .executeTakeFirst();
+
+  if (!user || !user.password_hash) {
+    return null;
+  }
+
+  const isValid = await bcrypt.compare(password, user.password_hash);
+  if (!isValid) {
+    return null;
+  }
+
+  return user;
+}
 
 export const authRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -42,20 +67,9 @@ authRoutes.post(
   validator("json", LoginSchema),
   async (c) => {
     const { username, password } = c.req.valid("json");
-    const db = getDb();
+    const user = await authenticateUser(username, password);
 
-    const user = await db
-      .selectFrom("users")
-      .selectAll()
-      .where("username", "=", username)
-      .executeTakeFirst();
-
-    if (!user || !user.password_hash) {
-      return c.json({ error: "Invalid credentials" }, 401);
-    }
-
-    const isValid = await bcrypt.compare(password, user.password_hash);
-    if (!isValid) {
+    if (!user) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
 
@@ -69,6 +83,71 @@ authRoutes.post(
       role: user.role,
       created_at: user.created_at.toISOString(),
     });
+  }
+);
+
+authRoutes.post(
+  "/mobile/login",
+  describeRoute({
+    description: "Login with username and password for native mobile clients",
+    tags: ["auth"],
+    responses: {
+      200: {
+        description: "Mobile login successful",
+        content: {
+          "application/json": {
+            schema: resolver(MobileAuthResponseSchema),
+          },
+        },
+      },
+      401: {
+        description: "Invalid credentials",
+      },
+    },
+  }),
+  validator("json", LoginSchema),
+  async (c) => {
+    const { username, password } = c.req.valid("json");
+    const user = await authenticateUser(username, password);
+
+    if (!user) {
+      return c.json({ error: "Invalid credentials" }, 401);
+    }
+
+    const token = await createMobileToken(user.id);
+    const expiresAt = getMobileTokenExpiryIso();
+
+    return c.json({
+      token,
+      expires_at: expiresAt,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at.toISOString(),
+      },
+    });
+  }
+);
+
+authRoutes.post(
+  "/mobile/logout",
+  describeRoute({
+    description: "Logout mobile bearer session",
+    tags: ["auth"],
+    responses: {
+      200: {
+        description: "Logout successful",
+      },
+      401: {
+        description: "Unauthorized",
+      },
+    },
+  }),
+  requireAuth,
+  async (c) => {
+    return c.json({ message: "Logged out" });
   }
 );
 

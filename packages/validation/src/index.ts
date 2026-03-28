@@ -4,7 +4,7 @@ import { z } from "zod";
 export const PostCreateSchema = z.object({
   title: z.string().min(1).max(200),
   banner_url: z.string().url().optional(),
-  content_blocks: z.record(z.any()), // ProseMirror/TipTap document object
+  content_blocks: z.record(z.any()).optional(), // ProseMirror/TipTap document object
   content_markdown: z.string().min(1),
   hashtags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20),
   visibility: z.enum(["public", "unlisted", "private"]).default("public"),
@@ -36,6 +36,18 @@ export const PostResponseSchema = z.object({
 export const LoginSchema = z.object({
   username: z.string().min(1),
   password: z.string().min(1),
+});
+
+export const MobileAuthResponseSchema = z.object({
+  token: z.string().min(1),
+  expires_at: z.string(),
+  user: z.object({
+    id: z.string(),
+    username: z.string(),
+    email: z.string().nullable(),
+    role: z.enum(["admin", "author", "reader"]),
+    created_at: z.string(),
+  }),
 });
 
 export const UserResponseSchema = z.object({
@@ -80,6 +92,20 @@ export const ProfileResponseSchema = z.object({
   banner_url: z.string().url().nullable(),
   nostr_pubkey: z.string().nullable(),
   has_nostr_privkey: z.boolean(),
+});
+
+export const InstanceSummaryResponseSchema = z.object({
+  instance_name: z.string(),
+  instance_description: z.string().nullable(),
+  instance_domain: z.string(),
+  total_public_posts: z.number().int().min(0),
+  primary_profile: z.object({
+    username: z.string(),
+    full_name: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+    banner_url: z.string().nullable(),
+    bio: z.string().nullable(),
+  }).nullable(),
 });
 
 // Onboarding schemas

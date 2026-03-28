@@ -9,6 +9,9 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "dotenv --override=false -- turbo run dev",
+    "mobile": "bun run --cwd apps/mobile dev",
+    "mobile:ios": "bun run --cwd apps/mobile ios",
+    "mobile:android": "bun run --cwd apps/mobile android",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,jsx}\"",
     "type-check": "turbo run type-check",
