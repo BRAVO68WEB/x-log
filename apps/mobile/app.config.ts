@@ -4,7 +4,7 @@ const packageJson = require("./package.json") as { version: string };
 
 const config: ExpoConfig = {
   name: "x-log",
-  slug: "x-log-mobile",
+  slug: "xlog-dev",
   version: packageJson.version,
   scheme: "xlog",
   orientation: "portrait",
