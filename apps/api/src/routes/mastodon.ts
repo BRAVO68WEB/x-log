@@ -3,6 +3,28 @@ import { getDb, getInstanceSettings } from "@xlog/db";
 
 export const mastodonRoutes = new Hono();
 
+function normalizeDomainCandidate(value: string | null | undefined): string | null {
+  const trimmed = value?.trim().toLowerCase();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function getHostnameFromActorUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return new URL(trimmed).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 // GET /v1/directory — Mastodon-compatible user directory
 mastodonRoutes.get("/directory", async (c) => {
   const limit = Math.min(Math.max(1, parseInt(c.req.query("limit") || "40", 10) || 40), 80);
@@ -112,4 +134,53 @@ mastodonRoutes.get("/instance/activity", async (c) => {
   }
 
   return c.json(weeks);
+});
+
+// GET /v1/instance/domain_blocks — Mastodon-compatible domain block list
+mastodonRoutes.get("/instance/domain_blocks", (c) => {
+  return c.json([]);
+});
+
+// GET /v1/instance/peers — Mastodon-compatible federated peers list
+mastodonRoutes.get("/instance/peers", async (c) => {
+  const db = getDb();
+  const settings = await getInstanceSettings();
+  const localDomain = settings.instance_domain.trim().toLowerCase();
+
+  const [followers, following] = await Promise.all([
+    db
+      .selectFrom("followers")
+      .select(["remote_domain", "remote_actor"])
+      .execute(),
+    db
+      .selectFrom("following")
+      .select("remote_actor")
+      .execute(),
+  ]);
+
+  const peers = new Set<string>();
+
+  for (const follower of followers) {
+    const candidate =
+      normalizeDomainCandidate(follower.remote_domain) ||
+      getHostnameFromActorUrl(follower.remote_actor);
+
+    if (!candidate || candidate === localDomain) {
+      continue;
+    }
+
+    peers.add(candidate);
+  }
+
+  for (const remote of following) {
+    const candidate = getHostnameFromActorUrl(remote.remote_actor);
+
+    if (!candidate || candidate === localDomain) {
+      continue;
+    }
+
+    peers.add(candidate);
+  }
+
+  return c.json([...peers].sort((a, b) => a.localeCompare(b)));
 });
