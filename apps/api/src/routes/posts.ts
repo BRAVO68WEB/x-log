@@ -23,6 +23,11 @@ import {
 } from "../middleware/session";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
 
+const EMPTY_CONTENT_BLOCKS = {
+  type: "doc",
+  content: [],
+} satisfies Record<string, unknown>;
+
 function extractImageUrls(doc: unknown): string[] {
   const urls: string[] = [];
   function walk(node: any) {
@@ -38,11 +43,28 @@ function extractImageUrls(doc: unknown): string[] {
   return urls;
 }
 
+function extractMarkdownImageUrls(markdown?: string | null): string[] {
+  if (!markdown) return [];
+
+  const urls: string[] = [];
+  const regex = /!\[[^\]]*\]\((https?:\/\/[^)\s]+(?:\s+"[^"]*")?)\)/g;
+
+  for (const match of markdown.matchAll(regex)) {
+    const rawUrl = match[1]?.trim();
+    if (!rawUrl) continue;
+    const cleanedUrl = rawUrl.split(/\s+"/)[0];
+    urls.push(cleanedUrl);
+  }
+
+  return urls;
+}
+
 async function linkMediaToPost(
   db: ReturnType<typeof getDb>,
   postId: string,
   bannerUrl?: string | null,
-  contentBlocks?: unknown
+  contentBlocks?: unknown,
+  markdown?: string | null
 ) {
   try {
     if (bannerUrl) {
@@ -63,6 +85,14 @@ async function linkMediaToPost(
           .where("post_id", "is", null)
           .execute();
       }
+    }
+    for (const url of extractMarkdownImageUrls(markdown)) {
+      await db
+        .updateTable("media")
+        .set({ post_id: postId })
+        .where("url", "=", url)
+        .where("post_id", "is", null)
+        .execute();
     }
   } catch (err) {
     console.error("Failed to link media to post:", err);
@@ -289,7 +319,7 @@ postsRoutes.post(
         title: data.title,
         banner_url: data.banner_url || null,
         content_markdown: data.content_markdown,
-        content_blocks_json: data.content_blocks as any,
+        content_blocks_json: (data.content_blocks || EMPTY_CONTENT_BLOCKS) as any,
         summary: data.summary || null,
         hashtags: data.hashtags,
         visibility: data.visibility,
@@ -299,7 +329,13 @@ postsRoutes.post(
       .execute();
 
     // Link uploaded media to this post
-    await linkMediaToPost(db, postId, data.banner_url, data.content_blocks);
+    await linkMediaToPost(
+      db,
+      postId,
+      data.banner_url,
+      data.content_blocks,
+      data.content_markdown
+    );
 
     const post = await db
       .selectFrom("posts")
@@ -387,15 +423,22 @@ postsRoutes.patch(
       .updateTable("posts")
       .set({
         ...data,
-        content_blocks_json: data.content_blocks
-          ? (data.content_blocks as any)
-          : undefined,
+        content_blocks_json:
+          data.content_blocks !== undefined
+            ? (data.content_blocks || EMPTY_CONTENT_BLOCKS) as any
+            : undefined,
       })
       .where("id", "=", id)
       .execute();
 
     // Link uploaded media to this post
-    await linkMediaToPost(db, id, data.banner_url, data.content_blocks);
+    await linkMediaToPost(
+      db,
+      id,
+      data.banner_url,
+      data.content_blocks,
+      data.content_markdown
+    );
 
     // Trigger federation Update if post is published and not private
     if (post.published_at && post.visibility !== "private") {

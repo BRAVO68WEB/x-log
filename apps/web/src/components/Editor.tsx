@@ -610,6 +610,21 @@ export function Editor({
               </div>
             </div>
             <div className="flex items-center gap-2 ml-auto">
+              <input
+                type="url"
+                placeholder="Banner image URL..."
+                value={bannerUrl}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setBannerUrl(value);
+                  if (value) {
+                    setBannerImage(value);
+                  } else if (bannerImage && !bannerImage.startsWith("blob:")) {
+                    setBannerImage("");
+                  }
+                }}
+                className="w-64 px-3 py-1.5 border border-input rounded-md text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
               <label
                 htmlFor="banner-upload"
                 className={cn(
