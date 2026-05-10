@@ -6,6 +6,7 @@ let cachedSettings: {
   instance_description: string | null;
   federation_enabled: boolean;
   following_enabled: boolean;
+  use_profile_as_landing: boolean;
 } | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute cache
@@ -27,6 +28,7 @@ export async function getInstanceSettings() {
       "instance_description",
       "federation_enabled",
       "following_enabled",
+      "use_profile_as_landing",
     ])
     .where("id", "=", 1)
     .executeTakeFirst();
@@ -41,6 +43,7 @@ export async function getInstanceSettings() {
       instance_description: null,
       federation_enabled: true,
       following_enabled: false,
+      use_profile_as_landing: false,
     };
   }
 
@@ -50,6 +53,7 @@ export async function getInstanceSettings() {
     instance_description: settings.instance_description,
     federation_enabled: settings.federation_enabled,
     following_enabled: settings.following_enabled,
+    use_profile_as_landing: settings.use_profile_as_landing,
   };
   cacheTimestamp = now;
 
@@ -60,4 +64,3 @@ export function clearInstanceSettingsCache() {
   cachedSettings = null;
   cacheTimestamp = 0;
 }
-

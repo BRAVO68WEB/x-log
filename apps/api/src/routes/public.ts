@@ -71,6 +71,7 @@ publicRoutes.get(
       instance_name: settings.instance_name,
       instance_description: settings.instance_description,
       instance_domain: settings.instance_domain,
+      use_profile_as_landing: settings.use_profile_as_landing,
       total_public_posts: Number(totalPostsRow?.count || 0),
       primary_profile: primaryProfile
         ? {

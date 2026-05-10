@@ -130,6 +130,7 @@ export interface InstanceSettingsTable {
   smtp_url: string | null;
   federation_enabled: boolean;
   following_enabled: boolean;
+  use_profile_as_landing: boolean;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
 }

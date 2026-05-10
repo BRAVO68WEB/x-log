@@ -28,6 +28,7 @@ export default function SettingsClient() {
     smtp_url: "",
     federation_enabled: true,
     following_enabled: false,
+    use_profile_as_landing: false,
   });
 
   const settingsQuery = useQuery(
@@ -48,6 +49,7 @@ export default function SettingsClient() {
         smtp_url: string | null;
         federation_enabled: boolean;
         following_enabled: boolean;
+        use_profile_as_landing: boolean;
       }>;
     },
     {
@@ -60,6 +62,7 @@ export default function SettingsClient() {
           smtp_url: data.smtp_url || "",
           federation_enabled: data.federation_enabled,
           following_enabled: data.following_enabled,
+          use_profile_as_landing: data.use_profile_as_landing,
         });
       },
       onError: (err) => {
@@ -85,6 +88,7 @@ export default function SettingsClient() {
           smtp_url: settings.smtp_url || null,
           federation_enabled: settings.federation_enabled,
           following_enabled: settings.following_enabled,
+          use_profile_as_landing: settings.use_profile_as_landing,
         }),
       });
       if (!res.ok) {
@@ -224,17 +228,17 @@ export default function SettingsClient() {
 
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
-                    <Label className="font-medium">Enable following</Label>
+                    <Label className="font-medium">Use profile as landing</Label>
                     <p className="text-xs text-muted-foreground">
-                      Allow local users to follow remote actors
+                      Redirect / to the primary user profile page when enabled
                     </p>
                   </div>
                   <Switch
-                    checked={settings.following_enabled}
+                    checked={settings.use_profile_as_landing}
                     onCheckedChange={(checked) =>
                       setSettings({
                         ...settings,
-                        following_enabled: checked,
+                        use_profile_as_landing: checked,
                       })
                     }
                   />
