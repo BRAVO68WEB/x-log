@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import HomeClient from "./HomeClient";
 
@@ -12,19 +11,32 @@ type PublicInstanceSummary = {
 
 export default async function Home() {
   try {
-    const hdrs = await headers();
-    const host = hdrs.get("host") || "localhost:4000";
-    const proto = hdrs.get("x-forwarded-proto") || "http";
-    const base = `${proto}://${host}`;
-    const res = await fetch(`${base}/api/public/instance`, { cache: "no-store" });
+    const requestBases = [
+      "/api/public/instance",
+    ];
 
-    if (res.ok) {
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
+    if (apiBase) {
+      requestBases.push(`${apiBase.replace(/\/$/, "")}/api/public/instance`);
+    }
+
+    let res: Response | null = null;
+    for (const apiUrl of requestBases) {
+      try {
+        const candidateResponse = await fetch(apiUrl, { cache: "no-store" });
+        if (candidateResponse.ok) {
+          res = candidateResponse;
+          break;
+        }
+      } catch {
+        res = null;
+      }
+    }
+
+    if (res && res.ok) {
       const summary = (await res.json()) as PublicInstanceSummary;
 
-      if (
-        summary.use_profile_as_landing &&
-        summary.primary_profile?.username
-      ) {
+      if (summary.use_profile_as_landing && summary.primary_profile?.username) {
         redirect(`/u/${summary.primary_profile.username}`);
       }
     }
