@@ -1,7 +1,37 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import HomeClient from "./HomeClient";
 
-export default function Home() {
+type PublicInstanceSummary = {
+  use_profile_as_landing: boolean;
+  primary_profile: {
+    username: string;
+  } | null;
+};
+
+export default async function Home() {
+  try {
+    const hdrs = await headers();
+    const host = hdrs.get("host") || "localhost:4000";
+    const proto = hdrs.get("x-forwarded-proto") || "http";
+    const base = `${proto}://${host}`;
+    const res = await fetch(`${base}/api/public/instance`, { cache: "no-store" });
+
+    if (res.ok) {
+      const summary = (await res.json()) as PublicInstanceSummary;
+
+      if (
+        summary.use_profile_as_landing &&
+        summary.primary_profile?.username
+      ) {
+        redirect(`/u/${summary.primary_profile.username}`);
+      }
+    }
+  } catch {
+    // On failure, keep homepage behavior.
+  }
+
   return <HomeClient />;
 }
 

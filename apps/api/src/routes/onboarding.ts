@@ -134,10 +134,10 @@ onboardingRoutes.post(
         smtp_url: data.smtp_url || null,
         federation_enabled: true,
         following_enabled: false,
+        use_profile_as_landing: false,
       })
       .execute();
 
     return c.json({ message: "Onboarding completed" });
   }
 );
-

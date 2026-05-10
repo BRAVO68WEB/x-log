@@ -62,6 +62,7 @@ async function main() {
         admin_email: email,
         smtp_url: null,
         federation_enabled: true,
+        use_profile_as_landing: false,
       })
       .execute();
     console.log("  Created instance_settings");

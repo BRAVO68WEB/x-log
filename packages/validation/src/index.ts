@@ -98,6 +98,7 @@ export const InstanceSummaryResponseSchema = z.object({
   instance_name: z.string(),
   instance_description: z.string().nullable(),
   instance_domain: z.string(),
+  use_profile_as_landing: z.boolean(),
   total_public_posts: z.number().int().min(0),
   primary_profile: z.object({
     username: z.string(),

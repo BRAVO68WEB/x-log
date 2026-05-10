@@ -16,6 +16,7 @@ const InstanceSettingsUpdateSchema = z.object({
   smtp_url: z.string().url().optional().nullable(),
   federation_enabled: z.boolean().optional(),
   following_enabled: z.boolean().optional(),
+  use_profile_as_landing: z.boolean().optional(),
 });
 
 const InstanceSettingsResponseSchema = z.object({
@@ -27,6 +28,7 @@ const InstanceSettingsResponseSchema = z.object({
   smtp_url: z.string().nullable(),
   federation_enabled: z.boolean(),
   following_enabled: z.boolean(),
+  use_profile_as_landing: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -76,6 +78,7 @@ settingsRoutes.get(
       smtp_url: settings.smtp_url,
       federation_enabled: settings.federation_enabled,
       following_enabled: settings.following_enabled,
+      use_profile_as_landing: settings.use_profile_as_landing,
       created_at: settings.created_at.toISOString(),
       updated_at: settings.updated_at.toISOString(),
     });
@@ -145,6 +148,9 @@ settingsRoutes.patch(
     if (data.following_enabled !== undefined) {
       updateData.following_enabled = data.following_enabled;
     }
+    if (data.use_profile_as_landing !== undefined) {
+      updateData.use_profile_as_landing = data.use_profile_as_landing;
+    }
 
     // Update settings
     await db
@@ -172,9 +178,9 @@ settingsRoutes.patch(
       smtp_url: updated!.smtp_url,
       federation_enabled: updated!.federation_enabled,
       following_enabled: updated!.following_enabled,
+      use_profile_as_landing: updated!.use_profile_as_landing,
       created_at: updated!.created_at.toISOString(),
       updated_at: updated!.updated_at.toISOString(),
     });
   }
 );
-
