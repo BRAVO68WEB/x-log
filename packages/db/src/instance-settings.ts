@@ -20,18 +20,55 @@ export async function getInstanceSettings() {
   }
 
   const db = getDb();
-  const settings = await db
-    .selectFrom("instance_settings")
-    .select([
-      "instance_domain",
-      "instance_name",
-      "instance_description",
-      "federation_enabled",
-      "following_enabled",
-      "use_profile_as_landing",
-    ])
-    .where("id", "=", 1)
-    .executeTakeFirst();
+  let settings: {
+    instance_domain: string;
+    instance_name: string;
+    instance_description: string | null;
+    federation_enabled: boolean;
+    following_enabled: boolean;
+    use_profile_as_landing: boolean;
+  } | null;
+
+  try {
+    settings = await db
+      .selectFrom("instance_settings")
+      .select([
+        "instance_domain",
+        "instance_name",
+        "instance_description",
+        "federation_enabled",
+        "following_enabled",
+        "use_profile_as_landing",
+      ])
+      .where("id", "=", 1)
+      .executeTakeFirst();
+  } catch (error) {
+    const dbError = error as { code?: string };
+    if (dbError?.code !== "42703") {
+      throw error;
+    }
+
+    const legacySettings = await db
+      .selectFrom("instance_settings")
+      .select([
+        "instance_domain",
+        "instance_name",
+        "instance_description",
+        "federation_enabled",
+        "following_enabled",
+      ])
+      .where("id", "=", 1)
+      .executeTakeFirst();
+
+    if (!legacySettings) {
+      settings = null;
+    } else {
+      settings = {
+        ...legacySettings,
+        use_profile_as_landing: false,
+      };
+    }
+  }
 
   if (!settings) {
     // Fallback to environment variable if settings don't exist yet
