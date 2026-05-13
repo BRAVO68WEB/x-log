@@ -569,7 +569,7 @@ export function Editor({
             placeholder="Post title..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-5xl font-bold w-full border-none outline-none bg-transparent font-heading placeholder:text-muted-foreground mb-4"
+            className="text-5xl font-normal tracking-[-0.04em] leading-tight w-full border-none outline-none bg-transparent font-heading placeholder:text-muted-foreground mb-4"
           />
           <textarea
             placeholder="Write a brief summary or excerpt (optional)..."
@@ -605,7 +605,7 @@ export function Editor({
                   value={hashtagInput}
                   onChange={handleHashtagInputChange}
                   onKeyPress={handleHashtagKeyPress}
-                  className="px-3 py-1.5 border border-input rounded-md text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  className="px-3 py-1.5 border border-input rounded-md text-sm bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35"
                 />
               </div>
             </div>
@@ -623,7 +623,7 @@ export function Editor({
                     setBannerImage("");
                   }
                 }}
-                className="w-64 px-3 py-1.5 border border-input rounded-md text-sm bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-64 px-3 py-1.5 border border-input rounded-md text-sm bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35"
               />
               <label
                 htmlFor="banner-upload"
@@ -688,7 +688,7 @@ export function Editor({
         </div>
 
         <Card className="overflow-hidden mb-6">
-          <div className="border-b border-border px-4 py-3 flex items-center gap-1 flex-wrap bg-muted/50">
+          <div className="border-b border-border px-4 py-3 flex items-center gap-1 flex-wrap bg-accent">
             <ToolbarButton
               onClick={() => editor.chain().focus().toggleBold().run()}
               active={editor.isActive("bold")}
@@ -790,7 +790,7 @@ export function Editor({
           <div className="relative">
             <EditorContent editor={editor} />
             {imageUploading && (
-              <div className="absolute top-4 right-4 bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-10">
+              <div className="absolute top-4 right-4 bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 z-10">
                 <LoadingSpinner size="sm" />
                 <span className="text-sm font-medium">
                   Uploading image...

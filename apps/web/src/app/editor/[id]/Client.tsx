@@ -35,7 +35,7 @@ export default function EditPostClient(props: {
     return (
       <main className="min-h-screen py-8 px-4">
         <div className="max-w-4xl mx-auto text-center py-16">
-          <h1 className="text-2xl font-bold mb-2">Post not found</h1>
+          <h1 className="text-2xl font-normal tracking-[-0.02em] mb-2">Post not found</h1>
           <p className="text-muted-foreground">
             {error instanceof Error ? error.message : "The post could not be loaded."}
           </p>
@@ -49,7 +49,7 @@ export default function EditPostClient(props: {
     return (
       <main className="min-h-screen py-8 px-4">
         <div className="max-w-4xl mx-auto text-center py-16">
-          <h1 className="text-2xl font-bold mb-2">Forbidden</h1>
+          <h1 className="text-2xl font-normal tracking-[-0.02em] mb-2">Forbidden</h1>
           <p className="text-muted-foreground">You don&apos;t have permission to edit this post.</p>
         </div>
       </main>

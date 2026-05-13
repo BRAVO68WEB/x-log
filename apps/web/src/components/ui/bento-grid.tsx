@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { motion, type HTMLMotionProps, type Variants } from "framer-motion";
 
 /* ------------------------------------------------------------------ */
 /*  BentoGrid                                                         */
@@ -54,23 +54,23 @@ const sizeClasses: Record<BentoSize, string> = {
   full: "md:col-span-full",
 };
 
-const cardVariants = {
-  hidden: { opacity: 0, y: 20 },
+const cardVariants: Variants = {
+  hidden: { opacity: 0 },
   visible: (i: number) => ({
     opacity: 1,
-    y: 0,
     transition: {
       delay: i * 0.06,
       duration: 0.4,
-      ease: "easeOut",
+      ease: "easeOut" as const,
     },
   }),
 };
 
-interface BentoCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface BentoCardProps extends HTMLMotionProps<"div"> {
   size?: BentoSize;
   accent?: boolean;
   index?: number;
+  children?: React.ReactNode;
 }
 
 function BentoCard({
@@ -89,11 +89,11 @@ function BentoCard({
       viewport={{ once: true, margin: "-40px" }}
       custom={index}
       className={cn(
-        "relative rounded-lg border border-border bg-card text-card-foreground shadow-sm overflow-hidden",
+        "relative rounded-lg border border-border bg-card text-card-foreground overflow-hidden",
         sizeClasses[size],
         className
       )}
-      {...(props as any)}
+      {...props}
     >
       {accent && (
         <svg
@@ -103,11 +103,11 @@ function BentoCard({
           <polyline
             points="48,0 48,12 36,12"
             fill="none"
-            className="stroke-primary/20"
+            className="stroke-border"
             strokeWidth="1"
           />
-          <circle cx="48" cy="0" r="2" className="fill-primary/20" />
-          <circle cx="36" cy="12" r="1.5" className="fill-primary/20" />
+          <circle cx="48" cy="0" r="2" className="fill-border" />
+          <circle cx="36" cy="12" r="1.5" className="fill-border" />
         </svg>
       )}
       {children}

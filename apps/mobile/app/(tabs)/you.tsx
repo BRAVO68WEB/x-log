@@ -134,7 +134,7 @@ export default function YouScreen() {
             )}
 
             <Pressable
-              style={[styles.secondaryButton, { backgroundColor: colors.surfaceMuted }]}
+              style={[styles.secondaryButton, { backgroundColor: "#e6e5e0" }]}
               onPress={() => void logout()}
             >
               <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Logout from this instance</Text>
@@ -178,7 +178,7 @@ export default function YouScreen() {
                   </Pressable>
                   {instances.length > 1 ? (
                     <Pressable
-                      style={[styles.removeButton, { backgroundColor: colors.surfaceMuted }]}
+                      style={[styles.removeButton, { backgroundColor: "#e6e5e0" }]}
                       onPress={() => void removeInstance(instance.id)}
                     >
                       <Text style={[styles.removeButtonText, { color: colors.text }]}>Remove</Text>
@@ -212,7 +212,7 @@ export default function YouScreen() {
                   <Text
                     style={{
                       color: active ? colors.accentContrast : colors.text,
-                      fontWeight: "700",
+                      fontWeight: "500",
                       textTransform: "capitalize",
                     }}
                   >
@@ -235,47 +235,47 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 30,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 16,
     gap: 14,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   title: {
     fontSize: 22,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   body: {
     fontSize: 15,
     lineHeight: 22,
   },
   primaryButton: {
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   primaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   secondaryButton: {
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   banner: {
     width: "100%",
     height: 160,
-    borderRadius: 18,
-    backgroundColor: "#1f2937",
+    borderRadius: 12,
+    backgroundColor: "#e6e5e0",
   },
   identityRow: {
     flexDirection: "row",
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#374151",
+    backgroundColor: "#e6e5e0",
   },
   avatarPlaceholder: {
     width: 64,
@@ -301,7 +301,7 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     fontSize: 24,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   meta: {
     fontSize: 14,
@@ -310,7 +310,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   linkText: {
-    fontWeight: "600",
+    fontWeight: "500",
   },
   rowBetween: {
     flexDirection: "row",
@@ -323,14 +323,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   inlineButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   instanceList: {
     gap: 12,
   },
   instanceRow: {
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 12,
     padding: 14,
     gap: 10,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   instanceName: {
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   instanceMeta: {
     lineHeight: 20,
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   removeButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   themeRow: {
     flexDirection: "row",

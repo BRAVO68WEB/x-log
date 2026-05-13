@@ -571,7 +571,7 @@ function NostrSection({
             npub: {hexToNpub(pubkey)}
           </span>
           {hasStoredPrivkey && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-medium">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border bg-secondary text-secondary-foreground text-xs font-medium">
               <svg
                 className="w-3 h-3"
                 fill="currentColor"
@@ -590,9 +590,9 @@ function NostrSection({
       )}
 
       {generatedNsec && (
-        <Card className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-900/20">
+        <Card className="border-input bg-accent">
           <CardContent className="p-4 space-y-3">
-            <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200 font-semibold text-sm">
+            <div className="flex items-center gap-2 text-foreground font-medium text-sm">
               <svg
                 className="w-5 h-5"
                 fill="currentColor"
@@ -619,7 +619,7 @@ function NostrSection({
                 {copied === "nsec" ? "Copied!" : "Copy"}
               </Button>
             </div>
-            <p className="text-xs text-yellow-700 dark:text-yellow-300">
+            <p className="text-xs text-muted-foreground">
               The private key will be saved to your account when you click
               Save Profile. You can also import this nsec into any Nostr
               client.

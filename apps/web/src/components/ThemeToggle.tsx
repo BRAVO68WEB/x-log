@@ -34,10 +34,11 @@ export function ThemeToggle() {
 
   return (
     <Button
-      variant="ghost"
+      variant="outline"
       size="icon"
       onClick={toggleTheme}
       aria-label="Toggle theme"
+      className="h-9 w-9 text-muted-foreground"
     >
       {isDark ? (
         <svg

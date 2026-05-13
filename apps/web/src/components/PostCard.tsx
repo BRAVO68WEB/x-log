@@ -49,7 +49,7 @@ export function PostCard({
       )}
       <CardContent className={banner_url ? "p-6" : "p-6 pt-6"}>
         <Link href={`/post/${id}`}>
-          <h2 className="text-2xl font-bold mb-2 hover:text-primary transition-colors font-heading">
+          <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
             {title}
           </h2>
         </Link>
@@ -119,7 +119,7 @@ export function PostCard({
   }
 
   return (
-    <Card className="overflow-hidden hover:shadow-md transition-all hover:-translate-y-0.5">
+    <Card className="overflow-hidden transition-colors hover:border-input">
       {content}
     </Card>
   );

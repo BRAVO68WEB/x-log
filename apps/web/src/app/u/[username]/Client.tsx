@@ -219,7 +219,7 @@ export default function UserProfileClient(
         <BentoGrid columns={3}>
           <BentoCard size="full" index={0}>
             <BentoCardContent className="p-8 text-center">
-              <h1 className="text-4xl font-bold mb-4 font-heading">
+              <h1 className="text-4xl font-normal tracking-[-0.03em] mb-4 font-heading">
                 Profile not found
               </h1>
               <p className="text-muted-foreground">
@@ -258,7 +258,7 @@ export default function UserProfileClient(
                   unoptimized
                 />
               ) : (
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20" />
+                <div className="absolute inset-0 bg-accent" />
               )}
               {profile.avatar_url && (
                 <div className="absolute left-6 -bottom-12">
@@ -279,7 +279,7 @@ export default function UserProfileClient(
             <div className="px-6 pt-16 pb-6">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h1 className="text-3xl font-bold font-heading">
+                  <h1 className="text-3xl font-normal tracking-[-0.02em] font-heading">
                     {profile.full_name || params.username}
                   </h1>
                   <p className="mt-1 text-primary font-mono text-sm">
@@ -298,7 +298,7 @@ export default function UserProfileClient(
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <Button className="bg-yellow-400 hover:bg-yellow-300 text-black border-2 border-black">
+                    <Button>
                       {profile.support_text || "Support me !!"}
                     </Button>
                   </a>
@@ -379,7 +379,7 @@ export default function UserProfileClient(
           {/* Posts section heading */}
           <BentoCard size="full" index={3} className="bg-transparent border-none shadow-none">
             <BentoCardContent className="px-0 py-2">
-              <h2 className="text-2xl font-bold font-heading">Posts</h2>
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading">Posts</h2>
             </BentoCardContent>
           </BentoCard>
         </BentoGrid>

@@ -77,7 +77,7 @@ export default function PostDetailScreen() {
         </View>
 
         {post.hashtags.length ? (
-          <Text style={[styles.tags, { color: colors.success }]}>{post.hashtags.map((tag) => `#${tag}`).join(" ")}</Text>
+          <Text style={[styles.tags, { color: colors.accent }]}>{post.hashtags.map((tag) => `#${tag}`).join(" ")}</Text>
         ) : null}
       </ScrollView>
     </Screen>
@@ -92,13 +92,12 @@ const styles = StyleSheet.create({
   banner: {
     width: "100%",
     height: 220,
-    borderRadius: 20,
-    backgroundColor: "#d1d5db",
+    borderRadius: 12,
+    backgroundColor: "#e6e5e0",
   },
   title: {
     fontSize: 30,
-    fontWeight: "800",
-    color: "#111827",
+    fontWeight: "400",
   },
   meta: {
   },
@@ -109,18 +108,18 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   editButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   summary: {
     fontSize: 16,
     lineHeight: 24,
   },
   bodyCard: {
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
   },
   tags: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
 });

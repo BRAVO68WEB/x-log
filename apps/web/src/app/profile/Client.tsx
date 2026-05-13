@@ -23,7 +23,7 @@ export default function ProfileClient() {
     return (
       <main className="min-h-screen py-8 px-4">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-4xl font-bold mb-8 font-heading">
+          <h1 className="text-4xl font-normal tracking-[-0.03em] mb-8 font-heading">
             Your Profile
           </h1>
           <Card>
@@ -41,7 +41,7 @@ export default function ProfileClient() {
   return (
     <main className="bg-transparent py-8 px-4">
       <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-4xl font-bold font-heading">Edit Profile</h1>
+        <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">Edit Profile</h1>
 
         <Card>
           <CardContent className="p-6">

@@ -136,7 +136,7 @@ export default function SettingsClient() {
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold font-heading">
+          <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">
             Instance Settings
           </h1>
           <p className="text-muted-foreground mt-2">

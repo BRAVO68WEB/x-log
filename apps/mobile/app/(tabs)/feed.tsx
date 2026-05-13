@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   subtitle: {
     lineHeight: 20,
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   loadMoreText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   pagerDots: {
     position: "absolute",

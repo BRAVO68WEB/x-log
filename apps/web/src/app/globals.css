@@ -8,6 +8,7 @@
   }
   body {
     @apply bg-background text-foreground;
+    letter-spacing: 0;
   }
 }
 
@@ -17,15 +18,15 @@
 }
 
 .prose h1 {
-  @apply text-4xl font-bold mt-8 mb-4 font-heading text-foreground;
+  @apply text-4xl font-normal mt-8 mb-4 font-heading text-foreground tracking-[-0.03em] leading-tight;
 }
 
 .prose h2 {
-  @apply text-3xl font-bold mt-6 mb-3 font-heading text-foreground;
+  @apply text-3xl font-normal mt-6 mb-3 font-heading text-foreground tracking-[-0.02em] leading-tight;
 }
 
 .prose h3 {
-  @apply text-2xl font-bold mt-4 mb-2 font-heading text-foreground;
+  @apply text-2xl font-normal mt-4 mb-2 font-heading text-foreground tracking-[-0.01em] leading-snug;
 }
 
 .prose p {
@@ -60,11 +61,11 @@
 }
 
 .prose code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-primary;
+  @apply bg-accent px-1.5 py-0.5 rounded text-sm font-mono text-foreground border border-border;
 }
 
 .prose pre {
-  @apply bg-muted p-4 rounded-lg overflow-x-auto mb-4 border border-border;
+  @apply bg-card p-5 rounded-lg overflow-x-auto mb-4 border border-border;
 }
 
 .prose pre code {
@@ -80,7 +81,7 @@
 }
 
 .prose blockquote {
-  @apply border-l-4 border-primary pl-4 italic my-4 text-muted-foreground bg-muted/50 py-2;
+  @apply border-l-2 border-primary pl-4 italic my-4 text-muted-foreground bg-accent py-2;
 }
 
 .prose .table-wrapper {
@@ -138,15 +139,15 @@
 }
 
 .ProseMirror h1 {
-  @apply text-4xl font-bold mt-8 mb-4 font-heading text-foreground;
+  @apply text-4xl font-normal mt-8 mb-4 font-heading text-foreground tracking-[-0.03em] leading-tight;
 }
 
 .ProseMirror h2 {
-  @apply text-3xl font-bold mt-6 mb-3 font-heading text-foreground;
+  @apply text-3xl font-normal mt-6 mb-3 font-heading text-foreground tracking-[-0.02em] leading-tight;
 }
 
 .ProseMirror h3 {
-  @apply text-2xl font-bold mt-4 mb-2 font-heading text-foreground;
+  @apply text-2xl font-normal mt-4 mb-2 font-heading text-foreground tracking-[-0.01em] leading-snug;
 }
 
 .ProseMirror p {
@@ -181,11 +182,11 @@
 }
 
 .ProseMirror code {
-  @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono text-primary;
+  @apply bg-accent px-1.5 py-0.5 rounded text-sm font-mono text-foreground border border-border;
 }
 
 .ProseMirror pre {
-  @apply bg-muted p-4 rounded-lg overflow-x-auto mb-4 border border-border;
+  @apply bg-card p-5 rounded-lg overflow-x-auto mb-4 border border-border;
 }
 
 .ProseMirror pre code {
@@ -201,7 +202,7 @@
 }
 
 .ProseMirror blockquote {
-  @apply border-l-4 border-primary pl-4 italic my-4 text-muted-foreground bg-muted/50 py-2;
+  @apply border-l-2 border-primary pl-4 italic my-4 text-muted-foreground bg-accent py-2;
 }
 
 .ProseMirror strong {

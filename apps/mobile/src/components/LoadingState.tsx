@@ -6,7 +6,7 @@ export function LoadingState() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <ActivityIndicator size="large" color={colors.text} />
+      <ActivityIndicator size="large" color={colors.accent} />
     </View>
   );
 }

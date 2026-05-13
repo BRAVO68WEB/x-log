@@ -49,9 +49,9 @@ function AppShell() {
       <Stack
         screenOptions={{
           headerShadowVisible: false,
-          headerStyle: { backgroundColor: colors.surface },
+          headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
-          headerTitleStyle: { color: colors.text },
+          headerTitleStyle: { color: colors.text, fontWeight: "400" },
           contentStyle: { backgroundColor: colors.background },
         }}
       >
