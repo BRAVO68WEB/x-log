@@ -17,8 +17,9 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-body)", "Plus Jakarta Sans", "sans-serif"],
-        heading: ["var(--font-heading)", "Monocraft", "monospace"],
+        sans: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
+        heading: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

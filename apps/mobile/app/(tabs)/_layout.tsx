@@ -9,10 +9,10 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShadowVisible: false,
-        headerStyle: { backgroundColor: colors.surface },
+        headerStyle: { backgroundColor: colors.background },
         headerTintColor: colors.text,
-        headerTitleStyle: { color: colors.text },
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        headerTitleStyle: { color: colors.text, fontWeight: "400" },
+        tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.border },
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
       }}

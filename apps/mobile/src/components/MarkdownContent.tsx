@@ -47,7 +47,7 @@ function renderToken(
       return (
         <Text
           key={`heading-${keyPrefix}`}
-          style={{ color: colors.text, fontSize: size, fontWeight: "800", marginBottom: 10 }}
+          style={{ color: colors.text, fontSize: size, fontWeight: "400", marginBottom: 10 }}
         >
           {heading.text}
         </Text>
@@ -120,8 +120,10 @@ function renderToken(
         <View
           key={`code-${keyPrefix}`}
           style={{
-            backgroundColor: colors.surfaceMuted,
-            borderRadius: 14,
+            backgroundColor: colors.surfaceSoft,
+            borderColor: colors.border,
+            borderRadius: 12,
+            borderWidth: 1,
             padding: 14,
             marginBottom: 12,
           }}
@@ -180,7 +182,7 @@ function renderInline(
             key={key}
             style={{
               color: colors.text,
-              backgroundColor: colors.surfaceMuted,
+              backgroundColor: colors.surfaceSoft,
               fontFamily: "monospace",
             }}
           >
@@ -204,7 +206,7 @@ function renderInline(
           <View key={key} style={{ marginVertical: 8 }}>
             <Image
               source={{ uri: image.href }}
-              style={{ width: "100%", height: 220, borderRadius: 16, backgroundColor: colors.surfaceMuted }}
+              style={{ width: "100%", height: 220, borderRadius: 12, backgroundColor: colors.surfaceMuted }}
               resizeMode="cover"
             />
             {image.text ? (

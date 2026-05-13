@@ -94,23 +94,23 @@ export default function OIDCLinkClient() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-light-base dark:bg-dark-base py-12 px-4 sm:px-6 lg:px-8">
+    <main className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-light-text dark:text-dark-text">
+          <h2 className="mt-6 text-center text-3xl font-normal text-foreground">
             Link Your Account
           </h2>
-          <p className="mt-2 text-center text-sm text-light-subtle dark:text-dark-subtle">
+          <p className="mt-2 text-center text-sm text-muted-foreground">
             {isLoggedIn
               ? "Link your OIDC account to your current xLog account."
               : "Please enter your xLog account credentials to link your OIDC account. Your OIDC email and xLog email can be different."}
           </p>
           {oidcEmail && (
-            <div className="mt-4 p-3 bg-light-overlay dark:bg-dark-overlay rounded-md border border-light-highlight-med dark:border-dark-highlight-med">
-              <p className="text-sm text-light-text dark:text-dark-text">
+            <div className="mt-4 p-3 bg-card rounded-md border border-border">
+              <p className="text-sm text-foreground">
                 <span className="font-medium">OIDC Account Email:</span> {oidcEmail}
               </p>
-              <p className="text-xs text-light-subtle dark:text-dark-subtle mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 This is the email from your OIDC provider. Enter your xLog account credentials below.
               </p>
             </div>
@@ -118,7 +118,7 @@ export default function OIDCLinkClient() {
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {!isLoggedIn && (
-            <div className="rounded-md shadow-sm -space-y-px">
+            <div className="rounded-md -space-y-px">
               <Input
                 label="xLog Email"
                 type="email"
@@ -141,8 +141,8 @@ export default function OIDCLinkClient() {
           )}
 
           {error && (
-            <div className="rounded-md bg-light-love/10 dark:bg-dark-love/20 p-4 border border-light-love/20 dark:border-dark-love/20">
-              <div className="text-sm text-light-love dark:text-dark-love">{error}</div>
+            <div className="rounded-md bg-destructive/10 p-4 border border-destructive/20">
+              <div className="text-sm text-destructive">{error}</div>
             </div>
           )}
 

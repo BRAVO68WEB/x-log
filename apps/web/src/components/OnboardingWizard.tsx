@@ -72,7 +72,7 @@ export function OnboardingWizard() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <div className="mb-8 text-center">
-        <h1 className="text-4xl font-bold mb-2 font-heading">
+        <h1 className="text-4xl font-normal tracking-[-0.03em] mb-2 font-heading">
           Welcome to x-log
         </h1>
         <p className="text-muted-foreground">
@@ -100,7 +100,7 @@ export function OnboardingWizard() {
         <CardContent className="p-8">
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold font-heading mb-4">
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">
                 Instance Settings
               </h2>
               <Input
@@ -138,7 +138,7 @@ export function OnboardingWizard() {
 
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold font-heading mb-4">
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">
                 Admin Account
               </h2>
               <Input
@@ -180,7 +180,7 @@ export function OnboardingWizard() {
 
           {step === 3 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold font-heading mb-4">
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">
                 Registration Settings
               </h2>
               <div className="flex items-center justify-between rounded-lg border p-4">
@@ -212,7 +212,7 @@ export function OnboardingWizard() {
 
           {step === 4 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold font-heading mb-4">
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">
                 SMTP Configuration (Optional)
               </h2>
               <Input
@@ -237,7 +237,7 @@ export function OnboardingWizard() {
 
           {step === 5 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-bold font-heading mb-4">
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">
                 Review
               </h2>
               <div className="space-y-2 text-sm">

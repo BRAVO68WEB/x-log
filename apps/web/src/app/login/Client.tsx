@@ -15,93 +15,6 @@ import {
 } from "@/components/ui/bento-grid";
 import { useMutation } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { motion } from "framer-motion";
-
-function GeometryDecoration() {
-  return (
-    <div className="relative w-full h-full min-h-[300px] flex items-center justify-center overflow-hidden">
-      <svg
-        viewBox="0 0 400 400"
-        className="w-64 h-64 md:w-80 md:h-80"
-        fill="none"
-      >
-        {/* Outer frame */}
-        <motion.rect
-          x="40"
-          y="40"
-          width="320"
-          height="320"
-          rx="8"
-          className="stroke-primary/30"
-          strokeWidth="1"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2, ease: "easeInOut" }}
-        />
-        {/* Inner diamond */}
-        <motion.polygon
-          points="200,80 320,200 200,320 80,200"
-          className="stroke-primary/20"
-          strokeWidth="1"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 2, delay: 0.5, ease: "easeInOut" }}
-        />
-        {/* Cross lines */}
-        <motion.line
-          x1="200"
-          y1="40"
-          x2="200"
-          y2="360"
-          className="stroke-accent/15"
-          strokeWidth="0.5"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.5, delay: 1, ease: "easeInOut" }}
-        />
-        <motion.line
-          x1="40"
-          y1="200"
-          x2="360"
-          y2="200"
-          className="stroke-accent/15"
-          strokeWidth="0.5"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.5, delay: 1.2, ease: "easeInOut" }}
-        />
-        {/* Corner nodes */}
-        {[
-          [40, 40],
-          [360, 40],
-          [40, 360],
-          [360, 360],
-          [200, 80],
-          [320, 200],
-          [200, 320],
-          [80, 200],
-        ].map(([cx, cy], i) => (
-          <motion.circle
-            key={i}
-            cx={cx}
-            cy={cy}
-            r="3"
-            className="fill-primary/30"
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.3, delay: 1.5 + i * 0.1 }}
-          />
-        ))}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
-        <h2 className="text-3xl font-bold font-heading mb-2">x-log</h2>
-        <p className="text-muted-foreground text-sm max-w-[200px]">
-          A federated blog platform built on ActivityPub
-        </p>
-      </div>
-    </div>
-  );
-}
 
 export default function LoginClient() {
   const [username, setUsername] = useState("");
@@ -186,15 +99,21 @@ export default function LoginClient() {
     <main className="min-h-screen flex items-center justify-center py-12 px-4">
       <div className="w-full max-w-4xl">
         <BentoGrid columns={3}>
-          {/* Decorative panel */}
-          <BentoCard size="2x2" index={0} className="hidden md:block">
-            <GeometryDecoration />
+          <BentoCard size="2x2" index={0} className="hidden md:flex">
+            <div className="flex min-h-[300px] flex-col justify-end gap-3 p-8">
+              <h2 className="text-5xl font-normal tracking-[-0.04em] font-heading">
+                x-log
+              </h2>
+              <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                A federated writing space built on ActivityPub.
+              </p>
+            </div>
           </BentoCard>
 
           {/* Login form */}
           <BentoCard size="1x2" index={1}>
             <BentoCardHeader>
-              <h1 className="text-3xl font-heading font-bold text-center">
+              <h1 className="text-3xl font-heading font-normal tracking-[-0.02em] text-center">
                 Sign in
               </h1>
             </BentoCardHeader>

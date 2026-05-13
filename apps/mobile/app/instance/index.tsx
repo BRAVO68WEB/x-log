@@ -114,59 +114,59 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 30,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   subtitle: {
     lineHeight: 22,
   },
   card: {
     borderWidth: 1,
-    borderRadius: 24,
+    borderRadius: 12,
     padding: 18,
     gap: 12,
   },
   label: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   input: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
   primaryButton: {
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   primaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   section: {
     gap: 12,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   list: {
     gap: 12,
   },
   instanceCard: {
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 16,
     gap: 8,
   },
   banner: {
     width: "100%",
     height: 110,
-    borderRadius: 14,
-    backgroundColor: "#374151",
+    borderRadius: 8,
+    backgroundColor: "#e6e5e0",
   },
   instanceName: {
     fontSize: 18,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   instanceMeta: {
     lineHeight: 20,

@@ -134,12 +134,12 @@ export default function OIDCCallbackClient() {
 
   if (error) {
     return (
-      <main className="min-h-screen flex items-center justify-center bg-light-base dark:bg-dark-base">
+      <main className="min-h-screen flex items-center justify-center bg-background">
         <div className="max-w-md w-full space-y-4 text-center">
-          <div className="rounded-md bg-light-love/10 dark:bg-dark-love/20 p-4 border border-light-love/20 dark:border-dark-love/20">
-            <div className="text-sm text-light-love dark:text-dark-love">{error}</div>
+          <div className="rounded-md bg-destructive/10 p-4 border border-destructive/20">
+            <div className="text-sm text-destructive">{error}</div>
           </div>
-          <p className="text-sm text-light-subtle dark:text-dark-subtle">
+          <p className="text-sm text-muted-foreground">
             Redirecting to login...
           </p>
         </div>
@@ -148,10 +148,10 @@ export default function OIDCCallbackClient() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-light-base dark:bg-dark-base">
+    <main className="min-h-screen flex items-center justify-center bg-background">
       <div className="max-w-md w-full space-y-4 text-center">
         <LoadingSpinner size="lg" />
-        <p className="text-sm text-light-subtle dark:text-dark-subtle">
+        <p className="text-sm text-muted-foreground">
           Processing OIDC callback...
         </p>
       </div>

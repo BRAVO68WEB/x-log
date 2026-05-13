@@ -1,31 +1,23 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Plus_Jakarta_Sans } from "next/font/google";
-import localFont from "next/font/local";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import "./theme.css";
 import "./hljs.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
-import { Dotted } from "@/components/Backgrounds/Dotted";
-import { GeometryLines } from "@/components/Backgrounds/GeometryLines";
 import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/QueryProvider";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-body",
 });
 
-const monocraft = localFont({
-  src: [
-    {
-      path: "../fonts/Monocraft.ttf",
-      weight: "400",
-    },
-  ],
-  variable: "--font-heading",
+const jetBrainsMono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
 });
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -82,7 +74,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`${plusJakartaSans.variable} ${monocraft.variable} min-h-full bg-background text-foreground font-sans antialiased transition-colors`}
+        className={`${inter.variable} ${jetBrainsMono.variable} min-h-full bg-background text-foreground font-sans antialiased transition-colors`}
       >
         <OnboardingGuard>
           <QueryProvider>
@@ -93,8 +85,6 @@ export default function RootLayout({
             <Footer />
           </QueryProvider>
         </OnboardingGuard>
-        <Dotted />
-        <GeometryLines />
       </body>
     </html>
   );

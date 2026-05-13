@@ -25,7 +25,7 @@ export default function HomeClient() {
 
   if (loading && posts.length === 0) {
     return (
-      <main className="min-h-screen py-8 px-4">
+      <main className="min-h-screen py-10 sm:py-16 px-4">
         <div className="max-w-7xl mx-auto flex justify-center py-12">
           <LoadingSpinner size="lg" />
         </div>
@@ -35,7 +35,7 @@ export default function HomeClient() {
 
   if (error) {
     return (
-      <main className="min-h-screen py-8 px-4">
+      <main className="min-h-screen py-10 sm:py-16 px-4">
         <div className="max-w-7xl mx-auto text-center py-12">
           <p className="text-destructive">Error: {error}</p>
         </div>
@@ -45,7 +45,7 @@ export default function HomeClient() {
 
   if (posts.length === 0) {
     return (
-      <main className="min-h-screen py-8 px-4">
+      <main className="min-h-screen py-10 sm:py-16 px-4">
         <div className="max-w-7xl mx-auto text-center py-12">
           <p className="text-muted-foreground">No posts found.</p>
         </div>
@@ -56,7 +56,7 @@ export default function HomeClient() {
   const [featured, ...rest] = posts;
 
   return (
-    <main className="min-h-screen py-8 px-4">
+    <main className="min-h-screen py-10 sm:py-16 px-4">
       <div className="max-w-7xl mx-auto">
         <BentoGrid columns={3}>
           {/* Quick action card — only for authenticated users */}
@@ -102,7 +102,7 @@ export default function HomeClient() {
               )}
               <div className={cn("p-6 flex flex-col", !featured.banner_url && "flex-1 justify-center")}>
                 <Link href={`/post/${featured.id}`}>
-                  <h2 className="text-2xl font-bold mb-2 hover:text-primary transition-colors font-heading">
+                  <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
                     {featured.title}
                   </h2>
                 </Link>

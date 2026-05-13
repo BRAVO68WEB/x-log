@@ -73,7 +73,7 @@ export default function PostClient(props: {
       <main className="min-h-screen py-8 px-4">
         <Card className="max-w-4xl mx-auto">
           <CardContent className="p-8 text-center">
-            <h1 className="text-2xl font-bold font-heading mb-2">
+            <h1 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-2">
               Post not found
             </h1>
             <p className="text-muted-foreground">
@@ -90,7 +90,7 @@ export default function PostClient(props: {
       <div className="max-w-6xl mx-auto flex gap-8">
         <Card className="flex-1 min-w-0">
           <CardContent className="p-8">
-            <h1 className="text-4xl font-bold mb-4 font-heading">{post.title}</h1>
+            <h1 className="text-4xl font-normal tracking-[-0.03em] mb-4 font-heading">{post.title}</h1>
             <div className="flex items-center gap-3 text-muted-foreground mb-4 pb-4">
               <span>By</span>
               <Link

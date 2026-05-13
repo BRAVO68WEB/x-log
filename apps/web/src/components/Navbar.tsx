@@ -37,12 +37,12 @@ export function Navbar() {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/60">
+    <nav className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/85">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center mr-8">
-              <span className="text-2xl sm:text-3xl font-extrabold leading-none font-heading bg-clip-text text-transparent bg-gradient-to-r from-violet-500 via-blue-500 to-green-500">
+              <span className="text-2xl sm:text-3xl font-normal leading-none font-heading tracking-[-0.04em] text-foreground">
                 x-log
               </span>
             </Link>
@@ -54,7 +54,7 @@ export function Navbar() {
                     size="sm"
                     className={cn(
                       "text-sm",
-                      pathname === item.href && "font-semibold"
+                      pathname === item.href && "font-medium"
                     )}
                   >
                     {item.label}
@@ -130,7 +130,7 @@ export function Navbar() {
         </div>
       </div>
       {mobileMenuOpen && (
-        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-md">
+        <div className="sm:hidden border-t border-border bg-background/95 backdrop-blur-sm">
           <div className="px-4 py-3 space-y-1">
             {allNavItems.map((item, index) => (
               <div key={item.href}>

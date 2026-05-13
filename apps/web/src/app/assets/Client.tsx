@@ -73,7 +73,7 @@ export default function AssetsClient() {
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold font-heading">Assets</h1>
+          <h1 className="text-3xl font-normal tracking-[-0.02em] font-heading">Assets</h1>
           <div className="flex items-center gap-2">
             <label
               htmlFor="asset-upload"

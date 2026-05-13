@@ -21,13 +21,13 @@ export function Footer() {
   );
 
   return (
-    <footer className="mt-auto">
+    <footer className="mt-auto bg-background">
       <Separator />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
           <div className="flex flex-col items-center sm:items-start gap-1">
             {settings?.instance_name && (
-              <span className="font-heading font-medium text-foreground">
+              <span className="font-heading font-normal tracking-[-0.01em] text-foreground">
                 {settings.instance_name}
               </span>
             )}

@@ -41,7 +41,7 @@ export function PostCard({
           {makeExcerpt(post.content_markdown) || "No preview available."}
         </Text>
         {post.hashtags.length ? (
-          <Text style={[styles.tags, { color: colors.success }]}>
+          <Text style={[styles.tags, { color: colors.accent }]}>
             {post.hashtags.map((tag) => `#${tag}`).join(" ")}
           </Text>
         ) : null}
@@ -52,7 +52,7 @@ export function PostCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
+    borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
   },
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   meta: {
     fontSize: 13,
@@ -76,6 +76,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   tags: {
-    fontWeight: "600",
+    fontWeight: "500",
   },
 });

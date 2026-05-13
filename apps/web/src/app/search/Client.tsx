@@ -198,7 +198,7 @@ function SearchResults() {
                 href={`/search?q=${encodeURIComponent(query)}&type=post`}
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
                   type === "post"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground"
                     : "hover:bg-background/50 hover:text-foreground"
                 }`}
               >
@@ -208,7 +208,7 @@ function SearchResults() {
                 href={`/search?q=${encodeURIComponent(query)}&type=profile`}
                 className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
                   type === "profile"
-                    ? "bg-background text-foreground shadow-sm"
+                    ? "bg-background text-foreground"
                     : "hover:bg-background/50 hover:text-foreground"
                 }`}
               >
@@ -235,7 +235,7 @@ export default function SearchClient() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 font-heading">Search</h1>
+        <h1 className="text-4xl font-normal tracking-[-0.03em] mb-8 font-heading">Search</h1>
         <div className="mb-8">
           <SearchBar />
         </div>

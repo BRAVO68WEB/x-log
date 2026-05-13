@@ -60,32 +60,32 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    borderRadius: 24,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 20,
     gap: 14,
   },
   title: {
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   description: {
     lineHeight: 22,
   },
   primaryButton: {
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   primaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   secondaryButton: {
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   secondaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
 });

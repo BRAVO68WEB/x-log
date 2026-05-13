@@ -53,7 +53,7 @@ export default function LoginScreen() {
       style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.select({ ios: "padding", default: undefined })}
     >
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>
+      <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.text }]}>Sign in</Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
           Sign in to {currentInstance.instanceName} with your existing x-log username and password.
@@ -87,40 +87,32 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
     justifyContent: "center",
     padding: 20,
   },
   card: {
-    borderRadius: 24,
-    backgroundColor: "#ffffff",
+    borderRadius: 12,
+    borderWidth: 1,
     padding: 20,
     gap: 14,
   },
   title: {
     fontSize: 30,
-    fontWeight: "800",
-    color: "#111827",
+    fontWeight: "400",
   },
-  subtitle: {
-    color: "#6b7280",
-  },
+  subtitle: {},
   input: {
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "#ffffff",
   },
   button: {
-    backgroundColor: "#111827",
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   buttonText: {
-    color: "#ffffff",
-    fontWeight: "700",
+    fontWeight: "500",
   },
 });

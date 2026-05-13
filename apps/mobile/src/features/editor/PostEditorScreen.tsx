@@ -463,14 +463,14 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 28,
-    fontWeight: "800",
+    fontWeight: "400",
   },
   instanceLabel: {
     marginTop: -8,
   },
   segmentRow: {
     flexDirection: "row",
-    borderRadius: 14,
+    borderRadius: 8,
     padding: 4,
   },
   segmentButton: {
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   },
   segmentButtonActive: {},
   segmentButtonText: {
-    fontWeight: "600",
+    fontWeight: "500",
   },
   segmentButtonTextActive: {},
   fieldGroup: {
@@ -489,11 +489,11 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: "700",
+    fontWeight: "500",
   },
   input: {
     borderWidth: 1,
-    borderRadius: 14,
+    borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
@@ -518,28 +518,28 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   secondaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   bannerPreview: {
     borderWidth: 1,
-    borderRadius: 18,
+    borderRadius: 12,
     padding: 14,
     gap: 10,
   },
   bannerPreviewImage: {
     height: 140,
-    borderRadius: 14,
+    borderRadius: 8,
   },
   editor: {
     minHeight: 320,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 14,
     fontSize: 16,
   },
   previewCard: {
     minHeight: 320,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
     padding: 14,
   },
@@ -550,17 +550,17 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 8,
     alignItems: "center",
     paddingVertical: 14,
   },
   primaryButton: {},
   primaryButtonText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   secondaryActionButton: {},
   secondaryActionText: {
-    fontWeight: "700",
+    fontWeight: "500",
   },
   disabledButton: {
     opacity: 0.7,
