@@ -5,7 +5,10 @@ const BACKEND_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_U
 
 export async function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === "/") {
-    const landingPath = await resolveLandingProfileFromInstance(request.nextUrl.origin);
+    const landingPath = await resolveLandingProfileFromInstance(
+      request.nextUrl.origin,
+      { includeSelfOrigin: false }
+    );
 
     if (landingPath) {
       return NextResponse.redirect(new URL(landingPath, request.url), 307);

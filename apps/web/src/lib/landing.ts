@@ -5,13 +5,15 @@ type LandingInstanceSummary = {
   } | null;
 };
 
-function resolveCandidateUrls(selfOrigin?: string) {
+function resolveCandidateUrls({
+  selfOrigin,
+  includeSelfOrigin = true,
+}: {
+  selfOrigin?: string;
+  includeSelfOrigin?: boolean;
+} = {}) {
   const urls: string[] = [];
-
-  if (selfOrigin) {
-    const origin = selfOrigin.replace(/\/$/, "");
-    urls.push(`${origin}/api/public/instance`);
-  }
+  const normalizedSelfOrigin = selfOrigin?.replace(/\/$/, "");
 
   const backendApiUrl = process.env.BACKEND_API_URL?.replace(/\/$/, "");
   if (backendApiUrl) {
@@ -23,17 +25,41 @@ function resolveCandidateUrls(selfOrigin?: string) {
     urls.push(`${nextPublicApiUrl}/api/public/instance`);
   }
 
-  return urls;
+  if (includeSelfOrigin && normalizedSelfOrigin) {
+    urls.push(`${normalizedSelfOrigin}/api/public/instance`);
+  }
+
+  return Array.from(new Set(urls)).filter((url) => {
+    if (!normalizedSelfOrigin) {
+      return true;
+    }
+
+    try {
+      return new URL(url).origin !== normalizedSelfOrigin;
+    } catch {
+      return true;
+    }
+  });
 }
 
 export async function resolveLandingProfileFromInstance(
-  selfOrigin?: string
+  selfOrigin?: string,
+  options: { includeSelfOrigin?: boolean } = {}
 ): Promise<string | null> {
-  const candidateUrls = resolveCandidateUrls(selfOrigin);
+  const candidateUrls = resolveCandidateUrls({
+    selfOrigin,
+    includeSelfOrigin: options.includeSelfOrigin,
+  });
 
   for (const url of candidateUrls) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 2500);
+
     try {
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
       if (!res.ok) {
         continue;
       }
@@ -49,6 +75,8 @@ export async function resolveLandingProfileFromInstance(
       return null;
     } catch {
       // Continue to next endpoint.
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
