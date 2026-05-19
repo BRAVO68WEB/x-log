@@ -474,13 +474,15 @@ postsRoutes.patch(
       return c.json({ error: "Forbidden" }, 403);
     }
 
+    const { content_blocks, ...postUpdateData } = data;
+
     await db
       .updateTable("posts")
       .set({
-        ...data,
+        ...postUpdateData,
         content_blocks_json:
-          data.content_blocks !== undefined
-            ? (data.content_blocks || EMPTY_CONTENT_BLOCKS) as any
+          content_blocks !== undefined
+            ? (content_blocks || EMPTY_CONTENT_BLOCKS) as any
             : undefined,
       })
       .where("id", "=", id)
@@ -491,7 +493,7 @@ postsRoutes.patch(
       db,
       id,
       data.banner_url,
-      data.content_blocks,
+      content_blocks,
       data.content_markdown
     );
 
