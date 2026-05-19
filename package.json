@@ -14,6 +14,7 @@
     "mobile:android": "bun run --cwd apps/mobile android",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,jsx}\"",
+    "validate:themes": "bun run scripts/validate-themes.ts",
     "type-check": "turbo run type-check",
     "migrate": "dotenv --override=false -- turbo run migrate",
     "start": "dotenv --override=false -- turbo run start"

@@ -9,6 +9,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "@/api/auth";
 import { getPublicInstanceSummary } from "@/api/instance";
+import { useTheme } from "@/theme/ThemeProvider";
 import {
   setApiBaseUrl,
   setApiToken,
@@ -49,12 +50,14 @@ interface AuthContextValue {
   removeInstance: (instanceId: string) => Promise<void>;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshCurrentInstanceSummary: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
+  const { setInstanceThemeId } = useTheme();
   const [instances, setInstances] = useState<SavedInstance[]>([]);
   const [currentInstanceId, setCurrentInstanceId] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -80,6 +83,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setApiBaseUrl(currentInstance?.apiBaseUrl ?? null);
     setApiToken(currentInstance?.authToken ?? null);
   }, [currentInstance?.apiBaseUrl, currentInstance?.authToken]);
+
+  useEffect(() => {
+    setInstanceThemeId(currentInstance?.themeId ?? "system");
+  }, [currentInstance?.themeId, setInstanceThemeId]);
 
   async function bootstrap() {
     try {
@@ -329,6 +336,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function refreshSelectedInstanceSummary() {
+    if (!currentInstanceId) {
+      return;
+    }
+
+    await refreshCurrentInstanceSummary(currentInstanceId);
+  }
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user: currentInstance?.currentUser ?? null,
@@ -341,6 +356,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       removeInstance,
       login,
       logout,
+      refreshCurrentInstanceSummary: refreshSelectedInstanceSummary,
     }),
     [currentInstance, instances, isReady]
   );

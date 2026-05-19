@@ -7,8 +7,8 @@ import "./hljs.css";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
-import { ThemeProvider } from "next-themes";
 import { QueryProvider } from "@/components/QueryProvider";
+import { InstanceThemeProvider } from "@/components/InstanceThemeProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -76,15 +76,15 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetBrainsMono.variable} min-h-full bg-background text-foreground font-sans antialiased transition-colors`}
       >
-        <OnboardingGuard>
-          <QueryProvider>
-            <Navbar />
-            <div className="min-h-[calc(100vh-4rem)]">
-              <ThemeProvider>{children}</ThemeProvider>
-            </div>
-            <Footer />
-          </QueryProvider>
-        </OnboardingGuard>
+        <InstanceThemeProvider>
+          <OnboardingGuard>
+            <QueryProvider>
+              <Navbar />
+              <div className="min-h-[calc(100vh-4rem)]">{children}</div>
+              <Footer />
+            </QueryProvider>
+          </OnboardingGuard>
+        </InstanceThemeProvider>
       </body>
     </html>
   );

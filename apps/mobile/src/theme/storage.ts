@@ -1,15 +1,13 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { normalizeThemeId, type InstanceThemeId } from "./palettes";
 
 const THEME_KEY = "xlog.mobile.theme";
 
-export type ThemePreference = "system" | "light" | "dark";
+export type ThemePreference = InstanceThemeId;
 
 export async function getStoredThemePreference() {
   const value = await AsyncStorage.getItem(THEME_KEY);
-  if (value === "light" || value === "dark" || value === "system") {
-    return value;
-  }
-  return "system" as ThemePreference;
+  return normalizeThemeId(value);
 }
 
 export function setStoredThemePreference(value: ThemePreference) {

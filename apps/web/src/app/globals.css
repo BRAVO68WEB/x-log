@@ -12,6 +12,17 @@
   }
 }
 
+@layer components {
+  /* Keep theme picker hover neutral even when a palette has vivid action colors. */
+  .theme-choice:not(.bg-primary\/10):hover {
+    background-color: color-mix(
+      in oklab,
+      hsl(var(--foreground)) 8%,
+      hsl(var(--card))
+    );
+  }
+}
+
 /* Prose styles for markdown content */
 .prose {
   @apply max-w-none;

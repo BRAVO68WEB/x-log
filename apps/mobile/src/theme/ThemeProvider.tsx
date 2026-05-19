@@ -1,25 +1,27 @@
 import {
   createContext,
+  useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import { useColorScheme } from "react-native";
 import {
-  getStoredThemePreference,
-  setStoredThemePreference,
-  type ThemePreference,
-} from "./storage";
-import { darkTheme, lightTheme, type ThemeTokens } from "./tokens";
+  getThemeOption,
+  getThemeTokens,
+  normalizeThemeId,
+  type InstanceThemeId,
+} from "./palettes";
+import type { ThemeTokens } from "./tokens";
 
 interface ThemeContextValue {
-  themePreference: ThemePreference;
+  themePreference: InstanceThemeId;
   resolvedTheme: "light" | "dark";
   colors: ThemeTokens;
   isReady: boolean;
-  setThemePreference: (value: ThemePreference) => Promise<void>;
+  setThemePreference: (value: InstanceThemeId) => Promise<void>;
+  setInstanceThemeId: (value: InstanceThemeId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -27,35 +29,26 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemTheme = useColorScheme();
   const [themePreference, setThemePreferenceState] =
-    useState<ThemePreference>("system");
-  const [isReady, setIsReady] = useState(false);
+    useState<InstanceThemeId>("system");
+  const [isReady] = useState(true);
 
-  useEffect(() => {
-    void bootstrap();
+  const setThemePreference = useCallback(async (next: InstanceThemeId) => {
+    setThemePreferenceState(normalizeThemeId(next));
   }, []);
 
-  async function bootstrap() {
-    try {
-      const stored = await getStoredThemePreference();
-      setThemePreferenceState(stored);
-    } finally {
-      setIsReady(true);
-    }
-  }
+  const setInstanceThemeId = useCallback((next: InstanceThemeId) => {
+    setThemePreferenceState(normalizeThemeId(next));
+  }, []);
 
-  async function setThemePreference(next: ThemePreference) {
-    setThemePreferenceState(next);
-    await setStoredThemePreference(next);
-  }
+  const systemResolvedTheme = systemTheme === "dark" ? "dark" : "light";
+  const themeOption = getThemeOption(themePreference);
 
   const resolvedTheme =
-    themePreference === "system"
-      ? systemTheme === "dark"
-        ? "dark"
-        : "light"
-      : themePreference;
+    themeOption.appearance === "system"
+      ? systemResolvedTheme
+      : themeOption.appearance;
 
-  const colors = resolvedTheme === "dark" ? darkTheme : lightTheme;
+  const colors = getThemeTokens(themePreference, systemResolvedTheme);
 
   const value = useMemo(
     () => ({
@@ -64,8 +57,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       colors,
       isReady,
       setThemePreference,
+      setInstanceThemeId,
     }),
-    [colors, isReady, resolvedTheme, themePreference]
+    [
+      colors,
+      isReady,
+      resolvedTheme,
+      setInstanceThemeId,
+      setThemePreference,
+      themePreference,
+    ]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
