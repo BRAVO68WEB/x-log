@@ -86,6 +86,15 @@ function getInboxObjectId(activity: any): string {
   );
 }
 
+function getActivityObjectId(activity: any): string | null {
+  const object = activity.object;
+  if (typeof object === "string") return object;
+  if (object && typeof object === "object" && typeof object.id === "string") {
+    return object.id;
+  }
+  return null;
+}
+
 // Fetch a remote actor's inbox URL by dereferencing their actor object
 async function fetchRemoteActor(actorUrl: string): Promise<{
   inbox: string;
@@ -172,6 +181,7 @@ async function processInboxActivity(
         actorId,
         activity.id
       );
+      (accept as any).to = [remoteActor];
 
       const acceptBody = JSON.stringify(accept);
       const signature = await signRequest(
@@ -914,6 +924,47 @@ federationRoutes.post("/ap/inbox", async (c) => {
   const targetedUsernames = recipients
     .filter((r: string) => typeof r === "string" && r.startsWith(localPrefix))
     .map((r: string) => r.slice(localPrefix.length));
+
+  if (activity.type === "Accept") {
+    const acceptedFollowActivityId = getActivityObjectId(activity);
+
+    if (acceptedFollowActivityId) {
+      const rows = await db
+        .selectFrom("following")
+        .innerJoin("users", "users.id", "following.local_user_id")
+        .select(["users.id", "users.username"])
+        .where("following.remote_actor", "=", activity.actor)
+        .where("following.activity_id", "=", acceptedFollowActivityId)
+        .execute();
+
+      for (const row of rows) {
+        const inboxObjectId = getInboxObjectId(activity);
+        const existing = await db
+          .selectFrom("inbox_objects")
+          .select("id")
+          .where("object_id", "=", inboxObjectId)
+          .where("local_user_id", "=", row.id)
+          .executeTakeFirst();
+        if (existing) continue;
+
+        await db
+          .insertInto("inbox_objects")
+          .values({
+            id: crypto.randomUUID(),
+            type: activity.type,
+            actor: activity.actor,
+            object_id: inboxObjectId,
+            local_user_id: row.id,
+            raw: activity as any,
+          })
+          .execute();
+
+        await processInboxActivity(activity, row.id, row.username, db);
+      }
+
+      return c.json({ success: true }, 202);
+    }
+  }
 
   // If targeting public or followers collections, find all local followers of the sender
   const isPublic = recipients.includes("https://www.w3.org/ns/activitystreams#Public");
