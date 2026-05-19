@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useQuery } from "react-query";
+import { useMutation } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { postsApi } from "@/lib/api";
 
 interface Post {
   id: string;
@@ -22,6 +24,7 @@ interface Post {
   published_at: string | null;
   hashtags: string[];
   like_count: number;
+  liked_by_me?: boolean;
   author_id: string;
   author: {
     username: string;
@@ -57,6 +60,45 @@ export default function PostClient(props: {
       onSettled: () => setLoading(false),
     }
   );
+
+  const likeMutation = useMutation(
+    async () => {
+      if (!post) throw new Error("Post not loaded");
+      return post.liked_by_me ? postsApi.unlike(post.id) : postsApi.like(post.id);
+    },
+    {
+      onMutate: () => {
+        if (!post) return;
+        setPost({
+          ...post,
+          liked_by_me: !post.liked_by_me,
+          like_count: Math.max(0, post.like_count + (post.liked_by_me ? -1 : 1)),
+        });
+      },
+      onSuccess: (data) => {
+        setPost((current) =>
+          current
+            ? {
+                ...current,
+                liked_by_me: data.liked_by_me,
+                like_count: data.like_count,
+              }
+            : current
+        );
+      },
+      onError: () => {
+        void query.refetch();
+      },
+    }
+  );
+
+  const handleLike = () => {
+    if (!user) {
+      window.location.href = `/login?redirect=${encodeURIComponent(`/post/${params.id}`)}`;
+      return;
+    }
+    likeMutation.mutate();
+  };
 
   if (loading || query.isLoading) {
     return (
@@ -123,7 +165,18 @@ export default function PostClient(props: {
                   : "Draft"}
               </span>
               <div className="ml-auto flex items-center gap-3">
-                <div className="flex items-center gap-1 text-muted-foreground">
+                <button
+                  type="button"
+                  onClick={handleLike}
+                  disabled={likeMutation.isLoading}
+                  className={[
+                    "flex items-center gap-1 rounded-full px-2 py-1 transition-colors",
+                    post.liked_by_me
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                  ].join(" ")}
+                  aria-label={post.liked_by_me ? "Unlike post" : "Like post"}
+                >
                   <svg
                     className="w-4 h-4"
                     fill="currentColor"
@@ -132,7 +185,7 @@ export default function PostClient(props: {
                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                   </svg>
                   <span>{post.like_count}</span>
-                </div>
+                </button>
                 {user && (user.id === post.author_id || user.role === "admin") && (
                   <Link href={`/editor/${post.id}`}>
                     <Button variant="outline" size="sm">

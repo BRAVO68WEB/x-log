@@ -78,6 +78,14 @@ function computeDigest(body: string): string {
   return `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
 }
 
+function getInboxObjectId(activity: any): string {
+  return (
+    (typeof activity.object === "string" ? activity.object : activity.object?.id) ||
+    activity.id ||
+    `urn:xlog:inbox:${crypto.randomUUID()}`
+  );
+}
+
 // Fetch a remote actor's inbox URL by dereferencing their actor object
 async function fetchRemoteActor(actorUrl: string): Promise<{
   inbox: string;
@@ -191,29 +199,49 @@ async function processInboxActivity(
 
   // Handle Like activity
   if (activity.type === "Like") {
-    const objectId = activity.object;
-    const resolvedObjectId = typeof objectId === "string" ? objectId : objectId?.id;
-
-    // Check for duplicate like from same actor
-    if (resolvedObjectId) {
-      const existingLike = await db
-        .selectFrom("inbox_objects")
+    const objectId =
+      typeof activity.object === "string" ? activity.object : activity.object?.id;
+    if (objectId) {
+      const postId = objectId.split("/").pop();
+      const post = await db
+        .selectFrom("posts")
         .select("id")
-        .where("type", "=", "Like")
-        .where("actor", "=", activity.actor)
-        .where("object_id", "=", resolvedObjectId)
+        .where((eb) =>
+          eb.or([
+            eb("id", "=", postId),
+            eb("ap_object_id", "=", objectId),
+          ])
+        )
         .executeTakeFirst();
-      if (existingLike) return;
-    }
 
-    const postId = typeof objectId === "string" ? objectId.split("/").pop() : null;
-    if (postId) {
+      if (!post) return;
+
+      const existingLike = await db
+        .selectFrom("post_likes")
+        .select("id")
+        .where("post_id", "=", post.id)
+        .where("actor", "=", activity.actor)
+        .executeTakeFirst();
+
+      if (existingLike) return;
+
+      await db
+        .insertInto("post_likes")
+        .values({
+          id: crypto.randomUUID(),
+          post_id: post.id,
+          user_id: null,
+          actor: activity.actor,
+          activity_id: activity.id || `${activity.actor}#like-${post.id}`,
+        })
+        .execute();
+
       await db
         .updateTable("posts")
         .set((eb) => ({
           like_count: eb("like_count", "+", 1),
         }))
-        .where("id", "=", postId)
+        .where("id", "=", post.id)
         .execute();
     }
   }
@@ -241,13 +269,35 @@ async function processInboxActivity(
         .execute();
     }
     if (obj && typeof obj === "object" && obj.type === "Like") {
-      const likedObject = obj.object as string;
+      const likedObject =
+        typeof obj.object === "string" ? obj.object : obj.object?.id;
       const postId = likedObject?.split("/").pop();
-      if (postId) {
+      if (likedObject && postId) {
+        const post = await db
+          .selectFrom("posts")
+          .select("id")
+          .where((eb) =>
+            eb.or([
+              eb("id", "=", postId),
+              eb("ap_object_id", "=", likedObject),
+            ])
+          )
+          .executeTakeFirst();
+
+        if (!post) return;
+
+        const deleted = await db
+          .deleteFrom("post_likes")
+          .where("post_id", "=", post.id)
+          .where("actor", "=", activity.actor)
+          .executeTakeFirst();
+
+        if (Number(deleted.numDeletedRows || 0) === 0) return;
+
         await db
           .updateTable("posts")
           .set((eb) => ({ like_count: eb("like_count", "-", 1) }))
-          .where("id", "=", postId)
+          .where("id", "=", post.id)
           .where("like_count", ">", 0)
           .execute();
       }
@@ -766,11 +816,13 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   }
 
   // Activity ID deduplication
-  if (activity.id) {
+  const inboxObjectId = getInboxObjectId(activity);
+  if (inboxObjectId) {
     const existing = await db
       .selectFrom("inbox_objects")
       .select("id")
-      .where("object_id", "=", activity.id)
+      .where("object_id", "=", inboxObjectId)
+      .where("local_user_id", "=", user.id)
       .executeTakeFirst();
     if (existing) {
       return c.json({ success: true }, 202);
@@ -784,7 +836,8 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
       id: crypto.randomUUID(),
       type: activity.type,
       actor: activity.actor,
-      object_id: activity.object?.id || activity.id,
+      object_id: inboxObjectId,
+      local_user_id: user.id,
       raw: activity as any,
     })
     .execute();
@@ -849,18 +902,6 @@ federationRoutes.post("/ap/inbox", async (c) => {
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 
-  // Activity ID deduplication
-  if (activity.id) {
-    const existing = await db
-      .selectFrom("inbox_objects")
-      .select("id")
-      .where("object_id", "=", activity.id)
-      .executeTakeFirst();
-    if (existing) {
-      return c.json({ success: true }, 202);
-    }
-  }
-
   // Parse to/cc to find targeted local users
   const recipients = [
     ...(Array.isArray(activity.to) ? activity.to : []),
@@ -887,13 +928,23 @@ federationRoutes.post("/ap/inbox", async (c) => {
       .execute();
 
     for (const row of followRows) {
+      const inboxObjectId = getInboxObjectId(activity);
+      const existing = await db
+        .selectFrom("inbox_objects")
+        .select("id")
+        .where("object_id", "=", inboxObjectId)
+        .where("local_user_id", "=", row.id)
+        .executeTakeFirst();
+      if (existing) continue;
+
       await db
         .insertInto("inbox_objects")
         .values({
           id: crypto.randomUUID(),
           type: activity.type,
           actor: activity.actor,
-          object_id: activity.object?.id || activity.id,
+          object_id: inboxObjectId,
+          local_user_id: row.id,
           raw: activity as any,
         })
         .execute();
@@ -910,13 +961,23 @@ federationRoutes.post("/ap/inbox", async (c) => {
         .executeTakeFirst();
 
       if (user) {
+        const inboxObjectId = getInboxObjectId(activity);
+        const existing = await db
+          .selectFrom("inbox_objects")
+          .select("id")
+          .where("object_id", "=", inboxObjectId)
+          .where("local_user_id", "=", user.id)
+          .executeTakeFirst();
+        if (existing) continue;
+
         await db
           .insertInto("inbox_objects")
           .values({
             id: crypto.randomUUID(),
             type: activity.type,
             actor: activity.actor,
-            object_id: activity.object?.id || activity.id,
+            object_id: inboxObjectId,
+            local_user_id: user.id,
             raw: activity as any,
           })
           .execute();

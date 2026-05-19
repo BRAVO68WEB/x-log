@@ -23,7 +23,7 @@ export interface DeliveryJob {
   userId: string;
   postId: string;
   inboxUrl: string;
-  activityType?: "Create" | "Update" | "Delete";
+  activityType?: "Create" | "Update" | "Delete" | "Like" | "Undo";
   activityJson?: string;
 }
 
@@ -36,7 +36,7 @@ export async function enqueueDeliveriesToFollowers(
   userId: string,
   postId: string,
   activityId: string,
-  activityType: "Create" | "Update" | "Delete",
+  activityType: "Create" | "Update" | "Delete" | "Like" | "Undo",
   domain: string,
   activityJson?: string
 ): Promise<void> {

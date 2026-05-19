@@ -22,6 +22,7 @@ export const PostResponseSchema = z.object({
   content_markdown: z.string(),
   hashtags: z.array(z.string()),
   like_count: z.number().int(),
+  liked_by_me: z.boolean().optional(),
   author: z.object({
     username: z.string(),
     full_name: z.string().optional().nullable(),

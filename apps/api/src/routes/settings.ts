@@ -7,6 +7,7 @@ import {
   requireAuth,
   requireAdmin,
 } from "../middleware/session";
+import { followRemoteActor, getPrimaryProfileUser } from "../lib/activitypub";
 
 const InstanceSettingsUpdateSchema = z.object({
   instance_name: z.string().min(1).optional(),
@@ -70,6 +71,62 @@ const InstanceSettingsResponseSchema = z.object({
 });
 
 export const settingsRoutes = new Hono().use("*", sessionMiddleware);
+
+settingsRoutes.post(
+  "/following",
+  describeRoute({
+    description: "Follow a remote ActivityPub actor from the instance primary profile",
+    tags: ["settings"],
+    responses: {
+      202: {
+        description: "Follow request sent",
+        content: {
+          "application/json": {
+            schema: resolver(
+              z.object({
+                success: z.boolean(),
+                actor: z.string(),
+                inbox_url: z.string(),
+                accepted: z.boolean(),
+              })
+            ),
+          },
+        },
+      },
+    },
+  }),
+  validator("json", z.object({ remote: z.string().min(1) })),
+  requireAuth,
+  requireAdmin,
+  async (c) => {
+    const db = getDb();
+    const settings = await db
+      .selectFrom("instance_settings")
+      .select(["following_enabled"])
+      .where("id", "=", 1)
+      .executeTakeFirst();
+
+    if (!settings?.following_enabled) {
+      return c.json({ error: "Following is currently disabled" }, 403);
+    }
+
+    const primaryProfile = await getPrimaryProfileUser(db);
+    if (!primaryProfile) {
+      return c.json({ error: "No primary profile found" }, 404);
+    }
+
+    try {
+      const result = await followRemoteActor({
+        db,
+        localUser: primaryProfile,
+        remote: c.req.valid("json").remote,
+      });
+      return c.json({ success: true, ...result }, 202);
+    } catch (error) {
+      return c.json({ error: String(error) }, 400);
+    }
+  }
+);
 
 settingsRoutes.get(
   "/",

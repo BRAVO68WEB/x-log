@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, Image } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { getPost } from "@/api/posts";
+import { getPost, likePost, unlikePost } from "@/api/posts";
 import { useAuth } from "@/auth/AuthProvider";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
@@ -14,6 +14,7 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, currentInstance, isReady } = useAuth();
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
   const postQuery = useQuery({
     queryKey: ["instance", currentInstance?.id, "post", id],
     queryFn: () =>
@@ -22,6 +23,29 @@ export default function PostDetailScreen() {
         token: currentInstance?.authToken,
       }),
     enabled: Boolean(id && currentInstance),
+  });
+  const likeMutation = useMutation({
+    mutationFn: () => {
+      const post = postQuery.data;
+      if (!post || !currentInstance) {
+        throw new Error("Post not loaded.");
+      }
+      return post.liked_by_me
+        ? unlikePost(post.id, {
+            apiBaseUrl: currentInstance.apiBaseUrl,
+            token: currentInstance.authToken,
+          })
+        : likePost(post.id, {
+            apiBaseUrl: currentInstance.apiBaseUrl,
+            token: currentInstance.authToken,
+          });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["instance", currentInstance?.id, "post", id] }),
+        queryClient.invalidateQueries({ queryKey: ["instance", currentInstance?.id, "posts"] }),
+      ]);
+    },
   });
 
   if (!isReady) {
@@ -63,6 +87,24 @@ export default function PostDetailScreen() {
           {post.author.full_name || post.author.username}
           {post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : " · Draft"}
         </Text>
+
+        <Pressable
+          style={[
+            styles.likeButton,
+            { backgroundColor: post.liked_by_me ? colors.accentSoft : colors.surfaceMuted },
+          ]}
+          onPress={() => {
+            if (!user) {
+              router.push(`/(auth)/login?redirect=/post/${post.id}`);
+              return;
+            }
+            likeMutation.mutate();
+          }}
+        >
+          <Text style={{ color: post.liked_by_me ? colors.accent : colors.textMuted }}>
+            {post.liked_by_me ? "♥" : "♡"} {post.like_count}
+          </Text>
+        </Pressable>
 
         {canEdit ? (
           <Pressable style={[styles.editButton, { backgroundColor: colors.accentSoft }]} onPress={() => router.push(`/post/${post.id}/edit`)}>
@@ -109,6 +151,12 @@ const styles = StyleSheet.create({
   },
   editButtonText: {
     fontWeight: "500",
+  },
+  likeButton: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   summary: {
     fontSize: 16,

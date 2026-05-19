@@ -15,6 +15,8 @@ import {
   getFollowersUrlSync,
   createArticleObjectSync,
   createDeleteActivity,
+  createLikeActivity,
+  createUndoActivity,
 } from "@xlog/ap";
 import { renderMarkdown } from "@xlog/markdown";
 import {
@@ -22,6 +24,46 @@ import {
   requireAuth,
 } from "../middleware/session";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
+
+async function getLikedPostIds(
+  postIds: string[],
+  user: { username: string } | undefined,
+  domain: string
+): Promise<Set<string>> {
+  if (!user || postIds.length === 0) return new Set();
+  const actor = getActorUrlSync(user.username, domain);
+  const db = getDb();
+  const rows = await db
+    .selectFrom("post_likes")
+    .select("post_id")
+    .where("actor", "=", actor)
+    .where("post_id", "in", postIds)
+    .execute();
+  return new Set(rows.map((row) => row.post_id));
+}
+
+async function getPostLikeState(postId: string, user: { username: string } | undefined, domain: string) {
+  if (!user) return false;
+  const actor = getActorUrlSync(user.username, domain);
+  const db = getDb();
+  const like = await db
+    .selectFrom("post_likes")
+    .select("id")
+    .where("post_id", "=", postId)
+    .where("actor", "=", actor)
+    .executeTakeFirst();
+  return Boolean(like);
+}
+
+async function fetchPostLikeCount(postId: string) {
+  const db = getDb();
+  const row = await db
+    .selectFrom("posts")
+    .select("like_count")
+    .where("id", "=", postId)
+    .executeTakeFirst();
+  return row?.like_count ?? 0;
+}
 
 const EMPTY_CONTENT_BLOCKS = {
   type: "doc",
@@ -127,6 +169,7 @@ postsRoutes.get(
   async (c) => {
     const { limit, cursor, author } = c.req.valid("query");
     const db = getDb();
+    const user = c.get("user");
 
     let query = db
       .selectFrom("posts")
@@ -164,6 +207,11 @@ postsRoutes.get(
     const hasMore = posts.length > limit;
     const items = posts.slice(0, limit);
     const settings = await getInstanceSettings();
+    const likedPostIds = await getLikedPostIds(
+      items.map((post) => post.id),
+      user,
+      settings.instance_domain
+    );
 
     const response = await Promise.all(
       items.map(async (post) => ({
@@ -175,6 +223,7 @@ postsRoutes.get(
         content_markdown: post.content_markdown,
         hashtags: post.hashtags,
         like_count: post.like_count,
+        liked_by_me: likedPostIds.has(post.id),
         author: {
           username: post.username,
           full_name: post.full_name || null,
@@ -259,6 +308,11 @@ postsRoutes.get(
 
     const contentHtml = await renderMarkdown(post.content_markdown);
     const settings = await getInstanceSettings();
+    const likedByMe = await getPostLikeState(
+      post.id,
+      user,
+      settings.instance_domain
+    );
 
     return c.json({
       id: post.id,
@@ -272,6 +326,7 @@ postsRoutes.get(
       author_id: post.author_id,
       hashtags: post.hashtags,
       like_count: post.like_count,
+      liked_by_me: likedByMe,
       author: {
         username: post.username,
         full_name: post.full_name || null,
@@ -530,6 +585,185 @@ postsRoutes.delete(
     await db.deleteFrom("posts").where("id", "=", id).execute();
 
     return c.json({ message: "Post deleted" });
+  }
+);
+
+postsRoutes.post(
+  "/:id/like",
+  describeRoute({
+    description: "Like a post",
+    tags: ["posts"],
+    responses: {
+      200: {
+        description: "Post liked",
+        content: {
+          "application/json": {
+            schema: resolver(
+              z.object({
+                liked_by_me: z.boolean(),
+                like_count: z.number().int(),
+              })
+            ),
+          },
+        },
+      },
+    },
+  }),
+  validator("param", z.object({ id: z.string() })),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const db = getDb();
+
+    const post = await db
+      .selectFrom("posts")
+      .innerJoin("users", "users.id", "posts.author_id")
+      .select([
+        "posts.id",
+        "posts.author_id",
+        "posts.visibility",
+        "posts.published_at",
+        "posts.ap_object_id",
+        "users.username as author_username",
+      ])
+      .where("posts.id", "=", id)
+      .executeTakeFirst();
+
+    if (!post) return c.json({ error: "Post not found" }, 404);
+    if (post.visibility === "private" && post.author_id !== user.id && user.role !== "admin") {
+      return c.json({ error: "Post not found" }, 404);
+    }
+
+    const settings = await getInstanceSettings();
+    const actorId = getActorUrlSync(user.username, settings.instance_domain);
+    const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+
+    const existing = await db
+      .selectFrom("post_likes")
+      .select("id")
+      .where("post_id", "=", id)
+      .where("actor", "=", actorId)
+      .executeTakeFirst();
+
+    if (!existing) {
+      await db
+        .insertInto("post_likes")
+        .values({
+          id: crypto.randomUUID(),
+          post_id: id,
+          user_id: user.id,
+          actor: actorId,
+          activity_id: activityId,
+        })
+        .execute();
+
+      await db
+        .updateTable("posts")
+        .set((eb) => ({ like_count: eb("like_count", "+", 1) }))
+        .where("id", "=", id)
+        .execute();
+
+      if (settings.federation_enabled && post.visibility !== "private" && post.published_at) {
+        const likeActivity = createLikeActivity(activityId, actorId, post.ap_object_id);
+        await enqueueDeliveriesToFollowers(
+          user.id,
+          id,
+          activityId,
+          "Like",
+          settings.instance_domain,
+          JSON.stringify(likeActivity)
+        );
+      }
+    }
+
+    return c.json({
+      liked_by_me: true,
+      like_count: await fetchPostLikeCount(id),
+    });
+  }
+);
+
+postsRoutes.delete(
+  "/:id/like",
+  describeRoute({
+    description: "Unlike a post",
+    tags: ["posts"],
+    responses: {
+      200: {
+        description: "Post unliked",
+        content: {
+          "application/json": {
+            schema: resolver(
+              z.object({
+                liked_by_me: z.boolean(),
+                like_count: z.number().int(),
+              })
+            ),
+          },
+        },
+      },
+    },
+  }),
+  validator("param", z.object({ id: z.string() })),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const db = getDb();
+
+    const post = await db
+      .selectFrom("posts")
+      .select(["id", "author_id", "visibility", "published_at", "ap_object_id"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    if (!post) return c.json({ error: "Post not found" }, 404);
+    if (post.visibility === "private" && post.author_id !== user.id && user.role !== "admin") {
+      return c.json({ error: "Post not found" }, 404);
+    }
+
+    const settings = await getInstanceSettings();
+    const actorId = getActorUrlSync(user.username, settings.instance_domain);
+    const existing = await db
+      .selectFrom("post_likes")
+      .select(["id", "activity_id"])
+      .where("post_id", "=", id)
+      .where("actor", "=", actorId)
+      .executeTakeFirst();
+
+    if (existing) {
+      await db
+        .deleteFrom("post_likes")
+        .where("id", "=", existing.id)
+        .execute();
+
+      await db
+        .updateTable("posts")
+        .set((eb) => ({ like_count: eb("like_count", "-", 1) }))
+        .where("id", "=", id)
+        .where("like_count", ">", 0)
+        .execute();
+
+      if (settings.federation_enabled && post.visibility !== "private" && post.published_at) {
+        const likeActivity = createLikeActivity(existing.activity_id, actorId, post.ap_object_id);
+        const undoActivityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
+        const undoActivity = createUndoActivity(undoActivityId, actorId, likeActivity);
+        await enqueueDeliveriesToFollowers(
+          user.id,
+          id,
+          undoActivityId,
+          "Undo",
+          settings.instance_domain,
+          JSON.stringify(undoActivity)
+        );
+      }
+    }
+
+    return c.json({
+      liked_by_me: false,
+      like_count: await fetchPostLikeCount(id),
+    });
   }
 );
 

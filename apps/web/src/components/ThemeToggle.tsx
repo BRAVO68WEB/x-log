@@ -14,7 +14,7 @@ export function ThemeToggle() {
       size="sm"
       aria-label={`Current theme: ${theme.label}`}
       title={`Current theme: ${theme.label}`}
-      className="h-9 gap-2 text-muted-foreground"
+      className="h-9 px-3 text-muted-foreground"
     >
       <span className="flex overflow-hidden rounded-full border border-border">
         {theme.swatches.slice(0, 4).map((color) => (
@@ -25,7 +25,6 @@ export function ThemeToggle() {
           />
         ))}
       </span>
-      <span className="hidden max-w-24 truncate sm:inline">{theme.label}</span>
     </Button>
   );
 }

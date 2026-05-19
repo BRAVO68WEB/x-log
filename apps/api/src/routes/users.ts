@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { UserResponseSchema } from "@xlog/validation";
 import { getDb } from "@xlog/db";
 import {
@@ -9,6 +10,11 @@ import {
 } from "../middleware/session";
 
 export const usersRoutes = new Hono().use("*", sessionMiddleware);
+
+const PasswordUpdateSchema = z.object({
+  current_password: z.string().min(1),
+  new_password: z.string().min(8).max(128),
+});
 
 usersRoutes.get(
   "/me",
@@ -111,3 +117,68 @@ usersRoutes.patch(
   }
 );
 
+usersRoutes.patch(
+  "/me/password",
+  describeRoute({
+    description: "Change current user's password",
+    tags: ["users"],
+    responses: {
+      200: {
+        description: "Password changed",
+        content: {
+          "application/json": {
+            schema: resolver(z.object({ message: z.string() })),
+          },
+        },
+      },
+      400: { description: "Invalid request" },
+      401: { description: "Unauthorized" },
+    },
+  }),
+  validator("json", PasswordUpdateSchema),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const data = c.req.valid("json");
+    const db = getDb();
+
+    const dbUser = await db
+      .selectFrom("users")
+      .select(["id", "password_hash"])
+      .where("id", "=", user.id)
+      .executeTakeFirst();
+
+    if (!dbUser) {
+      return c.json({ error: "User not found" }, 404);
+    }
+
+    if (!dbUser.password_hash) {
+      return c.json(
+        { error: "This account does not have a password set" },
+        400
+      );
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      data.current_password,
+      dbUser.password_hash
+    );
+
+    if (!isCurrentPasswordValid) {
+      return c.json({ error: "Current password is incorrect" }, 400);
+    }
+
+    const passwordHash = await bcrypt.hash(data.new_password, 10);
+
+    await db
+      .updateTable("users")
+      .set({
+        password_hash: passwordHash,
+        updated_at: new Date(),
+      })
+      .where("id", "=", user.id)
+      .execute();
+
+    return c.json({ message: "Password changed" });
+  }
+);

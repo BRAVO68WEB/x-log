@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useId } from "react";
-import { useTheme } from "next-themes";
 
 interface MermaidRendererProps {
   contentHtml: string;
@@ -10,7 +9,6 @@ interface MermaidRendererProps {
 
 export function MermaidRenderer({ contentHtml, className }: MermaidRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const { resolvedTheme } = useTheme();
   const prefix = useId().replace(/:/g, "");
 
   // Wrap bare <table> elements in a scrollable div for responsive overflow
@@ -38,9 +36,19 @@ export function MermaidRenderer({ contentHtml, className }: MermaidRendererProps
     (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
+        const root = document.documentElement;
+        const fixedTheme = root.dataset.theme;
+        const isDark =
+          root.classList.contains("dark") ||
+          fixedTheme === "amoled" ||
+          fixedTheme === "mocha" ||
+          fixedTheme === "dracula" ||
+          fixedTheme === "aurora" ||
+          fixedTheme === "neon-circuit" ||
+          fixedTheme === "signal";
         mermaid.initialize({
           startOnLoad: false,
-          theme: resolvedTheme === "dark" ? "dark" : "default",
+          theme: isDark ? "dark" : "default",
           fontFamily: "inherit",
         });
 
@@ -72,7 +80,7 @@ export function MermaidRenderer({ contentHtml, className }: MermaidRendererProps
     return () => {
       cancelled = true;
     };
-  }, [contentHtml, resolvedTheme, prefix]);
+  }, [contentHtml, prefix]);
 
   return (
     <div

@@ -14,10 +14,12 @@ function makeExcerpt(markdown: string) {
 export function PostCard({
   post,
   onPress,
+  onToggleLike,
   apiBaseUrl,
 }: {
   post: PostSummary;
   onPress: () => void;
+  onToggleLike?: () => void;
   apiBaseUrl?: string | null;
 }) {
   const { colors } = useTheme();
@@ -45,6 +47,20 @@ export function PostCard({
             {post.hashtags.map((tag) => `#${tag}`).join(" ")}
           </Text>
         ) : null}
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onToggleLike?.();
+          }}
+          style={[
+            styles.likeButton,
+            { backgroundColor: post.liked_by_me ? colors.accentSoft : colors.surfaceMuted },
+          ]}
+        >
+          <Text style={{ color: post.liked_by_me ? colors.accent : colors.textMuted }}>
+            {post.liked_by_me ? "♥" : "♡"} {post.like_count}
+          </Text>
+        </Pressable>
       </View>
     </Pressable>
   );
@@ -77,5 +93,11 @@ const styles = StyleSheet.create({
   },
   tags: {
     fontWeight: "500",
+  },
+  likeButton: {
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
 });

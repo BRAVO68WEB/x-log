@@ -1,13 +1,38 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import HomeClient from "./HomeClient";
+import {
+  isLandingRedirectTarget,
+  resolveLandingProfileFromInstance,
+} from "@/lib/landing";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function Home() {
+  const hdrs = await headers();
+  const host = hdrs.get("host") || "localhost:4000";
+  const proto = hdrs.get("x-forwarded-proto") || "http";
+  const origin = `${proto}://${host}`;
+  const landingPath = await resolveLandingProfileFromInstance(origin, {
+    includeSelfOrigin: true,
+  });
+
+  if (isLandingRedirectTarget("/", landingPath)) {
+    redirect(landingPath);
+  }
+
   return <HomeClient />;
 }
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
-    const res = await fetch(`/api/settings`, { cache: "no-store" });
+    const hdrs = await headers();
+    const host = hdrs.get("host") || "localhost:4000";
+    const proto = hdrs.get("x-forwarded-proto") || "http";
+    const base = `${proto}://${host}`;
+    const res = await fetch(`${base}/api/settings`, { cache: "no-store" });
     if (!res.ok) {
       return {
         title: "x-log",

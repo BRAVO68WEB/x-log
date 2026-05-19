@@ -106,6 +106,14 @@ export interface ActivityPubLike {
   object: string;
 }
 
+export interface ActivityPubUndo {
+  "@context": string[];
+  id: string;
+  type: "Undo";
+  actor: string;
+  object: ActivityPubLike | ActivityPubFollow | string;
+}
+
 export async function getActorUrl(username: string): Promise<string> {
   const settings = await getInstanceSettings();
   return `https://${settings.instance_domain}/ap/users/${username}`;
@@ -498,6 +506,34 @@ export function createAcceptActivity(
     type: "Accept",
     actor: actorId,
     object: followActivityId,
+  };
+}
+
+export function createLikeActivity(
+  activityId: string,
+  actorId: string,
+  objectId: string
+): ActivityPubLike {
+  return {
+    "@context": ["https://www.w3.org/ns/activitystreams"],
+    id: activityId,
+    type: "Like",
+    actor: actorId,
+    object: objectId,
+  };
+}
+
+export function createUndoActivity(
+  activityId: string,
+  actorId: string,
+  object: ActivityPubLike | ActivityPubFollow | string
+): ActivityPubUndo {
+  return {
+    "@context": ["https://www.w3.org/ns/activitystreams"],
+    id: activityId,
+    type: "Undo",
+    actor: actorId,
+    object,
   };
 }
 

@@ -1,5 +1,5 @@
 import { apiRequest, type RequestContext } from "@/api/client";
-import type { PaginatedPostsResponse, PostDetail } from "@/api/types";
+import type { FollowingFeedResponse, PaginatedPostsResponse, PostDetail } from "@/api/types";
 
 export interface PostPayload {
   title: string;
@@ -37,4 +37,20 @@ export function publishPost(id: string, context?: RequestContext) {
   return apiRequest<{ message: string }>(`/posts/${id}/publish`, {
     method: "POST",
   }, context);
+}
+
+export function likePost(id: string, context?: RequestContext) {
+  return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/posts/${id}/like`, {
+    method: "POST",
+  }, context);
+}
+
+export function unlikePost(id: string, context?: RequestContext) {
+  return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/posts/${id}/like`, {
+    method: "DELETE",
+  }, context);
+}
+
+export function listFollowingFeed(context?: RequestContext) {
+  return apiRequest<FollowingFeedResponse>("/feed/following?limit=20", undefined, context);
 }

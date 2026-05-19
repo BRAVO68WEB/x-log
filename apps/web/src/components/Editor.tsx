@@ -458,6 +458,49 @@ export function Editor({
 
         return false;
       },
+      handleDrop: (view, event) => {
+        const files = Array.from(event.dataTransfer?.files || []).filter(
+          (file) => file.type.startsWith("image/")
+        );
+        if (files.length === 0) return false;
+
+        event.preventDefault();
+        const currentEditor = editorRef.current;
+        if (!currentEditor) return false;
+
+        const coordinates = view.posAtCoords({
+          left: event.clientX,
+          top: event.clientY,
+        });
+        if (coordinates) {
+          currentEditor.chain().focus().setTextSelection(coordinates.pos).run();
+        } else {
+          currentEditor.chain().focus().run();
+        }
+
+        setImageUploading(true);
+        (async () => {
+          try {
+            for (const file of files) {
+              const res = await uploadImageMutation.mutateAsync(file);
+              currentEditor
+                .chain()
+                .focus()
+                .setImage({ src: res.url })
+                .run();
+            }
+            toast.success(files.length === 1 ? "Image uploaded" : "Images uploaded");
+          } catch (err) {
+            toast.error(
+              err instanceof Error ? err.message : "Image upload failed"
+            );
+          } finally {
+            setImageUploading(false);
+          }
+        })();
+
+        return true;
+      },
     },
   });
 

@@ -19,7 +19,6 @@ import {
   FaGithub,
   FaGlobe,
   FaLinkedin,
-  FaMastodon,
   FaReddit,
   FaTwitter,
   FaYoutube,
@@ -27,8 +26,8 @@ import {
 
 function actorUrlToHandle(data: {
   remote_actor: string;
-  remote_domain: string;
-  remote_username: string;
+  remote_domain: string | null;
+  remote_username: string | null;
 }): {
   url: string;
   handle: string;
@@ -82,8 +81,8 @@ export default function UserProfileClient(
       remote_actor: string;
       approved: boolean;
       created_at: string;
-      remote_domain: string;
-      remote_username: string;
+      remote_domain: string | null;
+      remote_username: string | null;
     }>
   >([]);
   const [following, setFollowing] = useState<
@@ -91,8 +90,8 @@ export default function UserProfileClient(
       remote_actor: string;
       accepted: boolean;
       created_at: string;
-      remote_domain: string;
-      remote_username: string;
+      remote_domain: string | null;
+      remote_username: string | null;
     }>
   >([]);
   const [copied, setCopied] = useState(false);
@@ -123,8 +122,8 @@ export default function UserProfileClient(
       inbox_url: string;
       approved: boolean;
       created_at: string;
-      remote_domain: string;
-      remote_username: string;
+      remote_domain: string | null;
+      remote_username: string | null;
     }[];
   }>(
     ["followers", params.username],
@@ -162,8 +161,8 @@ export default function UserProfileClient(
       activity_id: string;
       accepted: boolean;
       created_at: string;
-      remote_domain: string;
-      remote_username: string;
+      remote_domain: string | null;
+      remote_username: string | null;
     }[];
   }>(
     ["following", params.username],
@@ -372,6 +371,18 @@ export default function UserProfileClient(
                     </>
                   )}
                 </Button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={`/${params.username}.rss`}>
+                    <Badge variant="outline" className="cursor-pointer hover:bg-accent">
+                      RSS
+                    </Badge>
+                  </a>
+                  <a href={`/${params.username}.atom`}>
+                    <Badge variant="outline" className="cursor-pointer hover:bg-accent">
+                      Atom
+                    </Badge>
+                  </a>
+                </div>
               </BentoCardContent>
             </BentoCard>
           )}

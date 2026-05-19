@@ -1,18 +1,40 @@
 "use client";
 
 import { use } from "react";
-import { useRouter } from "next/navigation";
 import { useQuery } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { postsApi } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import EditorClient from "../Client";
+import type { JSONContent } from "@tiptap/core";
+
+function hasMeaningfulTipTapContent(content: JSONContent | null): boolean {
+  if (!content || content.type !== "doc") {
+    return false;
+  }
+
+  const nodes = Array.isArray(content.content) ? content.content : [];
+  if (nodes.length === 0) {
+    return false;
+  }
+
+  const hasText = (node: JSONContent): boolean => {
+    if (typeof node.text === "string" && node.text.trim().length > 0) {
+      return true;
+    }
+    if (node.type === "image" && typeof node.attrs?.src === "string") {
+      return true;
+    }
+    return Array.isArray(node.content) && node.content.some(hasText);
+  };
+
+  return nodes.some(hasText);
+}
 
 export default function EditPostClient(props: {
   params: Promise<{ id: string }>;
 }) {
   const params = use(props.params);
-  const router = useRouter();
   const { user, loading: authLoading } = useAuth();
 
   const { data: post, isLoading, error } = useQuery(
@@ -56,8 +78,13 @@ export default function EditPostClient(props: {
     );
   }
 
-  // Use content_blocks_json if available, otherwise fall back to content_html (TipTap parses HTML natively)
-  const initialContent = post.content_blocks_json || post.content_html;
+  // Some older/markdown-authored posts have an empty TipTap doc stored as
+  // content_blocks_json. Fall back to rendered HTML so edit opens real content.
+  const initialContent: JSONContent | string = hasMeaningfulTipTapContent(
+    post.content_blocks_json
+  )
+    ? (post.content_blocks_json as JSONContent)
+    : post.content_html || "";
 
   return (
     <EditorClient

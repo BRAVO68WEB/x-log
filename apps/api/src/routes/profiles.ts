@@ -6,11 +6,12 @@ import {
   ProfileUpdateSchema,
 } from "@xlog/validation";
 import { getDb, getInstanceSettings } from "@xlog/db";
-import { getActorUrlSync, signRequest } from "@xlog/ap";
+import { getActorUrlSync } from "@xlog/ap";
 import {
   sessionMiddleware,
   requireAuth,
 } from "../middleware/session";
+import { followRemoteActor } from "../lib/activitypub";
 
 export const profilesRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -163,11 +164,14 @@ profilesRoutes.get(
             schema: resolver(
               z.object({
                 items: z.array(
-                  z.object({
-                    remote_actor: z.string(),
-                    inbox_url: z.string(),
-                    activity_id: z.string(),
-                    accepted: z.boolean(),
+                z.object({
+                  remote_actor: z.string(),
+                  remote_username: z.string().nullable(),
+                  remote_domain: z.string().nullable(),
+                  handle: z.string(),
+                  inbox_url: z.string(),
+                  activity_id: z.string(),
+                  accepted: z.boolean(),
                     created_at: z.string(),
                   })
                 ),
@@ -206,13 +210,27 @@ profilesRoutes.get(
       .execute();
 
     return c.json({
-      items: rows.map((r) => ({
-        remote_actor: r.remote_actor,
-        inbox_url: r.inbox_url,
-        activity_id: r.activity_id,
-        accepted: r.accepted,
-        created_at: r.created_at.toISOString(),
-      })),
+      items: rows.map((r) => {
+        let username = "unknown";
+        let domain: string | null = null;
+        try {
+          const parsed = new URL(r.remote_actor);
+          username = parsed.pathname.split("/").filter(Boolean).pop() || "unknown";
+          domain = parsed.hostname;
+        } catch {
+          domain = null;
+        }
+        return {
+          remote_actor: r.remote_actor,
+          remote_username: username,
+          remote_domain: domain,
+          handle: domain ? `@${username}@${domain}` : r.remote_actor,
+          inbox_url: r.inbox_url,
+          activity_id: r.activity_id,
+          accepted: r.accepted,
+          created_at: r.created_at.toISOString(),
+        };
+      }),
     });
   }
 );
@@ -277,93 +295,13 @@ profilesRoutes.post(
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    // Resolve remote actor URL
-    async function resolveActorUrl(input: string): Promise<string> {
-      if (input.startsWith("http://") || input.startsWith("https://")) {
-        return input;
-      }
-      const handle = input.replace(/^@/, "");
-      const parts = handle.split("@");
-      if (parts.length !== 2) {
-        throw new Error("Invalid remote handle");
-      }
-      const [remoteUser, remoteDomain] = parts;
-      const webfingerUrl = `https://${remoteDomain}/.well-known/webfinger?resource=acct:${remoteUser}@${remoteDomain}`;
-      const resp = await fetch(webfingerUrl);
-      if (!resp.ok) {
-        throw new Error("WebFinger lookup failed");
-      }
-      const data = await resp.json();
-      const selfLink = (data.links || []).find(
-        (l: any) => l.rel === "self" && typeof l.href === "string"
-      );
-      if (!selfLink) {
-        throw new Error("Actor URL not found in WebFinger response");
-      }
-      return selfLink.href as string;
-    }
-
-  try {
-    const remoteActorUrl = await resolveActorUrl(remote);
-
-    // Fetch the remote actor to get the correct inbox URL
-    let inboxUrl: string;
     try {
-      const actorResp = await fetch(remoteActorUrl, {
-        headers: { Accept: "application/activity+json, application/ld+json" },
+      const result = await followRemoteActor({
+        db,
+        localUser: user,
+        remote,
       });
-      if (actorResp.ok) {
-        const actorData = (await actorResp.json()) as { inbox?: string };
-        inboxUrl = actorData.inbox || remoteActorUrl.replace(/\/$/, "") + "/inbox";
-      } else {
-        inboxUrl = remoteActorUrl.replace(/\/$/, "") + "/inbox";
-      }
-    } catch {
-      inboxUrl = remoteActorUrl.replace(/\/$/, "") + "/inbox";
-    }
-    const settings = await getInstanceSettings();
-    const actorId = getActorUrlSync(username, settings.instance_domain);
-
-      const followActivity = {
-        "@context": ["https://www.w3.org/ns/activitystreams"],
-        id: `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`,
-        type: "Follow" as const,
-        actor: actorId,
-        object: remoteActorUrl,
-      };
-
-      const body = JSON.stringify(followActivity);
-      const signature = await signRequest("POST", inboxUrl, body, user.id);
-
-      await fetch(inboxUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/activity+json",
-          Signature: signature,
-          Date: new Date().toUTCString(),
-          Host: new URL(inboxUrl).host,
-        },
-        body,
-      });
-
-      await db
-        .insertInto("following")
-        .values({
-          id: crypto.randomUUID(),
-          local_user_id: user.id,
-          remote_actor: remoteActorUrl,
-          inbox_url: inboxUrl,
-          activity_id: followActivity.id,
-          accepted: false,
-        })
-        .onConflict((oc) =>
-          oc
-            .columns(["local_user_id", "remote_actor"])
-            .doUpdateSet({ activity_id: followActivity.id })
-        )
-        .execute();
-
-      return c.json({ success: true, actor: remoteActorUrl }, 202);
+      return c.json({ success: true, actor: result.actor }, 202);
     } catch (error) {
       return c.json({ error: String(error) }, 400);
     }

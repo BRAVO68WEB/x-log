@@ -22,6 +22,7 @@ export interface PostSummary {
   content_markdown: string;
   hashtags: string[];
   like_count: number;
+  liked_by_me?: boolean;
   author: PostAuthor;
   published_at: string | null;
   updated_at: string;
@@ -38,6 +39,26 @@ export interface PostDetail extends PostSummary {
 
 export interface PaginatedPostsResponse {
   items: PostSummary[];
+  nextCursor?: string;
+  hasMore: boolean;
+}
+
+export interface FollowingFeedItem {
+  id: string;
+  type: "Create" | "Announce";
+  actor: string;
+  actor_handle: string | null;
+  object_id: string;
+  title: string | null;
+  summary: string | null;
+  content_html: string;
+  url: string;
+  published_at: string | null;
+  received_at: string;
+}
+
+export interface FollowingFeedResponse {
+  items: FollowingFeedItem[];
   nextCursor?: string;
   hasMore: boolean;
 }

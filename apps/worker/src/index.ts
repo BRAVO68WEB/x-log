@@ -23,7 +23,7 @@ interface DeliveryJob {
   userId: string;
   postId: string;
   inboxUrl: string;
-  activityType?: "Create" | "Update" | "Delete";
+  activityType?: "Create" | "Update" | "Delete" | "Like" | "Undo";
   activityJson?: string;
 }
 
@@ -81,8 +81,9 @@ async function deliverActivity(delivery: DeliveryJob) {
 
     let body: string;
 
-    if (delivery.activityType === "Delete" && delivery.activityJson) {
-      // For Delete activities, use pre-built JSON (post may already be deleted)
+    if (delivery.activityJson) {
+      // For pre-built activities, use raw JSON. This is required for Delete,
+      // Like, and Undo where the post body may not represent the activity.
       body = delivery.activityJson;
     } else {
       // For Create and Update, build activity from post data

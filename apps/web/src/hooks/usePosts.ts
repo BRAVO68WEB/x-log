@@ -16,6 +16,7 @@ interface Post {
   banner_url?: string | null;
   hashtags: string[];
   like_count: number;
+  liked_by_me?: boolean;
 }
 
 interface UsePostsOptions {

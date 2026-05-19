@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FlatList,
+  Linking,
   Pressable,
   StyleSheet,
   Text,
@@ -9,9 +10,9 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Redirect, router } from "expo-router";
-import { listPosts } from "@/api/posts";
+import { likePost, listFollowingFeed, listPosts, unlikePost } from "@/api/posts";
 import { useAuth } from "@/auth/AuthProvider";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
@@ -83,6 +84,8 @@ export default function FeedScreen() {
 
 function FeedPage({ instance, pageWidth }: { instance: SavedInstance; pageWidth: number }) {
   const { colors } = useTheme();
+  const queryClient = useQueryClient();
+  const [mode, setMode] = useState<"local" | "following">("local");
   const postsQuery = useQuery({
     queryKey: ["instance", instance.id, "posts"],
     queryFn: () =>
@@ -91,15 +94,37 @@ function FeedPage({ instance, pageWidth }: { instance: SavedInstance; pageWidth:
         token: instance.authToken,
       }),
   });
+  const followingQuery = useQuery({
+    queryKey: ["instance", instance.id, "following-feed"],
+    queryFn: () =>
+      listFollowingFeed({
+        apiBaseUrl: instance.apiBaseUrl,
+        token: instance.authToken,
+      }),
+    enabled: mode === "following" && Boolean(instance.authToken),
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: (post: { id: string; liked_by_me?: boolean }) =>
+      post.liked_by_me
+        ? unlikePost(post.id, { apiBaseUrl: instance.apiBaseUrl, token: instance.authToken })
+        : likePost(post.id, { apiBaseUrl: instance.apiBaseUrl, token: instance.authToken }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["instance", instance.id, "posts"] });
+    },
+  });
+
+  const followingItems = followingQuery.data?.items || [];
+  const feedItems = mode === "local" ? postsQuery.data?.items || [] : followingItems;
 
   return (
-    <FlatList
+    <FlatList<any>
       style={{ width: pageWidth }}
-      data={postsQuery.data?.items || []}
+      data={feedItems}
       keyExtractor={(item) => `${instance.id}:${item.id}`}
       contentContainerStyle={styles.listContent}
-      refreshing={postsQuery.isRefetching}
-      onRefresh={() => void postsQuery.refetch()}
+      refreshing={mode === "local" ? postsQuery.isRefetching : followingQuery.isRefetching}
+      onRefresh={() => void (mode === "local" ? postsQuery.refetch() : followingQuery.refetch())}
       ListHeaderComponent={
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.text }]}>{instance.instanceName}</Text>
@@ -111,17 +136,48 @@ function FeedPage({ instance, pageWidth }: { instance: SavedInstance; pageWidth:
               {instance.instanceDescription}
             </Text>
           ) : null}
+          <View style={[styles.segmentRow, { backgroundColor: colors.surfaceMuted }]}>
+            <Pressable
+              onPress={() => setMode("local")}
+              style={[
+                styles.segmentButton,
+                { backgroundColor: mode === "local" ? colors.surface : "transparent" },
+              ]}
+            >
+              <Text style={{ color: mode === "local" ? colors.text : colors.textMuted }}>
+                Local
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setMode("following")}
+              style={[
+                styles.segmentButton,
+                { backgroundColor: mode === "following" ? colors.surface : "transparent" },
+              ]}
+            >
+              <Text style={{ color: mode === "following" ? colors.text : colors.textMuted }}>
+                Following
+              </Text>
+            </Pressable>
+          </View>
         </View>
       }
       ListEmptyComponent={
-        postsQuery.isLoading ? (
+        (mode === "local" ? postsQuery.isLoading : followingQuery.isLoading) ? (
           <LoadingState />
-        ) : postsQuery.error ? (
+        ) : (mode === "local" ? postsQuery.error : followingQuery.error) ? (
           <EmptyState
             title="Unable to load feed"
             description={
-              postsQuery.error instanceof Error ? postsQuery.error.message : "Unknown error"
+              (mode === "local" ? postsQuery.error : followingQuery.error) instanceof Error
+                ? ((mode === "local" ? postsQuery.error : followingQuery.error) as Error).message
+                : "Unknown error"
             }
+          />
+        ) : mode === "following" ? (
+          <EmptyState
+            title="No followed posts yet"
+            description="Follow profiles from the web Settings page to populate this feed."
           />
         ) : (
           <EmptyState
@@ -130,16 +186,42 @@ function FeedPage({ instance, pageWidth }: { instance: SavedInstance; pageWidth:
           />
         )
       }
-      renderItem={({ item }) => (
-        <PostCard
-          post={item}
-          apiBaseUrl={instance.apiBaseUrl}
-          onPress={() => router.push(`/post/${item.id}`)}
-        />
-      )}
+      renderItem={({ item }) =>
+        mode === "local" ? (
+          <PostCard
+            post={item as any}
+            apiBaseUrl={instance.apiBaseUrl}
+            onPress={() => router.push(`/post/${(item as any).id}`)}
+            onToggleLike={() => {
+              if (!instance.authToken) {
+                router.push("/(auth)/login?redirect=/(tabs)/feed");
+                return;
+              }
+              likeMutation.mutate(item as any);
+            }}
+          />
+        ) : (
+          <View style={[styles.remoteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.remoteActor, { color: colors.accent }]}>
+              {(item as any).actor_handle || (item as any).actor}
+            </Text>
+            <Text style={[styles.remoteTitle, { color: colors.text }]}>
+              {(item as any).title || "Remote post"}
+            </Text>
+            {(item as any).summary ? (
+              <Text style={[styles.subtitle, { color: colors.textMuted }]}>
+                {(item as any).summary}
+              </Text>
+            ) : null}
+            <Pressable onPress={() => void Linking.openURL((item as any).url)}>
+              <Text style={[styles.remoteLink, { color: colors.accent }]}>Open remote post</Text>
+            </Pressable>
+          </View>
+        )
+      }
       ItemSeparatorComponent={() => <View style={{ height: 16 }} />}
       ListFooterComponent={
-        postsQuery.data?.hasMore ? (
+        mode === "local" && postsQuery.data?.hasMore ? (
           <Pressable
             style={[styles.loadMoreButton, { backgroundColor: colors.surfaceMuted }]}
             onPress={() => void postsQuery.refetch()}
@@ -162,6 +244,18 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 16,
     gap: 6,
+  },
+  segmentRow: {
+    flexDirection: "row",
+    borderRadius: 999,
+    padding: 4,
+    marginTop: 10,
+    alignSelf: "flex-start",
+  },
+  segmentButton: {
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   title: {
     fontSize: 30,
@@ -194,5 +288,22 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 999,
+  },
+  remoteCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 16,
+    gap: 8,
+  },
+  remoteActor: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  remoteTitle: {
+    fontSize: 20,
+    fontWeight: "500",
+  },
+  remoteLink: {
+    fontWeight: "500",
   },
 });

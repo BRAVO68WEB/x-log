@@ -91,6 +91,16 @@ export const usersApi = {
       body: JSON.stringify(data),
     });
   },
+
+  changePassword: async (data: {
+    current_password: string;
+    new_password: string;
+  }) => {
+    return apiRequest<{ message: string }>("/api/users/me/password", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // Posts API
@@ -113,6 +123,7 @@ export const postsApi = {
     banner_url?: string | null;
     hashtags: string[];
     like_count: number;
+    liked_by_me?: boolean;
     author: { username: string; full_name?: string | null; avatar_url?: string | null };
     published_at: string | null;
   }
@@ -136,6 +147,7 @@ export const postsApi = {
       author_id: string;
       hashtags: string[];
       like_count: number;
+      liked_by_me?: boolean;
       author: { username: string; full_name?: string | null; avatar_url?: string | null };
       published_at: string | null;
       updated_at: string;
@@ -184,6 +196,20 @@ export const postsApi = {
       method: "POST",
     });
   },
+
+  like: async (id: string) => {
+    return apiRequest<{ liked_by_me: boolean; like_count: number }>(
+      `/api/posts/${id}/like`,
+      { method: "POST" }
+    );
+  },
+
+  unlike: async (id: string) => {
+    return apiRequest<{ liked_by_me: boolean; like_count: number }>(
+      `/api/posts/${id}/like`,
+      { method: "DELETE" }
+    );
+  },
 };
 
 // Profiles API
@@ -199,8 +225,18 @@ export const profilesApi = {
   },
 
   listFollowing: async (username: string) => {
-    return apiRequest<{ items: { remote_actor: string; inbox_url: string; activity_id: string; accepted: boolean; created_at: string }[] }>(
+    return apiRequest<{ items: { remote_actor: string; remote_username: string | null; remote_domain: string | null; handle: string; inbox_url: string; activity_id: string; accepted: boolean; created_at: string }[] }>(
       `/api/profiles/${username}/following`
+    );
+  },
+
+  follow: async (username: string, remote: string) => {
+    return apiRequest<{ success: boolean; actor: string }>(
+      `/api/profiles/${username}/follow`,
+      {
+        method: "POST",
+        body: JSON.stringify({ remote }),
+      }
     );
   },
 
@@ -280,6 +316,34 @@ export const mediaApi = {
   },
 };
 
+export interface FollowingFeedItem {
+  id: string;
+  type: "Create" | "Announce";
+  actor: string;
+  actor_handle: string | null;
+  object_id: string;
+  title: string | null;
+  summary: string | null;
+  content_html: string;
+  url: string;
+  published_at: string | null;
+  received_at: string;
+}
+
+export const feedApi = {
+  following: async (params?: { limit?: number; cursor?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.cursor) searchParams.set("cursor", params.cursor);
+    const query = searchParams.toString();
+    return apiRequest<{
+      items: FollowingFeedItem[];
+      nextCursor?: string;
+      hasMore: boolean;
+    }>(`/api/feed/following${query ? `?${query}` : ""}`);
+  },
+};
+
 // Onboarding API
 export const onboardingApi = {
   getState: async () => {
@@ -332,6 +396,18 @@ export const settingsApi = {
     return apiRequest("/api/settings", {
       method: "PATCH",
       body: JSON.stringify(data),
+    });
+  },
+
+  followFromSettings: async (remote: string) => {
+    return apiRequest<{
+      success: boolean;
+      actor: string;
+      inbox_url: string;
+      accepted: boolean;
+    }>("/api/settings/following", {
+      method: "POST",
+      body: JSON.stringify({ remote }),
     });
   },
 };

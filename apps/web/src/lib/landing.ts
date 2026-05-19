@@ -34,6 +34,10 @@ function resolveCandidateUrls({
       return true;
     }
 
+    if (includeSelfOrigin) {
+      return true;
+    }
+
     try {
       return new URL(url).origin !== normalizedSelfOrigin;
     } catch {
@@ -81,4 +85,24 @@ export async function resolveLandingProfileFromInstance(
   }
 
   return null;
+}
+
+function normalizePathname(pathname: string): string {
+  if (pathname === "/") return pathname;
+  return pathname.replace(/\/+$/, "");
+}
+
+export function isLandingRedirectTarget(
+  pathname: string,
+  landingPath: string | null
+): landingPath is string {
+  if (!landingPath) return false;
+
+  const normalizedLandingPath = normalizePathname(landingPath);
+  const normalizedPathname = normalizePathname(pathname);
+
+  if (normalizedLandingPath === "/") return false;
+  if (!normalizedLandingPath.startsWith("/u/")) return false;
+
+  return normalizedPathname !== normalizedLandingPath;
 }

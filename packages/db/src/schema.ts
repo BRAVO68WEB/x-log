@@ -132,8 +132,18 @@ export interface InboxObjectsTable {
   type: string;
   actor: string;
   object_id: string;
+  local_user_id: string | null;
   raw: ColumnType<Record<string, unknown>, unknown, unknown>; // jsonb
   received_at: ColumnType<Date, never, never>;
+}
+
+export interface PostLikesTable {
+  id: string; // uuid, PK
+  post_id: string; // FK posts.id
+  user_id: string | null; // FK users.id for local likes
+  actor: string;
+  activity_id: string;
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface InstanceSettingsTable {
@@ -202,6 +212,7 @@ export interface Database {
   outbox_activities: OutboxActivitiesTable;
   deliveries: DeliveriesTable;
   inbox_objects: InboxObjectsTable;
+  post_likes: PostLikesTable;
   instance_settings: InstanceSettingsTable;
   replay_cache: ReplayCacheTable;
   oidc_accounts: OIDCAccountsTable;

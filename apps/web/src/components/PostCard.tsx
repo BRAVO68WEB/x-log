@@ -1,8 +1,14 @@
+"use client";
+
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { postsApi } from "@/lib/api";
+import { useAuth } from "@/hooks/useAuth";
+import { useMutation } from "react-query";
 
 interface PostCardProps {
   id: string;
@@ -17,6 +23,7 @@ interface PostCardProps {
   banner_url?: string | null;
   hashtags: string[];
   like_count: number;
+  liked_by_me?: boolean;
   flat?: boolean;
 }
 
@@ -29,8 +36,38 @@ export function PostCard({
   banner_url,
   hashtags,
   like_count,
+  liked_by_me = false,
   flat = false,
 }: PostCardProps) {
+  const { isAuthenticated } = useAuth();
+  const [liked, setLiked] = useState(liked_by_me);
+  const [count, setCount] = useState(like_count);
+  const likeMutation = useMutation(
+    async () => (liked ? postsApi.unlike(id) : postsApi.like(id)),
+    {
+      onMutate: () => {
+        setLiked((current) => !current);
+        setCount((current) => current + (liked ? -1 : 1));
+      },
+      onSuccess: (data) => {
+        setLiked(data.liked_by_me);
+        setCount(data.like_count);
+      },
+      onError: () => {
+        setLiked(liked);
+        setCount(like_count);
+      },
+    }
+  );
+
+  const handleLike = () => {
+    if (!isAuthenticated) {
+      window.location.href = `/login?redirect=${encodeURIComponent(`/post/${id}`)}`;
+      return;
+    }
+    likeMutation.mutate();
+  };
+
   const content = (
     <>
       {banner_url && (
@@ -85,7 +122,18 @@ export function PostCard({
               </>
             )}
           </div>
-          <div className="flex items-center gap-1 text-muted-foreground">
+          <button
+            type="button"
+            onClick={handleLike}
+            disabled={likeMutation.isLoading}
+            className={[
+              "flex items-center gap-1 rounded-full px-2 py-1 transition-colors",
+              liked
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            ].join(" ")}
+            aria-label={liked ? "Unlike post" : "Like post"}
+          >
             <svg
               className="w-4 h-4"
               fill="currentColor"
@@ -93,8 +141,8 @@ export function PostCard({
             >
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
-            <span>{like_count}</span>
-          </div>
+            <span>{count}</span>
+          </button>
         </div>
         {hashtags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
