@@ -1,4 +1,29 @@
 import { getDb } from "./index";
+import type { InstanceThemeId } from "./schema";
+
+const themeIds = new Set<InstanceThemeId>([
+  "system",
+  "xlog-default",
+  "blues",
+  "marigold",
+  "aurora",
+  "sunburst",
+  "monochrome",
+  "mocha",
+  "amoled",
+  "off-white",
+  "dracula",
+  "mint-grove",
+  "neon-circuit",
+  "signal",
+  "retro-classic",
+]);
+
+function normalizeThemeId(value: string | null | undefined): InstanceThemeId {
+  return themeIds.has(value as InstanceThemeId)
+    ? (value as InstanceThemeId)
+    : "system";
+}
 
 let cachedSettings: {
   instance_domain: string;
@@ -7,6 +32,7 @@ let cachedSettings: {
   federation_enabled: boolean;
   following_enabled: boolean;
   use_profile_as_landing: boolean;
+  theme_id: InstanceThemeId;
 } | null = null;
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minute cache
@@ -27,6 +53,7 @@ export async function getInstanceSettings() {
     federation_enabled: boolean;
     following_enabled: boolean;
     use_profile_as_landing: boolean;
+    theme_id: string;
   } | null;
 
   try {
@@ -39,9 +66,10 @@ export async function getInstanceSettings() {
         "federation_enabled",
         "following_enabled",
         "use_profile_as_landing",
+        "theme_id",
       ])
       .where("id", "=", 1)
-      .executeTakeFirst();
+      .executeTakeFirst() ?? null;
   } catch (error) {
     const dbError = error as { code?: string };
     if (dbError?.code !== "42703") {
@@ -66,6 +94,7 @@ export async function getInstanceSettings() {
       settings = {
         ...legacySettings,
         use_profile_as_landing: false,
+        theme_id: "system",
       };
     }
   }
@@ -81,6 +110,7 @@ export async function getInstanceSettings() {
       federation_enabled: true,
       following_enabled: false,
       use_profile_as_landing: false,
+      theme_id: "system",
     };
   }
 
@@ -91,6 +121,7 @@ export async function getInstanceSettings() {
     federation_enabled: settings.federation_enabled,
     following_enabled: settings.following_enabled,
     use_profile_as_landing: settings.use_profile_as_landing,
+    theme_id: normalizeThemeId(settings.theme_id),
   };
   cacheTimestamp = now;
 

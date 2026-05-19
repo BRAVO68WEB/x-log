@@ -2,15 +2,14 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useQuery } from "@tanstack/react-query";
 import { Redirect, router } from "expo-router";
 import { getProfile } from "@/api/profiles";
+import { updateInstanceSettings } from "@/api/settings";
 import { useAuth } from "@/auth/AuthProvider";
 import { EmptyState } from "@/components/EmptyState";
 import { LoadingState } from "@/components/LoadingState";
 import { Screen } from "@/components/Screen";
 import { resolveAssetUrl } from "@/lib/assets";
 import { useTheme } from "@/theme/ThemeProvider";
-import type { ThemePreference } from "@/theme/storage";
-
-const themeOptions: ThemePreference[] = ["system", "light", "dark"];
+import { instanceThemes } from "@/theme/palettes";
 
 export default function YouScreen() {
   const { colors, themePreference, setThemePreference } = useTheme();
@@ -22,6 +21,7 @@ export default function YouScreen() {
     currentInstance,
     switchInstance,
     removeInstance,
+    refreshCurrentInstanceSummary,
   } = useAuth();
 
   const profileQuery = useQuery({
@@ -58,6 +58,22 @@ export default function YouScreen() {
     profile?.social_reddit,
     profile?.social_linkedin,
   ].filter(Boolean) as string[];
+
+  async function changeInstanceTheme(themeId: typeof themePreference) {
+    if (!currentInstance?.authToken) {
+      return;
+    }
+
+    await setThemePreference(themeId);
+    await updateInstanceSettings(
+      { theme_id: themeId },
+      {
+        apiBaseUrl: currentInstance.apiBaseUrl,
+        token: currentInstance.authToken,
+      }
+    );
+    await refreshCurrentInstanceSummary();
+  }
 
   return (
     <Screen>
@@ -190,39 +206,43 @@ export default function YouScreen() {
           </View>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
-          <Text style={[styles.body, { color: colors.textMuted }]}>
-            Choose how the app handles light and dark themes.
-          </Text>
-          <View style={styles.themeRow}>
-            {themeOptions.map((option) => {
-              const active = option === themePreference;
-              return (
-                <Pressable
-                  key={option}
-                  style={[
-                    styles.themeButton,
-                    {
-                      backgroundColor: active ? colors.accent : colors.surfaceMuted,
-                    },
-                  ]}
-                  onPress={() => void setThemePreference(option)}
-                >
-                  <Text
-                    style={{
-                      color: active ? colors.accentContrast : colors.text,
-                      fontWeight: "500",
-                      textTransform: "capitalize",
-                    }}
+        {user?.role === "admin" ? (
+          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
+            <View style={styles.themeGrid}>
+              {instanceThemes.map((theme) => {
+                const active = theme.id === themePreference;
+                return (
+                  <Pressable
+                    key={theme.id}
+                    style={[
+                      styles.themeButton,
+                      {
+                        backgroundColor: active ? colors.accent : colors.surfaceMuted,
+                        borderColor: active ? colors.accent : colors.border,
+                      },
+                    ]}
+                    onPress={() => void changeInstanceTheme(theme.id)}
                   >
-                    {option}
-                  </Text>
-                </Pressable>
-              );
-            })}
+                    <View style={styles.swatchRow}>
+                      {theme.swatches.map((color) => (
+                        <View key={color} style={[styles.swatch, { backgroundColor: color }]} />
+                      ))}
+                    </View>
+                    <Text
+                      style={{
+                        color: active ? colors.accentContrast : colors.text,
+                        fontWeight: "500",
+                      }}
+                    >
+                      {theme.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
-        </View>
+        ) : null}
       </ScrollView>
     </Screen>
   );
@@ -353,14 +373,29 @@ const styles = StyleSheet.create({
   removeButtonText: {
     fontWeight: "500",
   },
-  themeRow: {
+  themeGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   themeButton: {
-    flex: 1,
+    width: "48%",
     borderRadius: 12,
-    alignItems: "center",
+    borderWidth: 1,
+    gap: 10,
+    minHeight: 82,
+    justifyContent: "center",
+    paddingHorizontal: 10,
     paddingVertical: 12,
+  },
+  swatchRow: {
+    flexDirection: "row",
+    overflow: "hidden",
+    borderRadius: 999,
+    alignSelf: "flex-start",
+  },
+  swatch: {
+    width: 18,
+    height: 18,
   },
 });

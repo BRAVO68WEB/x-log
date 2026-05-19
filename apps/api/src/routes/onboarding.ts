@@ -135,6 +135,7 @@ onboardingRoutes.post(
         federation_enabled: true,
         following_enabled: false,
         use_profile_as_landing: false,
+        theme_id: "system",
       })
       .execute();
 

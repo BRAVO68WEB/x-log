@@ -8,6 +8,12 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import {
+  applyThemeById,
+  instanceThemes,
+  normalizeThemeId,
+  type InstanceThemeId,
+} from "@/lib/themes";
+import {
   BentoGrid,
   BentoCard,
   BentoCardHeader,
@@ -29,6 +35,7 @@ export default function SettingsClient() {
     federation_enabled: true,
     following_enabled: false,
     use_profile_as_landing: false,
+    theme_id: "system" as InstanceThemeId,
   });
 
   const settingsQuery = useQuery(
@@ -50,6 +57,7 @@ export default function SettingsClient() {
         federation_enabled: boolean;
         following_enabled: boolean;
         use_profile_as_landing: boolean;
+        theme_id: InstanceThemeId;
       }>;
     },
     {
@@ -63,6 +71,7 @@ export default function SettingsClient() {
           federation_enabled: data.federation_enabled,
           following_enabled: data.following_enabled,
           use_profile_as_landing: data.use_profile_as_landing,
+          theme_id: normalizeThemeId(data.theme_id),
         });
       },
       onError: (err) => {
@@ -89,6 +98,7 @@ export default function SettingsClient() {
           federation_enabled: settings.federation_enabled,
           following_enabled: settings.following_enabled,
           use_profile_as_landing: settings.use_profile_as_landing,
+          theme_id: settings.theme_id,
         }),
       });
       if (!res.ok) {
@@ -102,6 +112,12 @@ export default function SettingsClient() {
     {
       onSuccess: () => {
         setSuccess(true);
+        applyThemeById(settings.theme_id);
+        window.dispatchEvent(
+          new CustomEvent("xlog-theme-changed", {
+            detail: { themeId: settings.theme_id },
+          })
+        );
         setTimeout(() => setSuccess(false), 3000);
         settingsQuery.refetch();
       },
@@ -246,8 +262,50 @@ export default function SettingsClient() {
               </BentoCardContent>
             </BentoCard>
 
-            {/* Email settings - full */}
+            {/* Appearance settings - full */}
             <BentoCard size="full" index={2} accent>
+              <BentoCardHeader>
+                <h2 className="text-xl font-semibold font-heading">Appearance</h2>
+              </BentoCardHeader>
+              <BentoCardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {instanceThemes.map((theme) => {
+                    const active = settings.theme_id === theme.id;
+                    return (
+                      <button
+                        key={theme.id}
+                        type="button"
+                        className={[
+                          "theme-choice rounded-md border p-4 text-left transition-colors",
+                          active
+                            ? "border-primary bg-primary/10"
+                            : "border-border bg-card",
+                        ].join(" ")}
+                        onClick={() =>
+                          setSettings({ ...settings, theme_id: theme.id })
+                        }
+                      >
+                        <span className="flex items-center justify-between gap-3">
+                          <span className="font-medium">{theme.label}</span>
+                          <span className="flex overflow-hidden rounded-full border border-border">
+                            {theme.swatches.map((color) => (
+                              <span
+                                key={color}
+                                className="h-5 w-5"
+                                style={{ backgroundColor: color }}
+                              />
+                            ))}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </BentoCardContent>
+            </BentoCard>
+
+            {/* Email settings - full */}
+            <BentoCard size="full" index={3} accent>
               <BentoCardHeader>
                 <h2 className="text-xl font-semibold font-heading">Email Settings</h2>
               </BentoCardHeader>

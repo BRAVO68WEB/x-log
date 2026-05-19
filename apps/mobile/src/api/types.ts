@@ -1,3 +1,5 @@
+import type { InstanceThemeId } from "@/theme/palettes";
+
 export interface User {
   id: string;
   username: string;
@@ -50,6 +52,7 @@ export interface InstanceSummary {
   instance_name: string;
   instance_description: string | null;
   instance_domain: string;
+  theme_id: InstanceThemeId;
   total_public_posts: number;
   primary_profile: {
     username: string;

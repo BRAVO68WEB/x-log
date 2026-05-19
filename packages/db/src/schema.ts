@@ -4,6 +4,22 @@ export type UserRole = "admin" | "author" | "reader";
 export type PostVisibility = "public" | "unlisted" | "private";
 export type DeliveryStatus = "pending" | "sent" | "failed" | "retrying";
 export type MediaAssetType = "banner" | "post_attachment";
+export type InstanceThemeId =
+  | "system"
+  | "xlog-default"
+  | "blues"
+  | "marigold"
+  | "aurora"
+  | "sunburst"
+  | "monochrome"
+  | "mocha"
+  | "amoled"
+  | "off-white"
+  | "dracula"
+  | "mint-grove"
+  | "neon-circuit"
+  | "signal"
+  | "retro-classic";
 
 export interface UsersTable {
   id: string; // uuid
@@ -131,6 +147,7 @@ export interface InstanceSettingsTable {
   federation_enabled: boolean;
   following_enabled: boolean;
   use_profile_as_landing: boolean;
+  theme_id: ColumnType<InstanceThemeId, InstanceThemeId | undefined, InstanceThemeId>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
 }

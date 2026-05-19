@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getPublicInstanceSummary } from "@/api/instance";
 import { getConfiguredApiBaseUrl } from "@/lib/config";
 import type { InstanceSummary, User } from "@/api/types";
+import { normalizeThemeId, type InstanceThemeId } from "@/theme/palettes";
 
 export interface SavedInstance {
   id: string;
@@ -10,6 +11,7 @@ export interface SavedInstance {
   domain: string;
   instanceName: string;
   instanceDescription: string | null;
+  themeId: InstanceThemeId;
   totalPublicPosts: number;
   primaryProfile: InstanceSummary["primary_profile"];
   currentUser: User | null;
@@ -30,7 +32,12 @@ export async function loadStoredInstances() {
 
   try {
     const parsed = JSON.parse(raw) as StoredInstance[];
-    return Array.isArray(parsed) ? parsed : [];
+    return Array.isArray(parsed)
+      ? parsed.map((instance) => ({
+          ...instance,
+          themeId: normalizeThemeId(instance.themeId),
+        }))
+      : [];
   } catch {
     return [];
   }
@@ -115,6 +122,7 @@ export function toSavedInstance(
     domain,
     instanceName: summary.instance_name,
     instanceDescription: summary.instance_description,
+    themeId: normalizeThemeId(summary.theme_id),
     totalPublicPosts: summary.total_public_posts,
     primaryProfile: summary.primary_profile,
     currentUser: null,
@@ -128,6 +136,7 @@ export function mergeSummary(instance: SavedInstance, summary: InstanceSummary):
     ...instance,
     instanceName: summary.instance_name,
     instanceDescription: summary.instance_description,
+    themeId: normalizeThemeId(summary.theme_id),
     totalPublicPosts: summary.total_public_posts,
     primaryProfile: summary.primary_profile,
   };

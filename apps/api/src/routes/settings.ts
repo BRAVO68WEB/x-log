@@ -17,6 +17,25 @@ const InstanceSettingsUpdateSchema = z.object({
   federation_enabled: z.boolean().optional(),
   following_enabled: z.boolean().optional(),
   use_profile_as_landing: z.boolean().optional(),
+  theme_id: z
+    .enum([
+      "system",
+      "xlog-default",
+      "blues",
+      "marigold",
+      "aurora",
+      "sunburst",
+      "monochrome",
+      "mocha",
+      "amoled",
+      "off-white",
+      "dracula",
+      "mint-grove",
+      "neon-circuit",
+      "signal",
+      "retro-classic",
+    ])
+    .optional(),
 });
 
 const InstanceSettingsResponseSchema = z.object({
@@ -29,6 +48,23 @@ const InstanceSettingsResponseSchema = z.object({
   federation_enabled: z.boolean(),
   following_enabled: z.boolean(),
   use_profile_as_landing: z.boolean(),
+  theme_id: z.enum([
+    "system",
+    "xlog-default",
+    "blues",
+    "marigold",
+    "aurora",
+    "sunburst",
+    "monochrome",
+    "mocha",
+    "amoled",
+    "off-white",
+    "dracula",
+    "mint-grove",
+    "neon-circuit",
+    "signal",
+    "retro-classic",
+  ]),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -79,6 +115,7 @@ settingsRoutes.get(
       federation_enabled: settings.federation_enabled,
       following_enabled: settings.following_enabled,
       use_profile_as_landing: settings.use_profile_as_landing,
+      theme_id: settings.theme_id,
       created_at: settings.created_at.toISOString(),
       updated_at: settings.updated_at.toISOString(),
     });
@@ -151,6 +188,9 @@ settingsRoutes.patch(
     if (data.use_profile_as_landing !== undefined) {
       updateData.use_profile_as_landing = data.use_profile_as_landing;
     }
+    if (data.theme_id !== undefined) {
+      updateData.theme_id = data.theme_id;
+    }
 
     // Update settings
     await db
@@ -179,6 +219,7 @@ settingsRoutes.patch(
       federation_enabled: updated!.federation_enabled,
       following_enabled: updated!.following_enabled,
       use_profile_as_landing: updated!.use_profile_as_landing,
+      theme_id: updated!.theme_id,
       created_at: updated!.created_at.toISOString(),
       updated_at: updated!.updated_at.toISOString(),
     });
