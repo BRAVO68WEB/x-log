@@ -95,6 +95,38 @@ function getActivityObjectId(activity: any): string | null {
   return null;
 }
 
+async function acceptFollowActivity({
+  db,
+  activity,
+  localUserId,
+}: {
+  db: ReturnType<typeof getDb>;
+  activity: any;
+  localUserId?: string;
+}): Promise<number> {
+  const acceptedFollowActivityId = getActivityObjectId(activity);
+  if (!acceptedFollowActivityId || typeof activity.actor !== "string") {
+    return 0;
+  }
+
+  const result = localUserId
+    ? await db
+        .updateTable("following")
+        .set({ accepted: true })
+        .where("local_user_id", "=", localUserId)
+        .where("remote_actor", "=", activity.actor)
+        .where("activity_id", "=", acceptedFollowActivityId)
+        .executeTakeFirst()
+    : await db
+        .updateTable("following")
+        .set({ accepted: true })
+        .where("remote_actor", "=", activity.actor)
+        .where("activity_id", "=", acceptedFollowActivityId)
+        .executeTakeFirst();
+
+  return Number(result.numUpdatedRows || 0);
+}
+
 // Fetch a remote actor's inbox URL by dereferencing their actor object
 async function fetchRemoteActor(actorUrl: string): Promise<{
   inbox: string;
@@ -179,9 +211,9 @@ async function processInboxActivity(
       const accept = createAcceptActivity(
         acceptActivityId,
         actorId,
-        activity.id
+        activity.id,
+        [remoteActor]
       );
-      (accept as any).to = [remoteActor];
 
       const acceptBody = JSON.stringify(accept);
       const signature = await signRequest(
@@ -191,7 +223,7 @@ async function processInboxActivity(
         userId
       );
 
-      await fetch(inboxUrl, {
+      const response = await fetch(inboxUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/activity+json",
@@ -202,6 +234,13 @@ async function processInboxActivity(
         },
         body: acceptBody,
       });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        console.warn(
+          `Accept delivery failed local=${username} remote=${remoteActor} inbox=${inboxUrl} status=${response.status} body=${text.slice(0, 500)}`
+        );
+      }
     } catch (err) {
       console.error("Failed to send Accept:", err);
     }
@@ -257,15 +296,10 @@ async function processInboxActivity(
   }
 
   if (activity.type === "Accept") {
-    const objectId = typeof activity.object === "string" ? activity.object : activity.object?.id;
-    if (objectId) {
-      await db
-        .updateTable("following")
-        .set({ accepted: true })
-        .where("local_user_id", "=", userId)
-        .where("activity_id", "=", objectId)
-        .execute();
-    }
+    const updated = await acceptFollowActivity({ db, activity, localUserId: userId });
+    console.warn(
+      `Inbox route=accept-follow-match actor=${activity.actor} object=${getActivityObjectId(activity)} user=${username} updated=${updated}`
+    );
   }
 
   // Handle Undo activity
@@ -835,6 +869,16 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
       .where("local_user_id", "=", user.id)
       .executeTakeFirst();
     if (existing) {
+      if (activity.type === "Accept") {
+        const updated = await acceptFollowActivity({
+          db,
+          activity,
+          localUserId: user.id,
+        });
+        console.warn(
+          `Inbox route=accept-follow-match actor=${activity.actor} object=${getActivityObjectId(activity)} user=${username} duplicate=true updated=${updated}`
+        );
+      }
       return c.json({ success: true }, 202);
     }
   }
@@ -925,6 +969,10 @@ federationRoutes.post("/ap/inbox", async (c) => {
     .filter((r: string) => typeof r === "string" && r.startsWith(localPrefix))
     .map((r: string) => r.slice(localPrefix.length));
 
+  console.warn(
+    `Inbox shared type=${activity.type} actor=${activity.actor} object=${getActivityObjectId(activity)} targets=${targetedUsernames.join(",") || "-"}`
+  );
+
   if (activity.type === "Accept") {
     const acceptedFollowActivityId = getActivityObjectId(activity);
 
@@ -945,24 +993,75 @@ federationRoutes.post("/ap/inbox", async (c) => {
           .where("object_id", "=", inboxObjectId)
           .where("local_user_id", "=", row.id)
           .executeTakeFirst();
-        if (existing) continue;
 
-        await db
-          .insertInto("inbox_objects")
-          .values({
-            id: crypto.randomUUID(),
-            type: activity.type,
-            actor: activity.actor,
-            object_id: inboxObjectId,
-            local_user_id: row.id,
-            raw: activity as any,
-          })
-          .execute();
+        if (!existing) {
+          await db
+            .insertInto("inbox_objects")
+            .values({
+              id: crypto.randomUUID(),
+              type: activity.type,
+              actor: activity.actor,
+              object_id: inboxObjectId,
+              local_user_id: row.id,
+              raw: activity as any,
+            })
+            .execute();
+        }
 
-        await processInboxActivity(activity, row.id, row.username, db);
+        const updated = await acceptFollowActivity({
+          db,
+          activity,
+          localUserId: row.id,
+        });
+        console.warn(
+          `Inbox route=accept-follow-match actor=${activity.actor} object=${acceptedFollowActivityId} user=${row.username} duplicate=${Boolean(existing)} updated=${updated}`
+        );
       }
 
       return c.json({ success: true }, 202);
+    }
+  }
+
+  if (activity.type === "Follow") {
+    const followedActor = getActivityObjectId(activity);
+
+    if (followedActor?.startsWith(localPrefix)) {
+      const username = followedActor.slice(localPrefix.length).split("/")[0];
+      const user = await db
+        .selectFrom("users")
+        .select("id")
+        .where("username", "=", username)
+        .executeTakeFirst();
+
+      if (user) {
+        const inboxObjectId = getInboxObjectId(activity);
+        const existing = await db
+          .selectFrom("inbox_objects")
+          .select("id")
+          .where("object_id", "=", inboxObjectId)
+          .where("local_user_id", "=", user.id)
+          .executeTakeFirst();
+
+        if (!existing) {
+          await db
+            .insertInto("inbox_objects")
+            .values({
+              id: crypto.randomUUID(),
+              type: activity.type,
+              actor: activity.actor,
+              object_id: inboxObjectId,
+              local_user_id: user.id,
+              raw: activity as any,
+            })
+            .execute();
+        }
+
+        console.warn(
+          `Inbox route=follow-object-target actor=${activity.actor} object=${followedActor} user=${username} duplicate=${Boolean(existing)}`
+        );
+        await processInboxActivity(activity, user.id, username, db);
+        return c.json({ success: true }, 202);
+      }
     }
   }
 
@@ -977,6 +1076,16 @@ federationRoutes.post("/ap/inbox", async (c) => {
       .where("followers.remote_actor", "=", activity.actor)
       .where("followers.approved", "=", true)
       .execute();
+
+    if (followRows.length === 0) {
+      console.warn(
+        `Inbox route=ignored-no-target actor=${activity.actor} type=${activity.type} object=${getActivityObjectId(activity)}`
+      );
+    } else {
+      console.warn(
+        `Inbox route=public-followers-fanout actor=${activity.actor} type=${activity.type} count=${followRows.length}`
+      );
+    }
 
     for (const row of followRows) {
       const inboxObjectId = getInboxObjectId(activity);
@@ -1012,6 +1121,9 @@ federationRoutes.post("/ap/inbox", async (c) => {
         .executeTakeFirst();
 
       if (user) {
+        console.warn(
+          `Inbox route=direct-target actor=${activity.actor} type=${activity.type} user=${uname}`
+        );
         const inboxObjectId = getInboxObjectId(activity);
         const existing = await db
           .selectFrom("inbox_objects")

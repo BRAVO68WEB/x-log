@@ -168,22 +168,8 @@ export async function followRemoteActor({
     type: "Follow" as const,
     actor: actorId,
     object: remoteActorUrl,
+    to: [remoteActorUrl],
   };
-
-  const body = JSON.stringify(followActivity);
-  const signature = await signRequest("POST", inboxUrl, body, localUser.id);
-
-  await fetch(inboxUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/activity+json",
-      Signature: signature,
-      Digest: computeDigest(body),
-      Date: new Date().toUTCString(),
-      Host: new URL(inboxUrl).host,
-    },
-    body,
-  });
 
   await db
     .insertInto("following")
@@ -198,9 +184,35 @@ export async function followRemoteActor({
     .onConflict((oc) =>
       oc
         .columns(["local_user_id", "remote_actor"])
-        .doUpdateSet({ activity_id: followActivity.id, inbox_url: inboxUrl })
+        .doUpdateSet({
+          activity_id: followActivity.id,
+          inbox_url: inboxUrl,
+          accepted: false,
+        })
     )
     .execute();
+
+  const body = JSON.stringify(followActivity);
+  const signature = await signRequest("POST", inboxUrl, body, localUser.id);
+
+  const response = await fetch(inboxUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/activity+json",
+      Signature: signature,
+      Digest: computeDigest(body),
+      Date: new Date().toUTCString(),
+      Host: new URL(inboxUrl).host,
+    },
+    body,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Follow delivery failed: ${response.status} ${text.slice(0, 500)}`
+    );
+  }
 
   return { actor: remoteActorUrl, inbox_url: inboxUrl, accepted: false };
 }

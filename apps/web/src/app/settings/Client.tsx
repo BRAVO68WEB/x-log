@@ -194,11 +194,14 @@ export default function SettingsClient() {
   );
 
   const followMutation = useMutation(
-    async () => settingsApi.followFromSettings(followInput.trim()),
+    async (remote?: string) =>
+      settingsApi.followFromSettings(remote ?? followInput.trim()),
     {
-      onSuccess: (data) => {
+      onSuccess: (data, remote) => {
         setFollowSuccess(data.actor);
-        setFollowInput("");
+        if (!remote) {
+          setFollowInput("");
+        }
         followingQuery.refetch();
       },
       onError: (err) => {
@@ -243,7 +246,7 @@ export default function SettingsClient() {
     setError(null);
     setFollowSuccess(null);
     if (!followInput.trim()) return;
-    followMutation.mutate();
+    followMutation.mutate(undefined);
   };
 
   const handlePasswordChange = () => {
@@ -516,7 +519,7 @@ export default function SettingsClient() {
                           {followingQuery.data.items.map((item) => (
                             <li
                               key={item.remote_actor}
-                              className="flex items-center justify-between rounded-md border px-3 py-2"
+                              className="flex items-center justify-between gap-3 rounded-md border px-3 py-2"
                             >
                               <a
                                 href={item.remote_actor}
@@ -526,8 +529,21 @@ export default function SettingsClient() {
                               >
                                 {item.remote_actor}
                               </a>
-                              <span className="text-xs text-muted-foreground">
-                                {item.accepted ? "accepted" : "pending"}
+                              <span className="flex shrink-0 items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {item.accepted ? "accepted" : "pending"}
+                                </span>
+                                {!item.accepted && (
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={followMutation.isLoading}
+                                    onClick={() => followMutation.mutate(item.remote_actor)}
+                                  >
+                                    Retry
+                                  </Button>
+                                )}
                               </span>
                             </li>
                           ))}

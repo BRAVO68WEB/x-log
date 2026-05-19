@@ -88,6 +88,8 @@ export interface ActivityPubFollow {
   type: "Follow";
   actor: string;
   object: string;
+  to?: string[];
+  cc?: string[];
 }
 
 export interface ActivityPubAccept {
@@ -96,6 +98,8 @@ export interface ActivityPubAccept {
   type: "Accept";
   actor: string;
   object: string;
+  to?: string[];
+  cc?: string[];
 }
 
 export interface ActivityPubLike {
@@ -498,7 +502,8 @@ export function createDeleteActivity(
 export function createAcceptActivity(
   activityId: string,
   actorId: string,
-  followActivityId: string
+  followActivityId: string,
+  to?: string[]
 ): ActivityPubAccept {
   return {
     "@context": ["https://www.w3.org/ns/activitystreams"],
@@ -506,6 +511,7 @@ export function createAcceptActivity(
     type: "Accept",
     actor: actorId,
     object: followActivityId,
+    ...(to ? { to } : {}),
   };
 }
 
