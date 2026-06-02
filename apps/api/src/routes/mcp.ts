@@ -111,17 +111,14 @@ const MCP_TOOLS = [
 export const mcpRoutes = new Hono();
 
 // MCP Protocol Handler
-mcpRoutes.post(
-  "/",
-  mcpAuthMiddleware,
-  requireMCPAuth,
-  async (c) => {
+mcpRoutes.post("/", mcpAuthMiddleware, requireMCPAuth, async (c) => {
+  try {
+    let body: MCPRequest;
     try {
-      let body: MCPRequest;
-      try {
-        body = await c.req.json() as MCPRequest;
-      } catch (error) {
-        return c.json({
+      body = (await c.req.json()) as MCPRequest;
+    } catch (error) {
+      return c.json(
+        {
           jsonrpc: "2.0",
           error: {
             code: -32700,
@@ -129,19 +126,22 @@ mcpRoutes.post(
             data: "Invalid JSON in request body",
           },
           id: null,
-        } as MCPResponse, 400);
-      }
+        } as MCPResponse,
+        400
+      );
+    }
 
-      // Validate JSON-RPC 2.0 format
-      if (body.jsonrpc !== "2.0" || !body.method || body.id === undefined) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("[MCP] Invalid request format:", {
-            jsonrpc: body.jsonrpc,
-            method: body.method,
-            id: body.id,
-          });
-        }
-        return c.json({
+    // Validate JSON-RPC 2.0 format
+    if (body.jsonrpc !== "2.0" || !body.method || body.id === undefined) {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[MCP] Invalid request format:", {
+          jsonrpc: body.jsonrpc,
+          method: body.method,
+          id: body.id,
+        });
+      }
+      return c.json(
+        {
           jsonrpc: "2.0",
           error: {
             code: -32600,
@@ -149,37 +149,40 @@ mcpRoutes.post(
             data: "Request must be valid JSON-RPC 2.0 with jsonrpc='2.0', method, and id fields",
           },
           id: body.id ?? null,
-        } as MCPResponse, 400);
-      }
+        } as MCPResponse,
+        400
+      );
+    }
 
-      const { method, params, id } = body;
-      let result: any;
+    const { method, params, id } = body;
+    let result: any;
 
-      // Handle MCP protocol methods
-      switch (method) {
-        case "initialize":
-          result = {
-            protocolVersion: "2024-11-05",
-            capabilities: {
-              tools: {},
-              resources: {},
-            },
-            serverInfo: {
-              name: "x-log-mcp",
-              version: "1.0.0",
-            },
-          };
-          break;
+    // Handle MCP protocol methods
+    switch (method) {
+      case "initialize":
+        result = {
+          protocolVersion: "2024-11-05",
+          capabilities: {
+            tools: {},
+            resources: {},
+          },
+          serverInfo: {
+            name: "x-log-mcp",
+            version: "1.0.0",
+          },
+        };
+        break;
 
-        case "tools/list":
-          result = {
-            tools: MCP_TOOLS,
-          };
-          break;
+      case "tools/list":
+        result = {
+          tools: MCP_TOOLS,
+        };
+        break;
 
-        case "tools/call":
-          if (!params?.name) {
-            return c.json({
+      case "tools/call":
+        if (!params?.name) {
+          return c.json(
+            {
               jsonrpc: "2.0",
               error: {
                 code: -32602,
@@ -187,18 +190,21 @@ mcpRoutes.post(
                 data: "Tool name is required",
               },
               id,
-            } as MCPResponse, 400);
-          }
+            } as MCPResponse,
+            400
+          );
+        }
 
-          result = await handleToolCall(params.name, params.arguments || {});
-          break;
+        result = await handleToolCall(params.name, params.arguments || {});
+        break;
 
-        case "ping":
-          result = { pong: true };
-          break;
+      case "ping":
+        result = { pong: true };
+        break;
 
-        default:
-          return c.json({
+      default:
+        return c.json(
+          {
             jsonrpc: "2.0",
             error: {
               code: -32601,
@@ -206,17 +212,20 @@ mcpRoutes.post(
               data: `Unknown method: ${method}`,
             },
             id,
-          } as MCPResponse, 404);
-      }
+          } as MCPResponse,
+          404
+        );
+    }
 
-      return c.json({
-        jsonrpc: "2.0",
-        id,
-        result,
-      } as MCPResponse);
-    } catch (error) {
-      console.error("MCP handler error:", error);
-      return c.json({
+    return c.json({
+      jsonrpc: "2.0",
+      id,
+      result,
+    } as MCPResponse);
+  } catch (error) {
+    console.error("MCP handler error:", error);
+    return c.json(
+      {
         jsonrpc: "2.0",
         error: {
           code: -32603,
@@ -224,10 +233,11 @@ mcpRoutes.post(
           data: error instanceof Error ? error.message : "Unknown error",
         },
         id: null,
-      } as MCPResponse, 500);
-    }
+      } as MCPResponse,
+      500
+    );
   }
-);
+});
 
 // Tool handlers
 async function handleToolCall(toolName: string, args: any): Promise<any> {
@@ -286,7 +296,8 @@ async function handleToolCall(toolName: string, args: any): Promise<any> {
                   },
                 })),
                 hasMore: posts.length === limit,
-                nextCursor: posts.length > 0 ? posts[posts.length - 1].published_at?.toISOString() : null,
+                nextCursor:
+                  posts.length > 0 ? posts[posts.length - 1].published_at?.toISOString() : null,
               },
               null,
               2
@@ -527,16 +538,12 @@ async function handleToolCall(toolName: string, args: any): Promise<any> {
 
       const stats = await db
         .selectFrom("users")
-        .select((eb) => [
-          eb.fn.count("users.id").as("user_count"),
-        ])
+        .select((eb) => [eb.fn.count("users.id").as("user_count")])
         .executeTakeFirst();
 
       const postCount = await db
         .selectFrom("posts")
-        .select((eb) => [
-          eb.fn.count("posts.id").as("post_count"),
-        ])
+        .select((eb) => [eb.fn.count("posts.id").as("post_count")])
         .where("posts.published_at", "is not", null)
         .executeTakeFirst();
 
@@ -568,4 +575,3 @@ async function handleToolCall(toolName: string, args: any): Promise<any> {
       throw new Error(`Unknown tool: ${toolName}`);
   }
 }
-

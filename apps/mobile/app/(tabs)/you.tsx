@@ -49,7 +49,10 @@ export default function YouScreen() {
 
   const profile = profileQuery.data;
   const bannerUrl = resolveAssetUrl(profile?.banner_url, currentInstance.apiBaseUrl);
-  const avatarUrl = resolveAssetUrl(user?.avatar_url || profile?.avatar_url, currentInstance.apiBaseUrl);
+  const avatarUrl = resolveAssetUrl(
+    user?.avatar_url || profile?.avatar_url,
+    currentInstance.apiBaseUrl
+  );
   const profileLinks = [
     profile?.social_website,
     profile?.social_github,
@@ -80,7 +83,9 @@ export default function YouScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.heading, { color: colors.text }]}>You</Text>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Current instance</Text>
           <Text style={[styles.title, { color: colors.text }]}>{currentInstance.instanceName}</Text>
           <Text style={[styles.body, { color: colors.textMuted }]}>
@@ -94,20 +99,27 @@ export default function YouScreen() {
         </View>
 
         {!user ? (
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
             <Text style={[styles.title, { color: colors.text }]}>Browsing as guest</Text>
             <Text style={[styles.body, { color: colors.textMuted }]}>
-              You can browse public posts from any saved instance without logging in. Login on the current instance to create and edit posts there.
+              You can browse public posts from any saved instance without logging in. Login on the
+              current instance to create and edit posts there.
             </Text>
             <Pressable
               style={[styles.primaryButton, { backgroundColor: colors.accent }]}
               onPress={() => router.push("/(auth)/login?redirect=/(tabs)/you")}
             >
-              <Text style={[styles.primaryButtonText, { color: colors.accentContrast }]}>Login</Text>
+              <Text style={[styles.primaryButtonText, { color: colors.accentContrast }]}>
+                Login
+              </Text>
             </Pressable>
           </View>
         ) : (
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
             {bannerUrl ? (
               <Image source={{ uri: bannerUrl }} style={styles.banner} resizeMode="cover" />
             ) : null}
@@ -132,7 +144,9 @@ export default function YouScreen() {
               </View>
             </View>
 
-            {profile?.bio ? <Text style={[styles.body, { color: colors.text }]}>{profile.bio}</Text> : null}
+            {profile?.bio ? (
+              <Text style={[styles.body, { color: colors.text }]}>{profile.bio}</Text>
+            ) : null}
 
             {profileLinks.length ? (
               <View style={styles.linkGroup}>
@@ -153,12 +167,16 @@ export default function YouScreen() {
               style={[styles.secondaryButton, { backgroundColor: "#e6e5e0" }]}
               onPress={() => void logout()}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Logout from this instance</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
+                Logout from this instance
+              </Text>
             </Pressable>
           </View>
         )}
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
           <View style={styles.rowBetween}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Instances</Text>
             <Pressable
@@ -186,7 +204,8 @@ export default function YouScreen() {
                       {instance.id === currentInstance.id ? " · Current" : ""}
                     </Text>
                     <Text style={[styles.instanceMeta, { color: colors.textMuted }]}>
-                      {instance.domain} · {profileName} · {instance.authToken ? "Logged in" : "Guest"}
+                      {instance.domain} · {profileName} ·{" "}
+                      {instance.authToken ? "Logged in" : "Guest"}
                     </Text>
                     <Text style={[styles.instanceMeta, { color: colors.textMuted }]}>
                       {instance.totalPublicPosts} public posts
@@ -207,7 +226,9 @@ export default function YouScreen() {
         </View>
 
         {user?.role === "admin" ? (
-          <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          >
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
             <View style={styles.themeGrid}>
               {instanceThemes.map((theme) => {

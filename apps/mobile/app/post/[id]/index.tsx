@@ -65,7 +65,9 @@ export default function PostDetailScreen() {
       <Screen>
         <EmptyState
           title="Unable to load post"
-          description={postQuery.error instanceof Error ? postQuery.error.message : "Post not found"}
+          description={
+            postQuery.error instanceof Error ? postQuery.error.message : "Post not found"
+          }
         />
       </Screen>
     );
@@ -78,14 +80,14 @@ export default function PostDetailScreen() {
   return (
     <Screen>
       <ScrollView contentContainerStyle={styles.content}>
-        {bannerUrl ? (
-          <Image source={{ uri: bannerUrl }} style={styles.banner} />
-        ) : null}
+        {bannerUrl ? <Image source={{ uri: bannerUrl }} style={styles.banner} /> : null}
 
         <Text style={[styles.title, { color: colors.text }]}>{post.title}</Text>
         <Text style={[styles.meta, { color: colors.textMuted }]}>
           {post.author.full_name || post.author.username}
-          {post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : " · Draft"}
+          {post.published_at
+            ? ` · ${new Date(post.published_at).toLocaleDateString()}`
+            : " · Draft"}
         </Text>
 
         <Pressable
@@ -107,19 +109,28 @@ export default function PostDetailScreen() {
         </Pressable>
 
         {canEdit ? (
-          <Pressable style={[styles.editButton, { backgroundColor: colors.accentSoft }]} onPress={() => router.push(`/post/${post.id}/edit`)}>
+          <Pressable
+            style={[styles.editButton, { backgroundColor: colors.accentSoft }]}
+            onPress={() => router.push(`/post/${post.id}/edit`)}
+          >
             <Text style={[styles.editButtonText, { color: colors.accent }]}>Edit Post</Text>
           </Pressable>
         ) : null}
 
-        {post.summary ? <Text style={[styles.summary, { color: colors.text }]}>{post.summary}</Text> : null}
+        {post.summary ? (
+          <Text style={[styles.summary, { color: colors.text }]}>{post.summary}</Text>
+        ) : null}
 
-        <View style={[styles.bodyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[styles.bodyCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
           <MarkdownContent markdown={post.content_markdown} />
         </View>
 
         {post.hashtags.length ? (
-          <Text style={[styles.tags, { color: colors.accent }]}>{post.hashtags.map((tag) => `#${tag}`).join(" ")}</Text>
+          <Text style={[styles.tags, { color: colors.accent }]}>
+            {post.hashtags.map((tag) => `#${tag}`).join(" ")}
+          </Text>
         ) : null}
       </ScrollView>
     </Screen>
@@ -141,8 +152,7 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: "400",
   },
-  meta: {
-  },
+  meta: {},
   editButton: {
     alignSelf: "flex-start",
     borderRadius: 999,

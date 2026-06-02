@@ -41,4 +41,3 @@ export function getEnv(): Env {
 export function validateEnv(): void {
   getEnv();
 }
-

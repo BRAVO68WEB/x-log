@@ -28,4 +28,3 @@ Thank you for your interest in contributing to x-log!
 ## License
 
 By contributing, you agree that your contributions will be licensed under the AGPL-3.0 license.
-

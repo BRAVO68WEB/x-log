@@ -19,9 +19,11 @@ mediaRoutes.post(
         description: "File uploaded",
         content: {
           "application/json": {
-            schema: resolver(z.object({
-              url: z.string().url(),
-            })),
+            schema: resolver(
+              z.object({
+                url: z.string().url(),
+              })
+            ),
           },
         },
       },
@@ -70,7 +72,9 @@ mediaRoutes.post(
 
     const settings = await getInstanceSettings();
     const isDev = process.env.NODE_ENV === "development";
-    const url = isDev ? `http://${settings.instance_domain}/api/media/${filename}` : `https://${settings.instance_domain}/api/media/${filename}`;
+    const url = isDev
+      ? `http://${settings.instance_domain}/api/media/${filename}`
+      : `https://${settings.instance_domain}/api/media/${filename}`;
 
     // Insert DB record
     const db = getDb();
@@ -100,18 +104,22 @@ mediaRoutes.get(
         description: "List of media files",
         content: {
           "application/json": {
-            schema: resolver(z.object({
-              items: z.array(z.object({
-                filename: z.string(),
-                url: z.string(),
-                size: z.number(),
-                uploaded_at: z.string(),
-                type: z.string(),
-                asset_type: z.string().nullable(),
-                post_id: z.string().nullable(),
-                post_title: z.string().nullable(),
-              })),
-            })),
+            schema: resolver(
+              z.object({
+                items: z.array(
+                  z.object({
+                    filename: z.string(),
+                    url: z.string(),
+                    size: z.number(),
+                    uploaded_at: z.string(),
+                    type: z.string(),
+                    asset_type: z.string().nullable(),
+                    post_id: z.string().nullable(),
+                    post_title: z.string().nullable(),
+                  })
+                ),
+              })
+            ),
           },
         },
       },

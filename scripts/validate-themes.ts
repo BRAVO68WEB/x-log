@@ -91,10 +91,34 @@ function validateWebTheme(themeId: string, theme?: CssTheme) {
 
   requireContrast(`web:${themeId} foreground/background`, theme, "foreground", "background", 7);
   requireContrast(`web:${themeId} card-foreground/card`, theme, "card-foreground", "card", 7);
-  requireContrast(`web:${themeId} popover-foreground/popover`, theme, "popover-foreground", "popover", 7);
-  requireContrast(`web:${themeId} muted-foreground/background`, theme, "muted-foreground", "background", 3);
-  requireContrast(`web:${themeId} primary-foreground/primary`, theme, "primary-foreground", "primary", 4.5);
-  requireContrast(`web:${themeId} accent-foreground/accent`, theme, "accent-foreground", "accent", 4.5);
+  requireContrast(
+    `web:${themeId} popover-foreground/popover`,
+    theme,
+    "popover-foreground",
+    "popover",
+    7
+  );
+  requireContrast(
+    `web:${themeId} muted-foreground/background`,
+    theme,
+    "muted-foreground",
+    "background",
+    3
+  );
+  requireContrast(
+    `web:${themeId} primary-foreground/primary`,
+    theme,
+    "primary-foreground",
+    "primary",
+    4.5
+  );
+  requireContrast(
+    `web:${themeId} accent-foreground/accent`,
+    theme,
+    "accent-foreground",
+    "accent",
+    4.5
+  );
 
   if (theme.primary === theme.accent) {
     failures.push(`web:${themeId} accent must not equal primary`);
@@ -144,8 +168,18 @@ function validateMobileTheme(
 ) {
   requireHexContrast(`mobile:${themeId} text/background`, tokens.text, tokens.background, 7);
   requireHexContrast(`mobile:${themeId} text/surface`, tokens.text, tokens.surface, 7);
-  requireHexContrast(`mobile:${themeId} textMuted/background`, tokens.textMuted, tokens.background, 3);
-  requireHexContrast(`mobile:${themeId} accentContrast/accent`, tokens.accentContrast, tokens.accent, 4.5);
+  requireHexContrast(
+    `mobile:${themeId} textMuted/background`,
+    tokens.textMuted,
+    tokens.background,
+    3
+  );
+  requireHexContrast(
+    `mobile:${themeId} accentContrast/accent`,
+    tokens.accentContrast,
+    tokens.accent,
+    4.5
+  );
   requireHexContrast(`mobile:${themeId} text/accentSoft`, tokens.text, tokens.accentSoft, 4.5);
 
   if (tokens.accent.toLowerCase() === tokens.accentSoft.toLowerCase()) {
@@ -186,7 +220,12 @@ function requireContrast(
   }
 }
 
-function requireHexContrast(label: string, foreground: string, background: string, minimum: number) {
+function requireHexContrast(
+  label: string,
+  foreground: string,
+  background: string,
+  minimum: number
+) {
   const ratio = contrast(hexToRgb(foreground), hexToRgb(background));
   if (ratio < minimum) {
     failures.push(`${label} contrast ${formatRatio(ratio)} below ${minimum}`);
@@ -279,9 +318,7 @@ function contrast(a: Rgb, b: Rgb) {
 function relativeLuminance({ r, g, b }: Rgb) {
   const [rs, gs, bs] = [r, g, b].map((channel) => {
     const value = channel / 255;
-    return value <= 0.03928
-      ? value / 12.92
-      : Math.pow((value + 0.055) / 1.055, 2.4);
+    return value <= 0.03928 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
   });
 
   return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;

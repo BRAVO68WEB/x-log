@@ -1,13 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import { useTheme } from "@/theme/ThemeProvider";
 
-export function EmptyState({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function EmptyState({ title, description }: { title: string; description: string }) {
   const { colors } = useTheme();
 
   return (

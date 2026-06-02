@@ -17,15 +17,14 @@ const config: ExpoConfig = {
     supportsTablet: false,
     bundleIdentifier: "com.xlog.mobile",
     infoPlist: {
-      ITSAppUsesNonExemptEncryption: true
-    }
+      ITSAppUsesNonExemptEncryption: true,
+    },
   },
   android: {
     package: "com.xlog.mobile",
   },
   extra: {
-    apiBaseUrl:
-      process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080/api",
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || "http://localhost:8080/api",
     eas: {
       projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID || "836a034c-90d3-446a-a53a-2883714d0b11",
     },

@@ -98,10 +98,7 @@ async function main() {
   console.log(`  Created user "${username}" (id=${userId})`);
 
   // --- User profile ---
-  await db
-    .insertInto("user_profiles")
-    .values({ user_id: userId })
-    .execute();
+  await db.insertInto("user_profiles").values({ user_id: userId }).execute();
   console.log("  Created user_profiles row");
 
   // --- ActivityPub keypair ---

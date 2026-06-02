@@ -46,10 +46,7 @@ export function Navbar() {
     { href: "/settings", label: "Settings", icon: FaGear },
   ];
 
-  const allNavItems = [
-    ...publicNavItems,
-    ...(isAuthenticated ? authNavItems : []),
-  ];
+  const allNavItems = [...publicNavItems, ...(isAuthenticated ? authNavItems : [])];
 
   const accountProfileHref = user?.username ? `/u/${user.username}` : "/profile";
 
@@ -68,20 +65,17 @@ export function Navbar() {
                 const Icon = item.icon;
                 const active = pathname === item.href;
                 return (
-                <Link key={item.href} href={item.href}>
-                  <Button
-                    variant={active ? "secondary" : "ghost"}
-                    size="icon"
-                    className={cn(
-                      "h-9 w-9 shrink-0",
-                      active && "text-foreground"
-                    )}
-                    aria-label={item.label}
-                    title={item.label}
-                  >
-                    <Icon className="h-4 w-4" aria-hidden="true" />
-                  </Button>
-                </Link>
+                  <Link key={item.href} href={item.href}>
+                    <Button
+                      variant={active ? "secondary" : "ghost"}
+                      size="icon"
+                      className={cn("h-9 w-9 shrink-0", active && "text-foreground")}
+                      aria-label={item.label}
+                      title={item.label}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  </Link>
                 );
               })}
             </div>
@@ -95,12 +89,7 @@ export function Navbar() {
               aria-expanded={menuOpen}
             >
               {menuOpen ? (
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -109,12 +98,7 @@ export function Navbar() {
                   />
                 </svg>
               ) : (
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -148,12 +132,8 @@ export function Navbar() {
                         )}
                       </Avatar>
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">
-                          {user?.username}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          View profile
-                        </div>
+                        <div className="truncate text-sm font-medium">{user?.username}</div>
+                        <div className="text-xs text-muted-foreground">View profile</div>
                       </div>
                     </Link>
                     <Button

@@ -20,9 +20,7 @@ const themeIds = new Set<InstanceThemeId>([
 ]);
 
 function normalizeThemeId(value: string | null | undefined): InstanceThemeId {
-  return themeIds.has(value as InstanceThemeId)
-    ? (value as InstanceThemeId)
-    : "system";
+  return themeIds.has(value as InstanceThemeId) ? (value as InstanceThemeId) : "system";
 }
 
 let cachedSettings: {
@@ -39,9 +37,9 @@ const CACHE_TTL = 60000; // 1 minute cache
 
 export async function getInstanceSettings() {
   const now = Date.now();
-  
+
   // Return cached settings if still valid
-  if (cachedSettings && (now - cacheTimestamp) < CACHE_TTL) {
+  if (cachedSettings && now - cacheTimestamp < CACHE_TTL) {
     return cachedSettings;
   }
 
@@ -57,19 +55,20 @@ export async function getInstanceSettings() {
   } | null;
 
   try {
-    settings = await db
-      .selectFrom("instance_settings")
-      .select([
-        "instance_domain",
-        "instance_name",
-        "instance_description",
-        "federation_enabled",
-        "following_enabled",
-        "use_profile_as_landing",
-        "theme_id",
-      ])
-      .where("id", "=", 1)
-      .executeTakeFirst() ?? null;
+    settings =
+      (await db
+        .selectFrom("instance_settings")
+        .select([
+          "instance_domain",
+          "instance_name",
+          "instance_description",
+          "federation_enabled",
+          "following_enabled",
+          "use_profile_as_landing",
+          "theme_id",
+        ])
+        .where("id", "=", 1)
+        .executeTakeFirst()) ?? null;
   } catch (error) {
     const dbError = error as { code?: string };
     if (dbError?.code !== "42703") {

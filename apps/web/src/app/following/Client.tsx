@@ -30,9 +30,7 @@ function RemotePostCard({ item }: { item: FollowingFeedItem }) {
             {item.title || "Remote post"}
           </h2>
         </a>
-        {item.summary && (
-          <p className="mb-4 text-muted-foreground">{item.summary}</p>
-        )}
+        {item.summary && <p className="mb-4 text-muted-foreground">{item.summary}</p>}
         <div
           className="prose prose-sm max-w-none line-clamp-6"
           dangerouslySetInnerHTML={{ __html: item.content_html }}
@@ -59,9 +57,7 @@ export default function FollowingClient() {
       enabled: isAuthenticated,
       keepPreviousData: true,
       onSuccess: (data) => {
-        setItems((current) =>
-          cursor ? [...current, ...data.items] : data.items
-        );
+        setItems((current) => (cursor ? [...current, ...data.items] : data.items));
       },
     }
   );
@@ -70,9 +66,7 @@ export default function FollowingClient() {
     return (
       <main className="min-h-screen py-10 px-4">
         <div className="mx-auto max-w-3xl text-center">
-          <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">
-            Following
-          </h1>
+          <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">Following</h1>
           <p className="mt-3 text-muted-foreground">
             Sign in to view posts from followed fediverse profiles.
           </p>
@@ -89,9 +83,7 @@ export default function FollowingClient() {
       <div className="mx-auto max-w-4xl">
         <div className="mb-8 flex items-end justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">
-              Following
-            </h1>
+            <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">Following</h1>
             <p className="mt-2 text-muted-foreground">
               Latest posts received from profiles followed by the primary profile.
             </p>

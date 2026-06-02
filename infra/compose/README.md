@@ -25,12 +25,14 @@ The `docker-compose.dev.yml` file is optimized for local development with:
 ### Usage
 
 1. Copy environment file:
+
 ```bash
 cp .env.example .env
 # Edit .env with your settings
 ```
 
 2. Start development environment:
+
 ```bash
 # Basic dev mode (Bun watch)
 docker-compose -f docker-compose.dev.yml up
@@ -40,6 +42,7 @@ docker-compose -f docker-compose.dev.yml watch
 ```
 
 3. Access services:
+
 - API: http://localhost:8080
 - Web: http://localhost:3000
 - Database: localhost:5432
@@ -58,4 +61,3 @@ docker-compose -f docker-compose.dev.yml watch
 - Changes to `package.json` files trigger rebuilds
 - Source code changes trigger automatic reloads
 - Use `docker-compose -f docker-compose.dev.yml down` to stop services
-

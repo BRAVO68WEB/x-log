@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   applyThemeById,
   getThemeOption,
@@ -78,8 +71,7 @@ export function InstanceThemeProvider({ children }: { children: ReactNode }) {
     }
 
     window.addEventListener("xlog-theme-changed", handleThemeChanged);
-    return () =>
-      window.removeEventListener("xlog-theme-changed", handleThemeChanged);
+    return () => window.removeEventListener("xlog-theme-changed", handleThemeChanged);
   }, []);
 
   const value = useMemo(() => {
@@ -90,11 +82,7 @@ export function InstanceThemeProvider({ children }: { children: ReactNode }) {
     };
   }, [themeId]);
 
-  return (
-    <InstanceThemeContext.Provider value={value}>
-      {children}
-    </InstanceThemeContext.Provider>
-  );
+  return <InstanceThemeContext.Provider value={value}>{children}</InstanceThemeContext.Provider>;
 }
 
 export function useInstanceTheme() {

@@ -62,7 +62,7 @@ export async function mcpAuthMiddleware(c: Context, next: Next) {
     // For now, only use environment variable API key
     // In the future, you could add an api_key column to users table
     // and check database for user-specific API keys here
-    
+
     return c.json(
       {
         jsonrpc: "2.0",
@@ -106,4 +106,3 @@ export async function requireMCPAuth(c: Context, next: Next) {
   }
   await next();
 }
-

@@ -135,8 +135,7 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
   };
 
   return c.json(nodeInfo, 200, {
-    "Content-Type":
-      'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+    "Content-Type": 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
     "Cache-Control": "max-age=1800",
   });
 });
@@ -187,8 +186,7 @@ wellKnownRoutes.get("/nodeinfo/2.0", async (c) => {
   };
 
   return c.json(nodeInfo, 200, {
-    "Content-Type":
-      'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.0#"',
+    "Content-Type": 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.0#"',
     "Cache-Control": "max-age=1800",
   });
 });
@@ -238,24 +236,28 @@ wellKnownRoutes.get("/.well-known/x-nodeinfo2", async (c) => {
     .where("visibility", "=", "public")
     .executeTakeFirst();
 
-  return c.json({
-    version: "1.0",
-    server: {
-      baseUrl: `https://${settings.instance_domain}`,
-      name: settings.instance_name,
-      software: "x-log",
-      version: "0.3.0",
+  return c.json(
+    {
+      version: "1.0",
+      server: {
+        baseUrl: `https://${settings.instance_domain}`,
+        name: settings.instance_name,
+        software: "x-log",
+        version: "0.3.0",
+      },
+      openRegistrations: false,
+      protocols: ["activitypub"],
+      usage: {
+        users: { total: Number(userCount?.count || 0) },
+        localPosts: Number(postCount?.count || 0),
+      },
     },
-    openRegistrations: false,
-    protocols: ["activitypub"],
-    usage: {
-      users: { total: Number(userCount?.count || 0) },
-      localPosts: Number(postCount?.count || 0),
-    },
-  }, 200, {
-    "Content-Type": "application/json",
-    "Cache-Control": "max-age=1800",
-  });
+    200,
+    {
+      "Content-Type": "application/json",
+      "Cache-Control": "max-age=1800",
+    }
+  );
 });
 
 // NIP-05 Nostr verification
@@ -277,13 +279,16 @@ wellKnownRoutes.get("/.well-known/nostr.json", async (c) => {
     return c.json({ names: {}, relays: {} });
   }
 
-  return c.json({
-    names: {
-      [user.username]: user.nostr_pubkey,
+  return c.json(
+    {
+      names: {
+        [user.username]: user.nostr_pubkey,
+      },
+      relays: {},
     },
-    relays: {},
-  }, 200, {
-    "Access-Control-Allow-Origin": "*",
-  });
+    200,
+    {
+      "Access-Control-Allow-Origin": "*",
+    }
+  );
 });
-

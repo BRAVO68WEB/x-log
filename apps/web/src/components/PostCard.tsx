@@ -42,23 +42,20 @@ export function PostCard({
   const { isAuthenticated } = useAuth();
   const [liked, setLiked] = useState(liked_by_me);
   const [count, setCount] = useState(like_count);
-  const likeMutation = useMutation(
-    async () => (liked ? postsApi.unlike(id) : postsApi.like(id)),
-    {
-      onMutate: () => {
-        setLiked((current) => !current);
-        setCount((current) => current + (liked ? -1 : 1));
-      },
-      onSuccess: (data) => {
-        setLiked(data.liked_by_me);
-        setCount(data.like_count);
-      },
-      onError: () => {
-        setLiked(liked);
-        setCount(like_count);
-      },
-    }
-  );
+  const likeMutation = useMutation(async () => (liked ? postsApi.unlike(id) : postsApi.like(id)), {
+    onMutate: () => {
+      setLiked((current) => !current);
+      setCount((current) => current + (liked ? -1 : 1));
+    },
+    onSuccess: (data) => {
+      setLiked(data.liked_by_me);
+      setCount(data.like_count);
+    },
+    onError: () => {
+      setLiked(liked);
+      setCount(like_count);
+    },
+  });
 
   const handleLike = () => {
     if (!isAuthenticated) {
@@ -90,9 +87,7 @@ export function PostCard({
             {title}
           </h2>
         </Link>
-        {summary && (
-          <p className="text-muted-foreground mb-4 line-clamp-3">{summary}</p>
-        )}
+        {summary && <p className="text-muted-foreground mb-4 line-clamp-3">{summary}</p>}
         <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
           <div className="flex items-center gap-2">
             <Link
@@ -116,9 +111,7 @@ export function PostCard({
             {published_at && (
               <>
                 <span>·</span>
-                <time dateTime={published_at}>
-                  {new Date(published_at).toLocaleDateString()}
-                </time>
+                <time dateTime={published_at}>{new Date(published_at).toLocaleDateString()}</time>
               </>
             )}
           </div>
@@ -134,11 +127,7 @@ export function PostCard({
             ].join(" ")}
             aria-label={liked ? "Unlike post" : "Like post"}
           >
-            <svg
-              className="w-4 h-4"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
             <span>{count}</span>
@@ -147,10 +136,7 @@ export function PostCard({
         {hashtags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {hashtags.map((tag) => (
-              <Link
-                key={tag}
-                href={`/search?hashtag=${encodeURIComponent(tag)}&type=post`}
-              >
+              <Link key={tag} href={`/search?hashtag=${encodeURIComponent(tag)}&type=post`}>
                 <Badge variant="secondary" className="cursor-pointer hover:bg-secondary/60">
                   #{tag}
                 </Badge>
@@ -166,9 +152,5 @@ export function PostCard({
     return <div className="overflow-hidden h-full">{content}</div>;
   }
 
-  return (
-    <Card className="overflow-hidden transition-colors hover:border-input">
-      {content}
-    </Card>
-  );
+  return <Card className="overflow-hidden transition-colors hover:border-input">{content}</Card>;
 }

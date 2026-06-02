@@ -1,13 +1,5 @@
 import { Fragment } from "react";
-import {
-  Image,
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { marked } from "marked";
 import type { Tokens } from "marked";
 import { useTheme } from "@/theme/ThemeProvider";
@@ -106,7 +98,11 @@ function renderToken(
               </Text>
               <View style={styles.listContent}>
                 {item.tokens.map((child, childIndex) =>
-                  renderToken(child as Tokens.Generic, colors, `${keyPrefix}-${index}-${childIndex}`)
+                  renderToken(
+                    child as Tokens.Generic,
+                    colors,
+                    `${keyPrefix}-${index}-${childIndex}`
+                  )
                 )}
               </View>
             </View>
@@ -206,7 +202,12 @@ function renderInline(
           <View key={key} style={{ marginVertical: 8 }}>
             <Image
               source={{ uri: image.href }}
-              style={{ width: "100%", height: 220, borderRadius: 12, backgroundColor: colors.surfaceMuted }}
+              style={{
+                width: "100%",
+                height: 220,
+                borderRadius: 12,
+                backgroundColor: colors.surfaceMuted,
+              }}
               resizeMode="cover"
             />
             {image.text ? (

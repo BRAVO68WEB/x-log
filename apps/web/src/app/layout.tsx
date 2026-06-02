@@ -41,15 +41,12 @@ export async function generateMetadata(): Promise<Metadata> {
     return {
       title: settings.instance_name || "x-log",
       description:
-        settings.instance_description ||
-        "A federated blog platform built on ActivityPub",
+        settings.instance_description || "A federated blog platform built on ActivityPub",
       openGraph: {
         title: settings.instance_name || "x-log",
         description: settings.instance_description || undefined,
         siteName: settings.instance_name || "x-log",
-        url: settings.instance_domain
-          ? `https://${settings.instance_domain}`
-          : undefined,
+        url: settings.instance_domain ? `https://${settings.instance_domain}` : undefined,
         type: "website",
       },
       twitter: {
@@ -66,11 +63,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body

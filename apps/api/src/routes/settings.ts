@@ -2,11 +2,7 @@ import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
 import { getDb, clearInstanceSettingsCache } from "@xlog/db";
-import {
-  sessionMiddleware,
-  requireAuth,
-  requireAdmin,
-} from "../middleware/session";
+import { sessionMiddleware, requireAuth, requireAdmin } from "../middleware/session";
 import { followRemoteActor, getPrimaryProfileUser } from "../lib/activitypub";
 
 const InstanceSettingsUpdateSchema = z.object({
@@ -250,11 +246,7 @@ settingsRoutes.patch(
     }
 
     // Update settings
-    await db
-      .updateTable("instance_settings")
-      .set(updateData)
-      .where("id", "=", 1)
-      .execute();
+    await db.updateTable("instance_settings").set(updateData).where("id", "=", 1).execute();
 
     // Clear cache so new domain is used immediately
     clearInstanceSettingsCache();

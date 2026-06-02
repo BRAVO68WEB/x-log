@@ -236,10 +236,7 @@ export async function verifySignature(
     const db = getDb();
     const digestHeader = headers["digest"] || headers["Digest"];
     if (digestHeader) {
-      const expectedDigest = `SHA-256=${crypto
-        .createHash("sha256")
-        .update(body)
-        .digest("base64")}`;
+      const expectedDigest = `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
       if (digestHeader !== expectedDigest) {
         console.warn("Sig verify failed: digest mismatch");
         return false;
@@ -353,17 +350,12 @@ export async function verifySignature(
         return false;
       }
       if (publicKeyId && !keyIdsEquivalent(publicKeyId, keyId)) {
-        console.warn(`Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`);
+        console.warn(
+          `Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`
+        );
         return false;
       }
-      return verifySignatureWithKey(
-        method,
-        path,
-        headers,
-        signatureParts,
-        body,
-        publicKeyPem
-      );
+      return verifySignatureWithKey(method, path, headers, signatureParts, body, publicKeyPem);
     }
   } catch (error) {
     console.error("Signature verification error:", error);

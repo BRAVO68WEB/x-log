@@ -4,10 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { UserResponseSchema } from "@xlog/validation";
 import { getDb } from "@xlog/db";
-import {
-  sessionMiddleware,
-  requireAuth,
-} from "../middleware/session";
+import { sessionMiddleware, requireAuth } from "../middleware/session";
 
 export const usersRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -153,10 +150,7 @@ usersRoutes.patch(
     }
 
     if (!dbUser.password_hash) {
-      return c.json(
-        { error: "This account does not have a password set" },
-        400
-      );
+      return c.json({ error: "This account does not have a password set" }, 400);
     }
 
     const isCurrentPasswordValid = await bcrypt.compare(

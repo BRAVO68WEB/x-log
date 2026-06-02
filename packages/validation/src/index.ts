@@ -73,8 +73,14 @@ export const ProfileUpdateSchema = z.object({
   support_text: z.string().optional(),
   avatar_url: z.string().url().optional(),
   banner_url: z.string().url().optional(),
-  nostr_pubkey: z.string().regex(/^[0-9a-f]{64}$/, "Must be a 64-character hex public key").optional(),
-  nostr_privkey: z.string().regex(/^[0-9a-f]{64}$/, "Must be a 64-character hex private key").optional(),
+  nostr_pubkey: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/, "Must be a 64-character hex public key")
+    .optional(),
+  nostr_privkey: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/, "Must be a 64-character hex private key")
+    .optional(),
 });
 
 export const ProfileResponseSchema = z.object({
@@ -118,13 +124,15 @@ export const InstanceSummaryResponseSchema = z.object({
     "retro-classic",
   ]),
   total_public_posts: z.number().int().min(0),
-  primary_profile: z.object({
-    username: z.string(),
-    full_name: z.string().nullable(),
-    avatar_url: z.string().nullable(),
-    banner_url: z.string().nullable(),
-    bio: z.string().nullable(),
-  }).nullable(),
+  primary_profile: z
+    .object({
+      username: z.string(),
+      full_name: z.string().nullable(),
+      avatar_url: z.string().nullable(),
+      banner_url: z.string().nullable(),
+      bio: z.string().nullable(),
+    })
+    .nullable(),
 });
 
 // Onboarding schemas
@@ -144,15 +152,20 @@ export const OnboardingCompleteSchema = z.object({
 });
 
 // Search schemas
-export const SearchQuerySchema = z.object({
-  q: z.string().min(1).optional(),
-  hashtag: z.string().regex(/^[a-z0-9_]{1,64}$/i).optional(),
-  type: z.enum(["post", "profile"]).optional(),
-  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default("20"),
-  cursor: z.string().optional(),
-}).refine((data) => Boolean(data.q) || Boolean(data.hashtag), {
-  message: "q or hashtag is required",
-});
+export const SearchQuerySchema = z
+  .object({
+    q: z.string().min(1).optional(),
+    hashtag: z
+      .string()
+      .regex(/^[a-z0-9_]{1,64}$/i)
+      .optional(),
+    type: z.enum(["post", "profile"]).optional(),
+    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default("20"),
+    cursor: z.string().optional(),
+  })
+  .refine((data) => Boolean(data.q) || Boolean(data.hashtag), {
+    message: "q or hashtag is required",
+  });
 
 // Pagination schemas
 export const PaginationQuerySchema = z.object({

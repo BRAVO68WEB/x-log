@@ -64,7 +64,10 @@ export default function LoginScreen() {
           autoCapitalize="none"
           placeholder="Username"
           placeholderTextColor={colors.textMuted}
-          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+          style={[
+            styles.input,
+            { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text },
+          ]}
         />
         <TextInput
           value={password}
@@ -72,9 +75,16 @@ export default function LoginScreen() {
           secureTextEntry
           placeholder="Password"
           placeholderTextColor={colors.textMuted}
-          style={[styles.input, { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text }]}
+          style={[
+            styles.input,
+            { borderColor: colors.border, backgroundColor: colors.surface, color: colors.text },
+          ]}
         />
-        <Pressable style={[styles.button, { backgroundColor: colors.accent }]} onPress={handleLogin} disabled={submitting}>
+        <Pressable
+          style={[styles.button, { backgroundColor: colors.accent }]}
+          onPress={handleLogin}
+          disabled={submitting}
+        >
           <Text style={[styles.buttonText, { color: colors.accentContrast }]}>
             {submitting ? "Signing in..." : "Login"}
           </Text>

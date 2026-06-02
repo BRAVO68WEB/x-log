@@ -208,20 +208,10 @@ async function processInboxActivity(
       const actorId = getActorUrlSync(username, settings.instance_domain);
 
       const acceptActivityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
-      const accept = createAcceptActivity(
-        acceptActivityId,
-        actorId,
-        activity.id,
-        [remoteActor]
-      );
+      const accept = createAcceptActivity(acceptActivityId, actorId, activity.id, [remoteActor]);
 
       const acceptBody = JSON.stringify(accept);
-      const signature = await signRequest(
-        "POST",
-        inboxUrl,
-        acceptBody,
-        userId
-      );
+      const signature = await signRequest("POST", inboxUrl, acceptBody, userId);
 
       const response = await fetch(inboxUrl, {
         method: "POST",
@@ -248,19 +238,13 @@ async function processInboxActivity(
 
   // Handle Like activity
   if (activity.type === "Like") {
-    const objectId =
-      typeof activity.object === "string" ? activity.object : activity.object?.id;
+    const objectId = typeof activity.object === "string" ? activity.object : activity.object?.id;
     if (objectId) {
       const postId = objectId.split("/").pop();
       const post = await db
         .selectFrom("posts")
         .select("id")
-        .where((eb) =>
-          eb.or([
-            eb("id", "=", postId),
-            eb("ap_object_id", "=", objectId),
-          ])
-        )
+        .where((eb) => eb.or([eb("id", "=", postId), eb("ap_object_id", "=", objectId)]))
         .executeTakeFirst();
 
       if (!post) return;
@@ -313,19 +297,13 @@ async function processInboxActivity(
         .execute();
     }
     if (obj && typeof obj === "object" && obj.type === "Like") {
-      const likedObject =
-        typeof obj.object === "string" ? obj.object : obj.object?.id;
+      const likedObject = typeof obj.object === "string" ? obj.object : obj.object?.id;
       const postId = likedObject?.split("/").pop();
       if (likedObject && postId) {
         const post = await db
           .selectFrom("posts")
           .select("id")
-          .where((eb) =>
-            eb.or([
-              eb("id", "=", postId),
-              eb("ap_object_id", "=", likedObject),
-            ])
-          )
+          .where((eb) => eb.or([eb("id", "=", postId), eb("ap_object_id", "=", likedObject)]))
           .executeTakeFirst();
 
         if (!post) return;
@@ -362,15 +340,9 @@ async function processInboxActivity(
 
   // Handle Delete activity - remove stored inbox object
   if (activity.type === "Delete") {
-    const objectId =
-      typeof activity.object === "string"
-        ? activity.object
-        : activity.object?.id;
+    const objectId = typeof activity.object === "string" ? activity.object : activity.object?.id;
     if (objectId) {
-      await db
-        .deleteFrom("inbox_objects")
-        .where("object_id", "=", objectId)
-        .execute();
+      await db.deleteFrom("inbox_objects").where("object_id", "=", objectId).execute();
     }
   }
 
@@ -428,8 +400,7 @@ federationRoutes.get("/ap/users/:username", async (c) => {
 federationRoutes.get("/post/:id", async (c) => {
   const accept = c.req.header("accept") || "";
   const wantsAP =
-    accept.includes("application/activity+json") ||
-    accept.includes("application/ld+json");
+    accept.includes("application/activity+json") || accept.includes("application/ld+json");
 
   if (!wantsAP) {
     // Let Next.js handle HTML rendering
@@ -468,13 +439,17 @@ federationRoutes.get("/post/:id", async (c) => {
       .where("object_id", "=", apObjectId)
       .executeTakeFirst();
     if (wasPublished) {
-      return c.json({
-        "@context": "https://www.w3.org/ns/activitystreams",
-        id: apObjectId,
-        type: "Tombstone",
-        formerType: "Article",
-        deleted: new Date().toISOString(),
-      }, 410, { "Content-Type": "application/activity+json" });
+      return c.json(
+        {
+          "@context": "https://www.w3.org/ns/activitystreams",
+          id: apObjectId,
+          type: "Tombstone",
+          formerType: "Article",
+          deleted: new Date().toISOString(),
+        },
+        410,
+        { "Content-Type": "application/activity+json" }
+      );
     }
     return c.json({ error: "Not found" }, 404);
   }
@@ -585,12 +560,7 @@ federationRoutes.get("/ap/users/:username/outbox", async (c) => {
     );
 
     const activityId = `https://${settings.instance_domain}/ap/activities/create/${post.id}`;
-    return createCreateActivity(
-      activityId,
-      actorId,
-      article,
-      post.published_at!
-    );
+    return createCreateActivity(activityId, actorId, article, post.published_at!);
   });
 
   const totalPages = Math.max(1, Math.ceil(totalItems / PAGE_SIZE));
@@ -710,16 +680,20 @@ federationRoutes.get("/ap/users/:username/following", async (c) => {
     if (!user) {
       return c.json({ error: "User not found" }, 404);
     }
-    return c.json({
-      "@context": "https://www.w3.org/ns/activitystreams",
-      id: followingId,
-      type: "OrderedCollection",
-      totalItems: 0,
-      orderedItems: [],
-    }, 200, {
-      "Content-Type": "application/activity+json",
-      "Cache-Control": "max-age=60",
-    });
+    return c.json(
+      {
+        "@context": "https://www.w3.org/ns/activitystreams",
+        id: followingId,
+        type: "OrderedCollection",
+        totalItems: 0,
+        orderedItems: [],
+      },
+      200,
+      {
+        "Content-Type": "application/activity+json",
+        "Cache-Control": "max-age=60",
+      }
+    );
   }
 
   const page = c.req.query("page");
@@ -800,7 +774,11 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
 
   // Validate Content-Type
   const ct = c.req.header("content-type") || "";
-  if (!ct.includes("application/activity+json") && !ct.includes("application/ld+json") && !ct.includes("application/json")) {
+  if (
+    !ct.includes("application/activity+json") &&
+    !ct.includes("application/ld+json") &&
+    !ct.includes("application/json")
+  ) {
     console.warn(`Inbox rejected: unsupported content-type: ${ct}`);
     return c.json({ error: "Unsupported content type" }, 415);
   }
@@ -836,7 +814,9 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   );
 
   if (!isValid) {
-    console.warn(`Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`);
+    console.warn(
+      `Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`
+    );
     return c.json({ error: "Invalid signature" }, 401);
   }
 
@@ -845,7 +825,9 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
   const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
   if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
-    console.warn(`Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`);
+    console.warn(
+      `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
+    );
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 
@@ -907,7 +889,11 @@ federationRoutes.post("/ap/inbox", async (c) => {
 
   // Validate Content-Type
   const ct = c.req.header("content-type") || "";
-  if (!ct.includes("application/activity+json") && !ct.includes("application/ld+json") && !ct.includes("application/json")) {
+  if (
+    !ct.includes("application/activity+json") &&
+    !ct.includes("application/ld+json") &&
+    !ct.includes("application/json")
+  ) {
     console.warn(`Inbox rejected: unsupported content-type: ${ct}`);
     return c.json({ error: "Unsupported content type" }, 415);
   }
@@ -934,16 +920,12 @@ federationRoutes.post("/ap/inbox", async (c) => {
     headers[key] = value;
   });
 
-  const isValid = await verifySignature(
-    "POST",
-    `/ap/inbox`,
-    headers,
-    signatureHeader,
-    body
-  );
+  const isValid = await verifySignature("POST", `/ap/inbox`, headers, signatureHeader, body);
 
   if (!isValid) {
-    console.warn(`Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`);
+    console.warn(
+      `Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`
+    );
     return c.json({ error: "Invalid signature" }, 401);
   }
 
@@ -952,7 +934,9 @@ federationRoutes.post("/ap/inbox", async (c) => {
   const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
   const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
   if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
-    console.warn(`Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`);
+    console.warn(
+      `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
+    );
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 

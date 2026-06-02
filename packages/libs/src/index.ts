@@ -1,12 +1,12 @@
 // Export OIDC module
-export { 
-  OIDCClient, 
+export {
+  OIDCClient,
   getOIDCClient,
   type OIDCConfig,
   type OIDCDiscoveryDocument,
   type OIDCTokenResponse,
-  type OIDCUserInfo 
-} from './modules/oidc';
+  type OIDCUserInfo,
+} from "./modules/oidc";
 
 // Export JWKS module
-export { JWKS } from './modules/jwks';
+export { JWKS } from "./modules/jwks";

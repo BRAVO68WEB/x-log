@@ -30,59 +30,59 @@ export default function EditorClient({
   const [saving, setSaving] = useState(false);
   const [postId, setPostId] = useState<string | null>(initialPostId || null);
 
-  const createMutation = useMutation(async (payload: {
-    title: string;
-    content_markdown: string;
-    content_blocks?: JSONContent | string;
-    banner_url?: string;
-    hashtags: string[];
-    visibility: "public" | "unlisted" | "private";
-    summary?: string;
-  }) => {
-    const res = await fetch(`/api/posts`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Failed to create post" }));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return res.json() as Promise<{ id: string }>;
-  });
-
-  const updateMutation = useMutation(async ({
-    id,
-    payload,
-  }: {
-    id: string;
-    payload: {
-      title?: string;
-      content_markdown?: string;
+  const createMutation = useMutation(
+    async (payload: {
+      title: string;
+      content_markdown: string;
       content_blocks?: JSONContent | string;
       banner_url?: string;
-      hashtags?: string[];
-      visibility?: "public" | "unlisted" | "private";
+      hashtags: string[];
+      visibility: "public" | "unlisted" | "private";
       summary?: string;
-    };
-  }) => {
-    const res = await fetch(`/api/posts/${id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Failed to update post" }));
-      throw new Error(err.error || `HTTP ${res.status}`);
+    }) => {
+      const res = await fetch(`/api/posts`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to create post" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return res.json() as Promise<{ id: string }>;
     }
-    return res.json();
-  });
+  );
+
+  const updateMutation = useMutation(
+    async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: {
+        title?: string;
+        content_markdown?: string;
+        content_blocks?: JSONContent | string;
+        banner_url?: string;
+        hashtags?: string[];
+        visibility?: "public" | "unlisted" | "private";
+        summary?: string;
+      };
+    }) => {
+      const res = await fetch(`/api/posts/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Failed to update post" }));
+        throw new Error(err.error || `HTTP ${res.status}`);
+      }
+      return res.json();
+    }
+  );
 
   const publishMutation = useMutation(async (id: string) => {
     const res = await fetch(`/api/posts/${id}/publish`, {
@@ -90,9 +90,7 @@ export default function EditorClient({
       credentials: "include",
     });
     if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Failed to publish post" }));
+      const err = await res.json().catch(() => ({ error: "Failed to publish post" }));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return res.json();
@@ -128,9 +126,7 @@ export default function EditorClient({
       toast.success("Draft saved!");
     } catch (error) {
       console.error("Failed to save draft:", error);
-      toast.error(
-        `Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+      toast.error(`Failed to save: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setSaving(false);
     }
@@ -185,9 +181,7 @@ export default function EditorClient({
       router.push(`/post/${id}`);
     } catch (error) {
       console.error("Failed to publish:", error);
-      toast.error(
-        `Failed to publish: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
+      toast.error(`Failed to publish: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setSaving(false);
     }

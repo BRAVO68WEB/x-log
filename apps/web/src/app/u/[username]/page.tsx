@@ -13,9 +13,11 @@ export default function UserProfilePage(props: { params: Promise<{ username: str
   return <UserProfileClient {...props} />;
 }
 
-export async function generateMetadata(
-  { params }: { params: { username: string } }
-): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: { username: string };
+}): Promise<Metadata> {
   const { username } = await params;
   try {
     const hdrs = await headers();

@@ -8,11 +8,7 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  BentoGrid,
-  BentoCard,
-  BentoCardContent,
-} from "@/components/ui/bento-grid";
+import { BentoGrid, BentoCard, BentoCardContent } from "@/components/ui/bento-grid";
 import Link from "next/link";
 import { useInfiniteQuery, useQuery } from "react-query";
 
@@ -61,9 +57,7 @@ function SearchResults() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Search failed" }));
+        const err = await res.json().catch(() => ({ error: "Search failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json() as Promise<{
@@ -89,9 +83,7 @@ function SearchResults() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Search failed" }));
+        const err = await res.json().catch(() => ({ error: "Search failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json() as Promise<{
@@ -103,14 +95,10 @@ function SearchResults() {
 
   const results = useMemo(
     () =>
-      isHashtagMode
-        ? (infinite.data?.pages ?? []).flatMap((p) => p.items)
-        : data?.items ?? [],
+      isHashtagMode ? (infinite.data?.pages ?? []).flatMap((p) => p.items) : (data?.items ?? []),
     [isHashtagMode, infinite.data, data]
   );
-  const hasMore = isHashtagMode
-    ? Boolean(infinite.data?.pages.at(-1)?.hasMore)
-    : false;
+  const hasMore = isHashtagMode ? Boolean(infinite.data?.pages.at(-1)?.hasMore) : false;
   const loading = isHashtagMode ? infinite.isLoading : isLoading;
 
   const postResults = (
@@ -139,20 +127,14 @@ function SearchResults() {
   const profileResults = (
     <BentoGrid columns={2}>
       {results.map((profile, i) => (
-        <BentoCard
-          key={(profile as SearchProfile).username}
-          size="1x1"
-          index={i}
-        >
+        <BentoCard key={(profile as SearchProfile).username} size="1x1" index={i}>
           <Link href={`/u/${(profile as SearchProfile).username}`}>
             <BentoCardContent className="p-6 flex items-center gap-4 cursor-pointer hover:bg-accent/50 transition-colors">
               <Avatar className="h-12 w-12">
                 <AvatarFallback>
-                  {(
-                    (profile as SearchProfile).full_name ||
+                  {((profile as SearchProfile).full_name ||
                     (profile as SearchProfile).username ||
-                    "?"
-                  )[0].toUpperCase()}
+                    "?")[0].toUpperCase()}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -164,9 +146,7 @@ function SearchResults() {
                   @{(profile as SearchProfile).username}
                 </p>
                 {(profile as SearchProfile).bio && (
-                  <p className="mt-1 text-sm">
-                    {(profile as SearchProfile).bio}
-                  </p>
+                  <p className="mt-1 text-sm">{(profile as SearchProfile).bio}</p>
                 )}
               </div>
             </BentoCardContent>
@@ -181,7 +161,9 @@ function SearchResults() {
       {isHashtagMode && (
         <div className="mb-6 flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Showing posts tagged</span>
-          <Badge variant="secondary" className="text-sm">#{hashtag}</Badge>
+          <Badge variant="secondary" className="text-sm">
+            #{hashtag}
+          </Badge>
         </div>
       )}
       {loading ? (
@@ -219,9 +201,7 @@ function SearchResults() {
           </div>
         )
       ) : hashtag || query ? (
-        <p className="text-center text-muted-foreground py-12">
-          No results found.
-        </p>
+        <p className="text-center text-muted-foreground py-12">No results found.</p>
       ) : (
         <p className="text-center text-muted-foreground py-12">
           Enter a search query to get started.

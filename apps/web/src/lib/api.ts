@@ -8,13 +8,10 @@
 const API_BASE = "/api";
 
 // Helper function to make API requests with credentials
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   // Remove leading /api if present since we're already proxying through Next.js
   const cleanEndpoint = endpoint.startsWith("/api") ? endpoint.slice(4) : endpoint;
-  
+
   const response = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     credentials: "include", // Include cookies for session
@@ -28,16 +25,11 @@ async function apiRequest<T>(
     // Handle 401 Unauthorized - redirect to login only for protected routes
     if (response.status === 401) {
       // Public routes and auth check endpoints that shouldn't trigger redirect on 401
-      const publicEndpoints = [
-        "/api/posts",
-        "/api/profiles",
-        "/api/search",
-        "/api/feeds",
-      ];
-      
+      const publicEndpoints = ["/api/posts", "/api/profiles", "/api/search", "/api/feeds"];
+
       // Auth check endpoint - 401 is expected when not logged in
       const isAuthCheck = endpoint === "/api/users/me";
-      
+
       const isPublicEndpoint = publicEndpoints.some((publicEndpoint) =>
         endpoint.startsWith(publicEndpoint)
       );
@@ -92,10 +84,7 @@ export const usersApi = {
     });
   },
 
-  changePassword: async (data: {
-    current_password: string;
-    new_password: string;
-  }) => {
+  changePassword: async (data: { current_password: string; new_password: string }) => {
     return apiRequest<{ message: string }>("/api/users/me/password", {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -105,33 +94,29 @@ export const usersApi = {
 
 // Posts API
 export const postsApi = {
-  list: async (params?: {
-    limit?: number;
-    cursor?: string;
-    author?: string;
-  }) => {
+  list: async (params?: { limit?: number; cursor?: string; author?: string }) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.cursor) searchParams.set("cursor", params.cursor);
     if (params?.author) searchParams.set("author", params.author);
 
     const query = searchParams.toString();
-  interface PostSummary {
-    id: string;
-    title: string;
-    summary?: string | null;
-    banner_url?: string | null;
-    hashtags: string[];
-    like_count: number;
-    liked_by_me?: boolean;
-    author: { username: string; full_name?: string | null; avatar_url?: string | null };
-    published_at: string | null;
-  }
-  return apiRequest<{
-    items: PostSummary[];
-    nextCursor?: string;
-    hasMore: boolean;
-  }>(`/api/posts${query ? `?${query}` : ""}`);
+    interface PostSummary {
+      id: string;
+      title: string;
+      summary?: string | null;
+      banner_url?: string | null;
+      hashtags: string[];
+      like_count: number;
+      liked_by_me?: boolean;
+      author: { username: string; full_name?: string | null; avatar_url?: string | null };
+      published_at: string | null;
+    }
+    return apiRequest<{
+      items: PostSummary[];
+      nextCursor?: string;
+      hasMore: boolean;
+    }>(`/api/posts${query ? `?${query}` : ""}`);
   },
 
   get: async (id: string) => {
@@ -170,15 +155,18 @@ export const postsApi = {
     });
   },
 
-  update: async (id: string, data: {
-    title?: string;
-    content_markdown?: string;
-    content_blocks?: import("@tiptap/core").JSONContent | string;
-    banner_url?: string;
-    summary?: string;
-    hashtags?: string[];
-    visibility?: "public" | "unlisted" | "private";
-  }) => {
+  update: async (
+    id: string,
+    data: {
+      title?: string;
+      content_markdown?: string;
+      content_blocks?: import("@tiptap/core").JSONContent | string;
+      banner_url?: string;
+      summary?: string;
+      hashtags?: string[];
+      visibility?: "public" | "unlisted" | "private";
+    }
+  ) => {
     return apiRequest(`/api/posts/${id}`, {
       method: "PATCH",
       body: JSON.stringify(data),
@@ -198,17 +186,15 @@ export const postsApi = {
   },
 
   like: async (id: string) => {
-    return apiRequest<{ liked_by_me: boolean; like_count: number }>(
-      `/api/posts/${id}/like`,
-      { method: "POST" }
-    );
+    return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/api/posts/${id}/like`, {
+      method: "POST",
+    });
   },
 
   unlike: async (id: string) => {
-    return apiRequest<{ liked_by_me: boolean; like_count: number }>(
-      `/api/posts/${id}/like`,
-      { method: "DELETE" }
-    );
+    return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/api/posts/${id}/like`, {
+      method: "DELETE",
+    });
   },
 };
 
@@ -219,41 +205,50 @@ export const profilesApi = {
   },
 
   listFollowers: async (username: string) => {
-    return apiRequest<{ items: { remote_actor: string; inbox_url: string; approved: boolean; created_at: string }[] }>(
-      `/api/profiles/${username}/followers`
-    );
+    return apiRequest<{
+      items: { remote_actor: string; inbox_url: string; approved: boolean; created_at: string }[];
+    }>(`/api/profiles/${username}/followers`);
   },
 
   listFollowing: async (username: string) => {
-    return apiRequest<{ items: { remote_actor: string; remote_username: string | null; remote_domain: string | null; handle: string; inbox_url: string; activity_id: string; accepted: boolean; created_at: string }[] }>(
-      `/api/profiles/${username}/following`
-    );
+    return apiRequest<{
+      items: {
+        remote_actor: string;
+        remote_username: string | null;
+        remote_domain: string | null;
+        handle: string;
+        inbox_url: string;
+        activity_id: string;
+        accepted: boolean;
+        created_at: string;
+      }[];
+    }>(`/api/profiles/${username}/following`);
   },
 
   follow: async (username: string, remote: string) => {
-    return apiRequest<{ success: boolean; actor: string }>(
-      `/api/profiles/${username}/follow`,
-      {
-        method: "POST",
-        body: JSON.stringify({ remote }),
-      }
-    );
+    return apiRequest<{ success: boolean; actor: string }>(`/api/profiles/${username}/follow`, {
+      method: "POST",
+      body: JSON.stringify({ remote }),
+    });
   },
 
-  update: async (username: string, data: {
-    full_name?: string;
-    bio?: string;
-    social_github?: string;
-    social_x?: string;
-    social_youtube?: string;
-    social_reddit?: string;
-    social_linkedin?: string;
-    social_website?: string;
-    support_url?: string;
-    support_text?: string;
-    avatar_url?: string;
-    banner_url?: string;
-  }) => {
+  update: async (
+    username: string,
+    data: {
+      full_name?: string;
+      bio?: string;
+      social_github?: string;
+      social_x?: string;
+      social_youtube?: string;
+      social_reddit?: string;
+      social_linkedin?: string;
+      social_website?: string;
+      support_url?: string;
+      support_text?: string;
+      avatar_url?: string;
+      banner_url?: string;
+    }
+  ) => {
     return apiRequest(`/api/profiles/${username}`, {
       method: "PATCH",
       body: JSON.stringify(data),

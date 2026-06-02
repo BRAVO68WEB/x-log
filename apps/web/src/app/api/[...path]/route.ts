@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const BACKEND_API_URL =
+  process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export async function GET(
   request: NextRequest,
@@ -50,7 +51,7 @@ async function proxyRequest(
   // Get request body if present
   let body: BodyInit | undefined;
   const contentType = request.headers.get("content-type");
-  
+
   if (method !== "GET" && method !== "HEAD") {
     if (contentType?.includes("multipart/form-data")) {
       body = await request.formData();
@@ -66,9 +67,7 @@ async function proxyRequest(
   request.headers.forEach((value, key) => {
     // Skip headers that shouldn't be forwarded
     const lowerKey = key.toLowerCase();
-    if (
-      !["host", "connection", "content-length"].includes(lowerKey)
-    ) {
+    if (!["host", "connection", "content-length"].includes(lowerKey)) {
       // For multipart/form-data, let fetch set the boundary automatically
       if (lowerKey === "content-type" && contentType?.includes("multipart/form-data")) {
         // Don't set content-type for form-data, fetch will set it with boundary
@@ -98,7 +97,10 @@ async function proxyRequest(
             const backendUrl = new URL(BACKEND_API_URL);
             // If redirect is to backend, rewrite to frontend
             if (locationUrl.origin === backendUrl.origin) {
-              redirectUrl = new URL(locationUrl.pathname + locationUrl.search, request.nextUrl.origin).toString();
+              redirectUrl = new URL(
+                locationUrl.pathname + locationUrl.search,
+                request.nextUrl.origin
+              ).toString();
             } else {
               redirectUrl = location;
             }
@@ -109,12 +111,12 @@ async function proxyRequest(
           // Relative URL - make it absolute relative to the frontend
           redirectUrl = new URL(location, request.nextUrl.origin).toString();
         }
-        
+
         // Create redirect response and forward Set-Cookie headers for session management
         const redirectResponse = NextResponse.redirect(redirectUrl, {
           status: response.status,
         });
-        
+
         // Forward Set-Cookie headers from the API response
         response.headers.forEach((value, key) => {
           const lowerKey = key.toLowerCase();
@@ -122,7 +124,7 @@ async function proxyRequest(
             redirectResponse.headers.append(key, value);
           }
         });
-        
+
         return redirectResponse;
       }
     }
@@ -130,7 +132,7 @@ async function proxyRequest(
     // Get response body based on content type
     const responseContentType = response.headers.get("content-type");
     let responseBody: BodyInit;
-    
+
     if (responseContentType?.includes("application/json")) {
       responseBody = await response.text();
     } else if (responseContentType?.includes("text")) {
@@ -139,7 +141,7 @@ async function proxyRequest(
       // For binary content (images, etc.)
       responseBody = await response.arrayBuffer();
     }
-    
+
     // Create response with same status and headers
     const nextResponse = new NextResponse(responseBody, {
       status: response.status,
@@ -152,7 +154,9 @@ async function proxyRequest(
       // Forward Set-Cookie headers for session management
       if (lowerKey === "set-cookie") {
         nextResponse.headers.append(key, value);
-      } else if (!["content-encoding", "content-length", "transfer-encoding", "location"].includes(lowerKey)) {
+      } else if (
+        !["content-encoding", "content-length", "transfer-encoding", "location"].includes(lowerKey)
+      ) {
         nextResponse.headers.set(key, value);
       }
     });
@@ -160,10 +164,6 @@ async function proxyRequest(
     return nextResponse;
   } catch (error) {
     console.error("API proxy error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
-

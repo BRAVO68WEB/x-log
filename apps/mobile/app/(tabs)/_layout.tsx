@@ -35,11 +35,7 @@ export default function TabsLayout() {
         options={{
           title: "Create",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "create" : "create-outline"}
-              size={size}
-              color={color}
-            />
+            <Ionicons name={focused ? "create" : "create-outline"} size={size} color={color} />
           ),
         }}
       />
@@ -48,11 +44,7 @@ export default function TabsLayout() {
         options={{
           title: "You",
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons
-              name={focused ? "person" : "person-outline"}
-              size={size}
-              color={color}
-            />
+            <Ionicons name={focused ? "person" : "person-outline"} size={size} color={color} />
           ),
         }}
       />

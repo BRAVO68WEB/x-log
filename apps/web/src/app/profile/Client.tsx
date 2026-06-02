@@ -28,9 +28,7 @@ export default function ProfileClient() {
           </h1>
           <Card>
             <CardContent className="p-8 text-center">
-              <p className="text-muted-foreground">
-                Please log in to edit your profile.
-              </p>
+              <p className="text-muted-foreground">Please log in to edit your profile.</p>
             </CardContent>
           </Card>
         </div>

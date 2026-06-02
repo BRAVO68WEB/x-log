@@ -5,15 +5,9 @@ export const name = "001_initial";
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   // Create enum types
-  await db.schema
-    .createType("user_role")
-    .asEnum(["admin", "author", "reader"])
-    .execute();
+  await db.schema.createType("user_role").asEnum(["admin", "author", "reader"]).execute();
 
-  await db.schema
-    .createType("post_visibility")
-    .asEnum(["public", "unlisted", "private"])
-    .execute();
+  await db.schema.createType("post_visibility").asEnum(["public", "unlisted", "private"]).execute();
 
   await db.schema
     .createType("delivery_status")
@@ -28,12 +22,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("email", "varchar(255)", (col) => col.unique())
     .addColumn("password_hash", "varchar(255)")
     .addColumn("role", sql`user_role`, (col) => col.notNull().defaultTo("author"))
-    .addColumn("created_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
-    .addColumn("updated_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   // User profiles table
@@ -65,9 +55,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("public_key_pem", "text", (col) => col.notNull())
     .addColumn("private_key_pem", "text", (col) => col.notNull())
     .addColumn("key_id", "varchar(500)", (col) => col.notNull())
-    .addColumn("created_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   // Posts table
@@ -85,12 +73,8 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("hashtags", sql`text[]`, (col) => col.defaultTo(sql`'{}'::text[]`))
     .addColumn("like_count", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("published_at", "timestamp")
-    .addColumn("updated_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
-    .addColumn("visibility", sql`post_visibility`, (col) =>
-      col.notNull().defaultTo("public")
-    )
+    .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn("visibility", sql`post_visibility`, (col) => col.notNull().defaultTo("public"))
     .addColumn("ap_object_id", "varchar(500)", (col) => col.notNull().unique())
     .execute();
 
@@ -114,9 +98,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("remote_actor", "varchar(500)", (col) => col.notNull())
     .addColumn("inbox_url", "varchar(500)", (col) => col.notNull())
     .addColumn("approved", "boolean", (col) => col.notNull().defaultTo(true))
-    .addColumn("created_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .addUniqueConstraint("followers_local_user_id_remote_actor_unique", [
       "local_user_id",
       "remote_actor",
@@ -132,9 +114,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("status", sql`delivery_status`, (col) => col.notNull().defaultTo("pending"))
     .addColumn("attempt_count", "integer", (col) => col.notNull().defaultTo(0))
     .addColumn("last_error", "text")
-    .addColumn("updated_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   // Inbox objects table
@@ -145,9 +125,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("actor", "varchar(500)", (col) => col.notNull())
     .addColumn("object_id", "varchar(500)", (col) => col.notNull())
     .addColumn("raw", "jsonb", (col) => col.notNull())
-    .addColumn("received_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn("received_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   // Instance settings table
@@ -161,17 +139,17 @@ export async function up(db: Kysely<unknown>): Promise<void> {
     .addColumn("admin_email", "varchar(255)")
     .addColumn("smtp_url", "varchar(500)")
     .addColumn("federation_enabled", "boolean", (col) => col.notNull().defaultTo(true))
-    .addColumn("created_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
-    .addColumn("updated_at", "timestamp", (col) =>
-      col.notNull().defaultTo(sql`now()`)
-    )
+    .addColumn("created_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn("updated_at", "timestamp", (col) => col.notNull().defaultTo(sql`now()`))
     .execute();
 
   // Create indexes
-  await db.schema.createIndex("posts_author_id_published_at_idx").on("posts").columns(["author_id", "published_at"]).execute();
-  
+  await db.schema
+    .createIndex("posts_author_id_published_at_idx")
+    .on("posts")
+    .columns(["author_id", "published_at"])
+    .execute();
+
   await db.schema
     .createIndex("posts_content_markdown_fts_idx")
     .on("posts")
@@ -201,4 +179,3 @@ export async function down(db: Kysely<unknown>): Promise<void> {
   await db.schema.dropType("post_visibility").execute();
   await db.schema.dropType("user_role").execute();
 }
-

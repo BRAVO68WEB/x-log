@@ -59,7 +59,6 @@ export default function OIDCCallbackClient() {
 
     const handleCallback = async () => {
       try {
-
         // Build query string for backend API call
         const queryParams = new URLSearchParams({
           code,
@@ -76,7 +75,9 @@ export default function OIDCCallbackClient() {
         });
 
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Callback processing failed" }));
+          const errorData = await response
+            .json()
+            .catch(() => ({ error: "Callback processing failed" }));
           throw new Error(errorData.error || `HTTP ${response.status}`);
         }
 
@@ -109,7 +110,9 @@ export default function OIDCCallbackClient() {
           case "error":
             // Error occurred
             const errorMsg = data.error || "OIDC processing failed";
-            router.replace(`/login?error=oidc_processing_failed&description=${encodeURIComponent(errorMsg)}`);
+            router.replace(
+              `/login?error=oidc_processing_failed&description=${encodeURIComponent(errorMsg)}`
+            );
             break;
 
           default:
@@ -121,7 +124,9 @@ export default function OIDCCallbackClient() {
         setError(errorMsg);
         // Redirect to login with error after a short delay
         setTimeout(() => {
-          router.replace(`/login?error=oidc_processing_failed&description=${encodeURIComponent(errorMsg)}`);
+          router.replace(
+            `/login?error=oidc_processing_failed&description=${encodeURIComponent(errorMsg)}`
+          );
         }, 2000);
       } finally {
         setLoading(false);
@@ -139,9 +144,7 @@ export default function OIDCCallbackClient() {
           <div className="rounded-md bg-destructive/10 p-4 border border-destructive/20">
             <div className="text-sm text-destructive">{error}</div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Redirecting to login...
-          </p>
+          <p className="text-sm text-muted-foreground">Redirecting to login...</p>
         </div>
       </main>
     );
@@ -151,9 +154,7 @@ export default function OIDCCallbackClient() {
     <main className="min-h-screen flex items-center justify-center bg-background">
       <div className="max-w-md w-full space-y-4 text-center">
         <LoadingSpinner size="lg" />
-        <p className="text-sm text-muted-foreground">
-          Processing OIDC callback...
-        </p>
+        <p className="text-sm text-muted-foreground">Processing OIDC callback...</p>
       </div>
     </main>
   );

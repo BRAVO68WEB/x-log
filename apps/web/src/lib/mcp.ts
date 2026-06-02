@@ -140,18 +140,29 @@ export const mcpClient = {
         cursor?: string;
       },
       apiKey?: string
-    ): Promise<{ items: { id: string; title: string }[]; nextCursor?: string; hasMore: boolean }> => {
+    ): Promise<{
+      items: { id: string; title: string }[];
+      nextCursor?: string;
+      hasMore: boolean;
+    }> => {
       const result = await mcpClient.callTool("get_posts", options || {}, apiKey);
       if (hasTextContent(result) && result.content?.[0]?.text) {
         return JSON.parse(result.content[0].text as string);
       }
-      return result as { items: { id: string; title: string }[]; nextCursor?: string; hasMore: boolean };
+      return result as {
+        items: { id: string; title: string }[];
+        nextCursor?: string;
+        hasMore: boolean;
+      };
     },
 
     /**
      * Get a specific post
      */
-    getPost: async (id: string, apiKey?: string): Promise<{ id: string; title: string; content_html: string }> => {
+    getPost: async (
+      id: string,
+      apiKey?: string
+    ): Promise<{ id: string; title: string; content_html: string }> => {
       const result = await mcpClient.callTool("get_post", { id }, apiKey);
       if (hasTextContent(result) && result.content?.[0]?.text) {
         return JSON.parse(result.content[0].text as string);
@@ -162,7 +173,10 @@ export const mcpClient = {
     /**
      * Get a user profile
      */
-    getProfile: async (username: string, apiKey?: string): Promise<{ username: string; full_name?: string | null; bio?: string | null }> => {
+    getProfile: async (
+      username: string,
+      apiKey?: string
+    ): Promise<{ username: string; full_name?: string | null; bio?: string | null }> => {
       const result = await mcpClient.callTool("get_profile", { username }, apiKey);
       if (hasTextContent(result) && result.content?.[0]?.text) {
         return JSON.parse(result.content[0].text as string);
@@ -190,7 +204,9 @@ export const mcpClient = {
     /**
      * Get instance information
      */
-    getInstanceInfo: async (apiKey?: string): Promise<{ instance_name: string; instance_domain: string }> => {
+    getInstanceInfo: async (
+      apiKey?: string
+    ): Promise<{ instance_name: string; instance_domain: string }> => {
       const result = await mcpClient.callTool("get_instance_info", {}, apiKey);
       if (hasTextContent(result) && result.content?.[0]?.text) {
         return JSON.parse(result.content[0].text as string);

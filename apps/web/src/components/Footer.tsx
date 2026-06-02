@@ -31,9 +31,7 @@ export function Footer() {
                 {settings.instance_name}
               </span>
             )}
-            {settings?.instance_description && (
-              <span>{settings.instance_description}</span>
-            )}
+            {settings?.instance_description && <span>{settings.instance_description}</span>}
             {settings?.instance_domain && (
               <span className="text-xs">{settings.instance_domain}</span>
             )}

@@ -31,17 +31,15 @@ function hasMeaningfulTipTapContent(content: JSONContent | null): boolean {
   return nodes.some(hasText);
 }
 
-export default function EditPostClient(props: {
-  params: Promise<{ id: string }>;
-}) {
+export default function EditPostClient(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const { user, loading: authLoading } = useAuth();
 
-  const { data: post, isLoading, error } = useQuery(
-    ["post-edit", params.id],
-    () => postsApi.get(params.id),
-    { enabled: !!user }
-  );
+  const {
+    data: post,
+    isLoading,
+    error,
+  } = useQuery(["post-edit", params.id], () => postsApi.get(params.id), { enabled: !!user });
 
   if (authLoading || isLoading) {
     return (
@@ -80,9 +78,7 @@ export default function EditPostClient(props: {
 
   // Some older/markdown-authored posts have an empty TipTap doc stored as
   // content_blocks_json. Fall back to rendered HTML so edit opens real content.
-  const initialContent: JSONContent | string = hasMeaningfulTipTapContent(
-    post.content_blocks_json
-  )
+  const initialContent: JSONContent | string = hasMeaningfulTipTapContent(post.content_blocks_json)
     ? (post.content_blocks_json as JSONContent)
     : post.content_html || "";
 

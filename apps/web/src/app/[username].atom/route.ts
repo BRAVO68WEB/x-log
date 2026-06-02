@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const BACKEND_API_URL =
+  process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<unknown> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<unknown> }) {
   const { username } = (await params) as { username: string };
   // Proxy Atom feed request through Next.js
   try {
@@ -16,10 +14,7 @@ export async function GET(
     });
 
     if (!response.ok) {
-      return NextResponse.json(
-        { error: "Feed not found" },
-        { status: response.status }
-      );
+      return NextResponse.json({ error: "Feed not found" }, { status: response.status });
     }
 
     const feedContent = await response.text();
@@ -31,9 +26,6 @@ export async function GET(
       },
     });
   } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -4,8 +4,6 @@ An open-source, Bun + TypeScript powered blog platform that federates with the F
 
 This document is the functional and technical specification for the project named “x-log”.
 
-
-
 ## 1) Goals and Non-Goals
 
 - Goals
@@ -23,8 +21,6 @@ This document is the functional and technical specification for the project name
   - Advanced moderation tooling beyond basic block/allow lists and rate-limits
   - Media proxying/transcoding pipeline (basic image handling only at launch)
 
-
-
 ## 2) Tech Stack
 
 - Tooling: Bun (runtime + package manager)
@@ -37,8 +33,6 @@ This document is the functional and technical specification for the project name
 - Background jobs/queue: Redis + Worker (Bun)
 - Deployment: Docker Compose
 - Rendering: Markdown for published posts; block-based editor UI (Notion-like) with TipTap/ProseMirror
-
-
 
 ## 3) URL Structure
 
@@ -60,8 +54,6 @@ This document is the functional and technical specification for the project name
   - NodeInfo discovery: https://{domain}/.well-known/nodeinfo
   - NodeInfo 2.1: https://{domain}/nodeinfo/2.1
   - Host-meta (optional compatibility): https://{domain}/.well-known/host-meta and /host-meta.json
-
-
 
 ## 4) Federation: ActivityPub/ActivityStreams
 
@@ -112,8 +104,6 @@ This document is the functional and technical specification for the project name
   - Instance-level allowlist/denylist for domains
   - Rate limiting on inbox endpoints
 
-
-
 ## 5) Data Model (PostgreSQL via Kysely)
 
 Core tables (suggested):
@@ -154,10 +144,10 @@ Core tables (suggested):
   - title
   - banner_url
   - content_markdown (text)
-  - content_blocks_json (jsonb)  // internal, for editor state
+  - content_blocks_json (jsonb) // internal, for editor state
   - summary (string, optional)
   - hashtags (text[]) // denormalized; also relation table below if needed
-  - like_count (int, default 0)   // denormalized from federation interactions
+  - like_count (int, default 0) // denormalized from federation interactions
   - published_at (timestamp)
   - updated_at
   - visibility (enum: public|unlisted|private)
@@ -205,13 +195,12 @@ Core tables (suggested):
   - created_at, updated_at
 
 Indexes:
+
 - users.username unique
 - posts.author_id, posts.published_at DESC
 - GIN index on posts.content_markdown (via tsvector) for full-text search
 - GIN on posts.hashtags
 - followers (local_user_id, remote_actor) unique
-
-
 
 ## 6) Monorepo Structure (Turborepo)
 
@@ -238,8 +227,6 @@ Indexes:
   - x-log-spec.md (this file)
   - api.md (generated OpenAPI notes)
   - federation.md (protocol details)
-
-
 
 ## 7) API Design (Hono + Zod + OpenAPI)
 
@@ -358,19 +345,17 @@ app.openapi(
 export default app;
 ```
 
-
-
 ## 8) Frontend (Next.js + TailwindCSS)
 
 - Pages/Routes
-  - /                             Home: list of recent posts
-  - /post/[id]                    Post detail (rendered from Markdown to HTML; clean typography)
-  - /profile                      Current user profile (for single-user mode)
-  - /u/[username]                 Public profile (multi-user mode)
-  - /editor                       Notion-like editor for creating/updating posts
-  - /onboarding                   Instance setup wizard
-  - /settings                     Admin settings for instance
-  - /search                       Global search (posts/profiles)
+  - / Home: list of recent posts
+  - /post/[id] Post detail (rendered from Markdown to HTML; clean typography)
+  - /profile Current user profile (for single-user mode)
+  - /u/[username] Public profile (multi-user mode)
+  - /editor Notion-like editor for creating/updating posts
+  - /onboarding Instance setup wizard
+  - /settings Admin settings for instance
+  - /search Global search (posts/profiles)
 
 - Editor (Notion-like)
   - TipTap/ProseMirror-based block editor
@@ -392,8 +377,6 @@ export default app;
   - Optimistic UI for save/publish
   - Pagination/infinite scroll on lists
 
-
-
 ## 9) Feeds: Atom and RSS
 
 - Per-user feeds:
@@ -401,8 +384,6 @@ export default app;
   - GET /{username}.rss -> application/rss+xml
 - Includes latest N public posts; content derived from Markdown to HTML summary/content
 - Correct cache headers (ETag/Last-Modified)
-
-
 
 ## 10) Onboarding Flow (Instance Setup)
 
@@ -416,8 +397,6 @@ export default app;
 - On first run, API exposes /api/onboarding/state and /api/onboarding/complete
 - Locks onboarding after completion; can be reset with admin CLI or env flag
 
-
-
 ## 11) Search
 
 - Local full-text search leveraging Postgres tsvector on:
@@ -428,15 +407,11 @@ export default app;
 - API: GET /api/search?q=&type=post|profile
 - Profile discoverability in Fediverse primarily via WebFinger and NodeInfo; Mastodon remote search is enabled by correct WebFinger responses and actor URLs
 
-
-
 ## 12) Snowflake ID Strategy
 
 - 64-bit sortable ID based on timestamp, workerId, sequence
 - Service: packages/snowflake with pluggable epoch and worker ID sourcing
 - Ensures unique post URLs and chronological ordering without DB round trips
-
-
 
 ## 13) Background Jobs
 
@@ -447,8 +422,6 @@ export default app;
   - Rebuild feeds
   - Periodic NodeInfo stats refresh
 - Worker service (apps/worker) consumes queue; Bun runtime
-
-
 
 ## 14) Security and Compliance
 
@@ -461,11 +434,10 @@ export default app;
 - CORS: restricted origins for API
 - Logging and audit trails for admin actions
 
-
-
 ## 15) Deployment (Docker Compose)
 
 Services:
+
 - db: postgres:16
 - redis: redis:7
 - api: oven/bun:1 (Hono)
@@ -474,6 +446,7 @@ Services:
 - proxy: optional caddy/nginx for TLS + reverse proxy
 
 Environment variables (.env):
+
 - DATABASE_URL=postgres://user:pass@db:5432/xlog
 - REDIS_URL=redis://redis:6379
 - NODE_ENV=production
@@ -486,12 +459,11 @@ Environment variables (.env):
 - FEDERATION_ENABLED=true
 
 Compose responsibilities:
+
 - Build images for web/api/worker
 - Run migrations on startup (api)
 - Healthchecks for db/api/web
 - Shared network and volumes for persistence (db data)
-
-
 
 ## 16) Example ActivityPub Payloads
 
@@ -499,10 +471,7 @@ Compose responsibilities:
 
 ```json
 {
-  "@context": [
-    "https://www.w3.org/ns/activitystreams",
-    "https://w3id.org/security/v1"
-  ],
+  "@context": ["https://www.w3.org/ns/activitystreams", "https://w3id.org/security/v1"],
   "id": "https://{domain}/ap/users/{username}",
   "type": "Person",
   "preferredUsername": "{username}",
@@ -548,8 +517,6 @@ Compose responsibilities:
 }
 ```
 
-
-
 ## 17) Well-Known and NodeInfo
 
 - /.well-known/webfinger -> application/jrd+json
@@ -558,12 +525,10 @@ Compose responsibilities:
 - /.well-known/host-meta (XML/XRD) and /.well-known/host-meta.json (JRD) to assist certain clients
 - Content negotiation and correct caching headers
 
-
-
 ## 18) Implementation Notes
 
 - Hono API
-  - Mount routes: /api/* for internal app API; /ap/* and /.well-known/* for federation
+  - Mount routes: /api/_ for internal app API; /ap/_ and /.well-known/\* for federation
   - Sign/verify middleware for HTTP signatures
   - Rate limit middleware for inbox
 
@@ -584,8 +549,6 @@ Compose responsibilities:
   - Use @hono/zod-openapi or zod-to-openapi to generate the spec
   - Serve at /api/openapi.json; docs at /api/docs
 
-
-
 ## 19) MVP Scope
 
 - Single instance with:
@@ -604,14 +567,10 @@ Compose responsibilities:
   - Web push notifications
   - Import/export content
 
-
-
 ## 20) License and Governance
 
 - License: AGPL-3.0 or MIT (to be decided based on federation ecosystem expectations; Mastodon uses AGPL-3.0)
 - Code of Conduct and contributing guidelines in repo root
-
-
 
 ## 21) Acceptance Criteria Summary
 
@@ -623,8 +582,6 @@ Compose responsibilities:
 - Onboarding journey completes instance setup
 - Database schema and migrations provided
 - Deployed locally via Docker Compose with working services
-
-
 
 ## 22) Example Docker Compose (outline)
 
@@ -695,8 +652,6 @@ volumes:
   redis_data:
 ```
 
-
-
 ## 23) Open Questions
 
 - Should profile URL be /profile or /u/{username}? For multi-user, /u/{username} is preferred; we will support /profile for current user.
@@ -704,7 +659,6 @@ volumes:
 - Media storage: local vs S3-compatible; MVP: local disk
 - Registration model: invite-only vs open registrations default
 
-
-
 ---
+
 End of spec for x-log.

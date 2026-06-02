@@ -1,20 +1,9 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, login as loginRequest, logout as logoutRequest } from "@/api/auth";
 import { getPublicInstanceSummary } from "@/api/instance";
 import { useTheme } from "@/theme/ThemeProvider";
-import {
-  setApiBaseUrl,
-  setApiToken,
-  setUnauthorizedHandler,
-} from "@/api/client";
+import { setApiBaseUrl, setApiToken, setUnauthorizedHandler } from "@/api/client";
 import type { User } from "@/api/types";
 import {
   clearLegacyStoredToken,
@@ -115,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const nextCurrentId =
         currentId && hydrated.some((instance) => instance.id === currentId)
           ? currentId
-          : hydrated[0]?.id ?? null;
+          : (hydrated[0]?.id ?? null);
 
       setCurrentInstanceId(nextCurrentId);
 
@@ -248,9 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const nextInstances = instances.map((instance) =>
-      instance.id === instanceId
-        ? { ...instance, lastUsedAt: new Date().toISOString() }
-        : instance
+      instance.id === instanceId ? { ...instance, lastUsedAt: new Date().toISOString() } : instance
     );
 
     await persistInstances(nextInstances, instanceId);
@@ -266,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const nextInstances = instances.filter((instance) => instance.id !== instanceId);
     const nextCurrentId =
-      currentInstanceId === instanceId ? nextInstances[0]?.id ?? null : currentInstanceId;
+      currentInstanceId === instanceId ? (nextInstances[0]?.id ?? null) : currentInstanceId;
 
     await persistInstances(nextInstances, nextCurrentId);
   }

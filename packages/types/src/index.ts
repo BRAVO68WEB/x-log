@@ -14,4 +14,3 @@ export interface PaginatedResponse<T> {
   nextCursor?: string;
   hasMore: boolean;
 }
-

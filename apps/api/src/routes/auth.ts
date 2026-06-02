@@ -1,12 +1,12 @@
 import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
-import { 
-  LoginSchema, 
+import {
+  LoginSchema,
   MobileAuthResponseSchema,
   UserResponseSchema,
   OIDCCallbackQuerySchema,
   OIDCLinkAccountSchema,
-  OIDCAccountResponseSchema
+  OIDCAccountResponseSchema,
 } from "@xlog/validation";
 import { getDb } from "@xlog/db";
 import bcrypt from "bcryptjs";
@@ -211,7 +211,8 @@ authRoutes.get(
 authRoutes.get(
   "/oidc/callback",
   describeRoute({
-    description: "OIDC callback handler with auto-linking, manual linking, or account linking for logged-in users",
+    description:
+      "OIDC callback handler with auto-linking, manual linking, or account linking for logged-in users",
     tags: ["auth"],
     responses: {
       200: {
@@ -273,19 +274,25 @@ authRoutes.get(
     // Handle OIDC errors
     if (error) {
       console.error("OIDC error:", error, errorDescription);
-      return c.json({
-        action: "error",
-        redirect_url: `/login?error=oidc_failed&description=${encodeURIComponent(errorDescription || error)}`,
-        error: errorDescription || error,
-      }, 400);
+      return c.json(
+        {
+          action: "error",
+          redirect_url: `/login?error=oidc_failed&description=${encodeURIComponent(errorDescription || error)}`,
+          error: errorDescription || error,
+        },
+        400
+      );
     }
 
     if (!code || !state) {
-      return c.json({
-        action: "error",
-        redirect_url: "/login?error=invalid_callback",
-        error: "Missing code or state parameter",
-      }, 400);
+      return c.json(
+        {
+          action: "error",
+          redirect_url: "/login?error=invalid_callback",
+          error: "Missing code or state parameter",
+        },
+        400
+      );
     }
 
     try {
@@ -320,11 +327,14 @@ authRoutes.get(
             });
           } else {
             // OIDC account linked to a different user
-            return c.json({
-              action: "error",
-              redirect_url: "/settings",
-              error: "This OIDC account is already linked to another user",
-            }, 400);
+            return c.json(
+              {
+                action: "error",
+                redirect_url: "/settings",
+                error: "This OIDC account is already linked to another user",
+              },
+              400
+            );
           }
         }
 
@@ -441,16 +451,19 @@ authRoutes.get(
 
       return c.json({
         action: "pending_link",
-        redirect_url: `/login/link?state=${linkState}&email=${encodeURIComponent(email || '')}`,
+        redirect_url: `/login/link?state=${linkState}&email=${encodeURIComponent(email || "")}`,
         link_state: linkState,
       });
     } catch (error) {
       console.error("OIDC callback error:", error);
-      return c.json({
-        action: "error",
-        redirect_url: `/login?error=oidc_processing_failed`,
-        error: error instanceof Error ? error.message : "OIDC processing failed",
-      }, 500);
+      return c.json(
+        {
+          action: "error",
+          redirect_url: `/login?error=oidc_processing_failed`,
+          error: error instanceof Error ? error.message : "OIDC processing failed",
+        },
+        500
+      );
     }
   }
 );
@@ -459,7 +472,8 @@ authRoutes.get(
 authRoutes.post(
   "/oidc/link",
   describeRoute({
-    description: "Manually link OIDC account to existing xLog account. If user is logged in, password is not required.",
+    description:
+      "Manually link OIDC account to existing xLog account. If user is logged in, password is not required.",
     tags: ["auth"],
     responses: {
       200: {
@@ -523,11 +537,7 @@ authRoutes.post(
         return c.json({ error: "Email and password are required when not logged in" }, 400);
       }
 
-      user = await db
-        .selectFrom("users")
-        .selectAll()
-        .where("email", "=", email)
-        .executeTakeFirst();
+      user = await db.selectFrom("users").selectAll().where("email", "=", email).executeTakeFirst();
 
       if (!user || !user.password_hash) {
         return c.json({ error: "Invalid credentials" }, 401);
@@ -550,10 +560,7 @@ authRoutes.post(
     if (existingLink) {
       if (existingLink.user_id === user.id) {
         // Already linked to this user - just delete pending link
-        await db
-          .deleteFrom("oidc_pending_links")
-          .where("id", "=", pendingLink.id)
-          .execute();
+        await db.deleteFrom("oidc_pending_links").where("id", "=", pendingLink.id).execute();
 
         return c.json({
           id: user.id,
@@ -582,10 +589,7 @@ authRoutes.post(
       .execute();
 
     // Delete pending link
-    await db
-      .deleteFrom("oidc_pending_links")
-      .where("id", "=", pendingLink.id)
-      .execute();
+    await db.deleteFrom("oidc_pending_links").where("id", "=", pendingLink.id).execute();
 
     // Create session if user was not logged in
     if (!currentUser) {
@@ -688,10 +692,7 @@ authRoutes.delete(
     }
 
     // Delete OIDC account link
-    await db
-      .deleteFrom("oidc_accounts")
-      .where("id", "=", accountId)
-      .execute();
+    await db.deleteFrom("oidc_accounts").where("id", "=", accountId).execute();
 
     return c.json({ message: "Account unlinked successfully" });
   }

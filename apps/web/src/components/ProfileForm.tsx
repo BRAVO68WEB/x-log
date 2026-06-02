@@ -66,9 +66,7 @@ export function ProfileForm({ username }: { username: string }) {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load profile" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load profile" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return (await res.json()) as ProfileData;
@@ -98,17 +96,13 @@ export function ProfileForm({ username }: { username: string }) {
       body: fd,
     });
     if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Upload failed" }));
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return (await res.json()) as { url: string };
   });
 
-  const handleAvatarFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -135,17 +129,13 @@ export function ProfileForm({ username }: { username: string }) {
       body: fd,
     });
     if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Upload failed" }));
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return (await res.json()) as { url: string };
   });
 
-  const handleBannerFileChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -172,16 +162,12 @@ export function ProfileForm({ username }: { username: string }) {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to update profile" }));
+        const err = await res.json().catch(() => ({ error: "Failed to update profile" }));
         const msg =
           typeof err.error === "string"
             ? err.error
             : Array.isArray(err.error)
-              ? err.error
-                  .map((e: any) => e.message || String(e))
-                  .join(", ")
+              ? err.error.map((e: any) => e.message || String(e)).join(", ")
               : `HTTP ${res.status}`;
         throw new Error(msg);
       }
@@ -235,9 +221,7 @@ export function ProfileForm({ username }: { username: string }) {
                   </span>
                 }
                 value={data.full_name || ""}
-                onChange={(e) =>
-                  setData({ ...data, full_name: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, full_name: e.target.value })}
               />
               <Textarea
                 label={
@@ -269,17 +253,12 @@ export function ProfileForm({ username }: { username: string }) {
                   }
                   type="url"
                   value={data.avatar_url || ""}
-                  onChange={(e) =>
-                    setData({ ...data, avatar_url: e.target.value })
-                  }
+                  onChange={(e) => setData({ ...data, avatar_url: e.target.value })}
                 />
                 <div className="flex items-center gap-3">
                   {(avatarPreview || data.avatar_url) && (
                     <Avatar className="h-12 w-12">
-                      <AvatarImage
-                        src={avatarPreview || data.avatar_url!}
-                        alt="Avatar"
-                      />
+                      <AvatarImage src={avatarPreview || data.avatar_url!} alt="Avatar" />
                       <AvatarFallback>
                         {(data.full_name || username)[0]?.toUpperCase()}
                       </AvatarFallback>
@@ -313,9 +292,7 @@ export function ProfileForm({ username }: { username: string }) {
                   }
                   type="url"
                   value={data.banner_url || ""}
-                  onChange={(e) =>
-                    setData({ ...data, banner_url: e.target.value })
-                  }
+                  onChange={(e) => setData({ ...data, banner_url: e.target.value })}
                 />
                 <div className="flex items-center gap-3">
                   <Button
@@ -367,9 +344,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.social_github || ""}
-                onChange={(e) =>
-                  setData({ ...data, social_github: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, social_github: e.target.value })}
                 placeholder="https://github.com/username"
               />
               <Input
@@ -380,9 +355,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.social_x || ""}
-                onChange={(e) =>
-                  setData({ ...data, social_x: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, social_x: e.target.value })}
                 placeholder="https://x.com/username"
               />
               <Input
@@ -393,9 +366,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.social_youtube || ""}
-                onChange={(e) =>
-                  setData({ ...data, social_youtube: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, social_youtube: e.target.value })}
                 placeholder="https://youtube.com/@username"
               />
               <Input
@@ -406,9 +377,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.social_reddit || ""}
-                onChange={(e) =>
-                  setData({ ...data, social_reddit: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, social_reddit: e.target.value })}
                 placeholder="https://reddit.com/user/username"
               />
               <Input
@@ -419,9 +388,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.social_linkedin || ""}
-                onChange={(e) =>
-                  setData({ ...data, social_linkedin: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, social_linkedin: e.target.value })}
                 placeholder="https://linkedin.com/in/username"
               />
               <Input
@@ -432,9 +399,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.social_website || ""}
-                onChange={(e) =>
-                  setData({ ...data, social_website: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, social_website: e.target.value })}
                 placeholder="https://example.com"
               />
             </div>
@@ -456,9 +421,7 @@ export function ProfileForm({ username }: { username: string }) {
                 }
                 type="url"
                 value={data.support_url || ""}
-                onChange={(e) =>
-                  setData({ ...data, support_url: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, support_url: e.target.value })}
                 placeholder="https://ko-fi.com/username"
               />
               <Input
@@ -468,9 +431,7 @@ export function ProfileForm({ username }: { username: string }) {
                   </span>
                 }
                 value={data.support_text || ""}
-                onChange={(e) =>
-                  setData({ ...data, support_text: e.target.value })
-                }
+                onChange={(e) => setData({ ...data, support_text: e.target.value })}
                 placeholder="Buy me a coffee"
               />
             </div>
@@ -504,17 +465,13 @@ export function ProfileForm({ username }: { username: string }) {
 }
 
 function hexToNpub(hex: string): string {
-  const bytes = Uint8Array.from(
-    hex.match(/.{2}/g)!.map((b) => parseInt(b, 16))
-  );
+  const bytes = Uint8Array.from(hex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
   const words = bech32.toWords(bytes);
   return bech32.encode("npub", words, 1500);
 }
 
 function hexToNsec(hex: string): string {
-  const bytes = Uint8Array.from(
-    hex.match(/.{2}/g)!.map((b) => parseInt(b, 16))
-  );
+  const bytes = Uint8Array.from(hex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
   const words = bech32.toWords(bytes);
   return bech32.encode("nsec", words, 1500);
 }
@@ -567,16 +524,10 @@ function NostrSection({
 
       {pubkey && /^[0-9a-f]{64}$/.test(pubkey) && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="font-mono break-all">
-            npub: {hexToNpub(pubkey)}
-          </span>
+          <span className="font-mono break-all">npub: {hexToNpub(pubkey)}</span>
           {hasStoredPrivkey && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-border bg-secondary text-secondary-foreground text-xs font-medium">
-              <svg
-                className="w-3 h-3"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -593,11 +544,7 @@ function NostrSection({
         <Card className="border-input bg-accent">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-center gap-2 text-foreground font-medium text-sm">
-              <svg
-                className="w-5 h-5"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path
                   fillRule="evenodd"
                   d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
@@ -620,9 +567,8 @@ function NostrSection({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              The private key will be saved to your account when you click
-              Save Profile. You can also import this nsec into any Nostr
-              client.
+              The private key will be saved to your account when you click Save Profile. You can
+              also import this nsec into any Nostr client.
             </p>
             <Button
               type="button"

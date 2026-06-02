@@ -19,10 +19,7 @@ import {
   createUndoActivity,
 } from "@xlog/ap";
 import { renderMarkdown } from "@xlog/markdown";
-import {
-  sessionMiddleware,
-  requireAuth,
-} from "../middleware/session";
+import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
 
 async function getLikedPostIds(
@@ -42,7 +39,11 @@ async function getLikedPostIds(
   return new Set(rows.map((row) => row.post_id));
 }
 
-async function getPostLikeState(postId: string, user: { username: string } | undefined, domain: string) {
+async function getPostLikeState(
+  postId: string,
+  user: { username: string } | undefined,
+  domain: string
+) {
   if (!user) return false;
   const actor = getActorUrlSync(user.username, domain);
   const db = getDb();
@@ -153,19 +154,24 @@ postsRoutes.get(
         description: "List of posts",
         content: {
           "application/json": {
-            schema: resolver(z.object({
-              items: z.array(PostResponseSchema),
-              nextCursor: z.string().optional(),
-              hasMore: z.boolean(),
-            })),
+            schema: resolver(
+              z.object({
+                items: z.array(PostResponseSchema),
+                nextCursor: z.string().optional(),
+                hasMore: z.boolean(),
+              })
+            ),
           },
         },
       },
     },
   }),
-  validator("query", PaginationQuerySchema.extend({
-    author: z.string().optional(),
-  })),
+  validator(
+    "query",
+    PaginationQuerySchema.extend({
+      author: z.string().optional(),
+    })
+  ),
   async (c) => {
     const { limit, cursor, author } = c.req.valid("query");
     const db = getDb();
@@ -262,9 +268,12 @@ postsRoutes.get(
       },
     },
   }),
-  validator("param", z.object({
-    id: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+    })
+  ),
   async (c) => {
     const { id } = c.req.valid("param");
     const db = getDb();
@@ -308,11 +317,7 @@ postsRoutes.get(
 
     const contentHtml = await renderMarkdown(post.content_markdown);
     const settings = await getInstanceSettings();
-    const likedByMe = await getPostLikeState(
-      post.id,
-      user,
-      settings.instance_domain
-    );
+    const likedByMe = await getPostLikeState(post.id, user, settings.instance_domain);
 
     return c.json({
       id: post.id,
@@ -384,13 +389,7 @@ postsRoutes.post(
       .execute();
 
     // Link uploaded media to this post
-    await linkMediaToPost(
-      db,
-      postId,
-      data.banner_url,
-      data.content_blocks,
-      data.content_markdown
-    );
+    await linkMediaToPost(db, postId, data.banner_url, data.content_blocks, data.content_markdown);
 
     const post = await db
       .selectFrom("posts")
@@ -448,9 +447,12 @@ postsRoutes.patch(
       },
     },
   }),
-  validator("param", z.object({
-    id: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+    })
+  ),
   validator("json", PostUpdateSchema),
   requireAuth,
   async (c) => {
@@ -482,20 +484,14 @@ postsRoutes.patch(
         ...postUpdateData,
         content_blocks_json:
           content_blocks !== undefined
-            ? (content_blocks || EMPTY_CONTENT_BLOCKS) as any
+            ? ((content_blocks || EMPTY_CONTENT_BLOCKS) as any)
             : undefined,
       })
       .where("id", "=", id)
       .execute();
 
     // Link uploaded media to this post
-    await linkMediaToPost(
-      db,
-      id,
-      data.banner_url,
-      content_blocks,
-      data.content_markdown
-    );
+    await linkMediaToPost(db, id, data.banner_url, content_blocks, data.content_markdown);
 
     // Trigger federation Update if post is published and not private
     if (post.published_at && post.visibility !== "private") {
@@ -531,9 +527,12 @@ postsRoutes.delete(
       },
     },
   }),
-  validator("param", z.object({
-    id: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+    })
+  ),
   requireAuth,
   async (c) => {
     const user = c.get("user")!;
@@ -544,7 +543,13 @@ postsRoutes.delete(
     const post = await db
       .selectFrom("posts")
       .innerJoin("users", "users.id", "posts.author_id")
-      .select(["posts.author_id", "posts.published_at", "posts.visibility", "posts.ap_object_id", "users.username"])
+      .select([
+        "posts.author_id",
+        "posts.published_at",
+        "posts.visibility",
+        "posts.ap_object_id",
+        "users.username",
+      ])
       .where("posts.id", "=", id)
       .executeTakeFirst();
 
@@ -735,10 +740,7 @@ postsRoutes.delete(
       .executeTakeFirst();
 
     if (existing) {
-      await db
-        .deleteFrom("post_likes")
-        .where("id", "=", existing.id)
-        .execute();
+      await db.deleteFrom("post_likes").where("id", "=", existing.id).execute();
 
       await db
         .updateTable("posts")
@@ -780,9 +782,12 @@ postsRoutes.post(
       },
     },
   }),
-  validator("param", z.object({
-    id: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+    })
+  ),
   requireAuth,
   async (c) => {
     const user = c.get("user")!;

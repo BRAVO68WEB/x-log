@@ -120,9 +120,7 @@ export const instanceThemes: InstanceThemeOption[] = [
 const themeIds = new Set(instanceThemes.map((theme) => theme.id));
 
 export function normalizeThemeId(value: unknown): InstanceThemeId {
-  return themeIds.has(value as InstanceThemeId)
-    ? (value as InstanceThemeId)
-    : "system";
+  return themeIds.has(value as InstanceThemeId) ? (value as InstanceThemeId) : "system";
 }
 
 export function getThemeOption(id: InstanceThemeId) {

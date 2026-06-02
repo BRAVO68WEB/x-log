@@ -20,35 +20,55 @@ export function getPost(id: string, context?: RequestContext) {
 }
 
 export function createPost(payload: PostPayload, context?: RequestContext) {
-  return apiRequest<PostDetail>("/posts", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  }, context);
+  return apiRequest<PostDetail>(
+    "/posts",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    context
+  );
 }
 
 export function updatePost(id: string, payload: Partial<PostPayload>, context?: RequestContext) {
-  return apiRequest<{ message: string }>(`/posts/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  }, context);
+  return apiRequest<{ message: string }>(
+    `/posts/${id}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+    context
+  );
 }
 
 export function publishPost(id: string, context?: RequestContext) {
-  return apiRequest<{ message: string }>(`/posts/${id}/publish`, {
-    method: "POST",
-  }, context);
+  return apiRequest<{ message: string }>(
+    `/posts/${id}/publish`,
+    {
+      method: "POST",
+    },
+    context
+  );
 }
 
 export function likePost(id: string, context?: RequestContext) {
-  return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/posts/${id}/like`, {
-    method: "POST",
-  }, context);
+  return apiRequest<{ liked_by_me: boolean; like_count: number }>(
+    `/posts/${id}/like`,
+    {
+      method: "POST",
+    },
+    context
+  );
 }
 
 export function unlikePost(id: string, context?: RequestContext) {
-  return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/posts/${id}/like`, {
-    method: "DELETE",
-  }, context);
+  return apiRequest<{ liked_by_me: boolean; like_count: number }>(
+    `/posts/${id}/like`,
+    {
+      method: "DELETE",
+    },
+    context
+  );
 }
 
 export function listFollowingFeed(context?: RequestContext) {

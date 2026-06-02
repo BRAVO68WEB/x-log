@@ -7,7 +7,9 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable("following")
     .addColumn("id", "uuid", (col) => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
-    .addColumn("local_user_id", "uuid", (col) => col.notNull().references("users.id").onDelete("cascade"))
+    .addColumn("local_user_id", "uuid", (col) =>
+      col.notNull().references("users.id").onDelete("cascade")
+    )
     .addColumn("remote_actor", "varchar(500)", (col) => col.notNull())
     .addColumn("inbox_url", "varchar(500)", (col) => col.notNull())
     .addColumn("activity_id", "varchar(500)", (col) => col.notNull())

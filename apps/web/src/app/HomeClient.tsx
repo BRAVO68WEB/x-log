@@ -3,11 +3,7 @@
 import { PostCard } from "@/components/PostCard";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Button } from "@/components/ui/button";
-import {
-  BentoGrid,
-  BentoCard,
-  BentoCardContent,
-} from "@/components/ui/bento-grid";
+import { BentoGrid, BentoCard, BentoCardContent } from "@/components/ui/bento-grid";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { usePosts } from "@/hooks/usePosts";
@@ -100,16 +96,16 @@ export default function HomeClient() {
                   </div>
                 </Link>
               )}
-              <div className={cn("p-6 flex flex-col", !featured.banner_url && "flex-1 justify-center")}>
+              <div
+                className={cn("p-6 flex flex-col", !featured.banner_url && "flex-1 justify-center")}
+              >
                 <Link href={`/post/${featured.id}`}>
                   <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
                     {featured.title}
                   </h2>
                 </Link>
                 {featured.summary && (
-                  <p className="text-muted-foreground mb-4 line-clamp-4">
-                    {featured.summary}
-                  </p>
+                  <p className="text-muted-foreground mb-4 line-clamp-4">{featured.summary}</p>
                 )}
                 <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
                   <div className="flex items-center gap-2">
@@ -121,15 +117,20 @@ export default function HomeClient() {
                         {featured.author.avatar_url ? (
                           <AvatarImage
                             src={featured.author.avatar_url}
-                            alt={featured.author.full_name?.split(" ")[0] || featured.author.username}
+                            alt={
+                              featured.author.full_name?.split(" ")[0] || featured.author.username
+                            }
                           />
                         ) : (
                           <AvatarFallback>
-                            {(featured.author.full_name || featured.author.username)[0]?.toUpperCase()}
+                            {(featured.author.full_name ||
+                              featured.author.username)[0]?.toUpperCase()}
                           </AvatarFallback>
                         )}
                       </Avatar>
-                      <span>{featured.author.full_name?.split(" ")[0] || featured.author.username}</span>
+                      <span>
+                        {featured.author.full_name?.split(" ")[0] || featured.author.username}
+                      </span>
                     </Link>
                     {featured.published_at && (
                       <>
@@ -173,11 +174,7 @@ export default function HomeClient() {
           {hasMore && (
             <BentoCard size="full" index={posts.length + (isAuthenticated ? 2 : 1)}>
               <BentoCardContent className="p-6 flex justify-center">
-                <Button
-                  variant="outline"
-                  onClick={loadMore}
-                  disabled={loading}
-                >
+                <Button variant="outline" onClick={loadMore} disabled={loading}>
                   {loading ? "Loading..." : "Load More"}
                 </Button>
               </BentoCardContent>

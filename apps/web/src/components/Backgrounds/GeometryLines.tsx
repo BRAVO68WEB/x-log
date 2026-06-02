@@ -9,18 +9,10 @@ export function GeometryLines() {
   const maskId = `geo-mask-${id}`;
 
   return (
-    <svg
-      aria-hidden="true"
-      className="pointer-events-none fixed inset-0 -z-[1] h-full w-full"
-    >
+    <svg aria-hidden="true" className="pointer-events-none fixed inset-0 -z-[1] h-full w-full">
       <defs>
         {/* Diagonal lines going top-left to bottom-right */}
-        <pattern
-          id={patternId1}
-          width="160"
-          height="160"
-          patternUnits="userSpaceOnUse"
-        >
+        <pattern id={patternId1} width="160" height="160" patternUnits="userSpaceOnUse">
           <line
             x1="0"
             y1="0"
@@ -32,12 +24,7 @@ export function GeometryLines() {
         </pattern>
 
         {/* Diagonal lines going top-right to bottom-left */}
-        <pattern
-          id={patternId2}
-          width="160"
-          height="160"
-          patternUnits="userSpaceOnUse"
-        >
+        <pattern id={patternId2} width="160" height="160" patternUnits="userSpaceOnUse">
           <line
             x1="160"
             y1="0"

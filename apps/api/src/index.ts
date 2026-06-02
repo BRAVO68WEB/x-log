@@ -48,34 +48,38 @@ app.get(
   })
 );
 
-app.get('/docs', Scalar({ url: '/api/openapi.json',
-  "defaultOpenAllTags": true,
-  "expandAllModelSections": true,
-  "layout": "classic",
-  "expandAllResponses": true,
-  "hideDarkModeToggle": true,
-  "hideClientButton": false,
-  "showSidebar": true,
-  "showDeveloperTools": "localhost",
-  "operationTitleSource": "summary",
-  "theme": "fastify",
-  "persistAuth": false,
-  "telemetry": true,
-  "isEditable": false,
-  "isLoading": false,
-  "hideModels": false,
-  "documentDownloadType": "both",
-  "hideTestRequestButton": false,
-  "hideSearch": false,
-  "showOperationId": false,
-  "withDefaultFonts": true,
-  "orderSchemaPropertiesBy": "alpha",
-  "orderRequiredPropertiesFirst": true,
-  "_integration": "hono",
-  "default": false,
-  "slug": "api-1",
-  "title": "API #1" })
-)
+app.get(
+  "/docs",
+  Scalar({
+    url: "/api/openapi.json",
+    defaultOpenAllTags: true,
+    expandAllModelSections: true,
+    layout: "classic",
+    expandAllResponses: true,
+    hideDarkModeToggle: true,
+    hideClientButton: false,
+    showSidebar: true,
+    showDeveloperTools: "localhost",
+    operationTitleSource: "summary",
+    theme: "fastify",
+    persistAuth: false,
+    telemetry: true,
+    isEditable: false,
+    isLoading: false,
+    hideModels: false,
+    documentDownloadType: "both",
+    hideTestRequestButton: false,
+    hideSearch: false,
+    showOperationId: false,
+    withDefaultFonts: true,
+    orderSchemaPropertiesBy: "alpha",
+    orderRequiredPropertiesFirst: true,
+    _integration: "hono",
+    default: false,
+    slug: "api-1",
+    title: "API #1",
+  })
+);
 
 // Global error handler
 app.onError((err, c) => {
@@ -83,10 +87,7 @@ app.onError((err, c) => {
   console.error(err.stack);
 
   const status = "status" in err ? (err as any).status : 500;
-  return c.json(
-    { error: status === 500 ? "Internal server error" : err.message },
-    status
-  );
+  return c.json({ error: status === 500 ? "Internal server error" : err.message }, status);
 });
 
 // Routes

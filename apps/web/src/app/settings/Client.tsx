@@ -62,9 +62,7 @@ export default function SettingsClient() {
     async () => {
       const res = await fetch(`/api/settings`, { credentials: "include" });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load settings" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load settings" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json() as Promise<{
@@ -94,29 +92,24 @@ export default function SettingsClient() {
         });
       },
       onError: (err) => {
-        setError(
-          err instanceof Error ? err.message : "Failed to load settings"
-        );
+        setError(err instanceof Error ? err.message : "Failed to load settings");
       },
       onSettled: () => setLoading(false),
     }
   );
 
-  const publicInstanceQuery = useQuery(
-    ["public-instance-summary"],
-    async () => {
-      const res = await fetch(`/api/public/instance`, { credentials: "include" });
-      if (!res.ok) {
-        throw new Error("Failed to load public instance summary");
-      }
-      return res.json() as Promise<{
-        primary_profile: {
-          username: string;
-          full_name: string | null;
-        } | null;
-      }>;
+  const publicInstanceQuery = useQuery(["public-instance-summary"], async () => {
+    const res = await fetch(`/api/public/instance`, { credentials: "include" });
+    if (!res.ok) {
+      throw new Error("Failed to load public instance summary");
     }
-  );
+    return res.json() as Promise<{
+      primary_profile: {
+        username: string;
+        full_name: string | null;
+      } | null;
+    }>;
+  });
 
   const primaryUsername = publicInstanceQuery.data?.primary_profile?.username;
 
@@ -128,9 +121,7 @@ export default function SettingsClient() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load following" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load following" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json() as Promise<{
@@ -165,9 +156,7 @@ export default function SettingsClient() {
         }),
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to save settings" }));
+        const err = await res.json().catch(() => ({ error: "Failed to save settings" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -185,17 +174,14 @@ export default function SettingsClient() {
         settingsQuery.refetch();
       },
       onError: (err) => {
-        setError(
-          err instanceof Error ? err.message : "Failed to save settings"
-        );
+        setError(err instanceof Error ? err.message : "Failed to save settings");
       },
       onSettled: () => setSaving(false),
     }
   );
 
   const followMutation = useMutation(
-    async (remote?: string) =>
-      settingsApi.followFromSettings(remote ?? followInput.trim()),
+    async (remote?: string) => settingsApi.followFromSettings(remote ?? followInput.trim()),
     {
       onSuccess: (data, remote) => {
         setFollowSuccess(data.actor);
@@ -227,9 +213,7 @@ export default function SettingsClient() {
         setTimeout(() => setPasswordSuccess(false), 3000);
       },
       onError: (err) => {
-        setError(
-          err instanceof Error ? err.message : "Failed to change password"
-        );
+        setError(err instanceof Error ? err.message : "Failed to change password");
       },
     }
   );
@@ -295,9 +279,7 @@ export default function SettingsClient() {
         )}
         {success && (
           <div className="mb-6 rounded-md bg-primary/10 p-4 border border-primary/20">
-            <p className="text-sm text-primary">
-              Settings saved successfully!
-            </p>
+            <p className="text-sm text-primary">Settings saved successfully!</p>
           </div>
         )}
 
@@ -311,11 +293,17 @@ export default function SettingsClient() {
               <FaGear className="h-3.5 w-3.5" />
               General
             </TabsTrigger>
-            <TabsTrigger value="federation" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+            <TabsTrigger
+              value="federation"
+              className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start"
+            >
               <FaShareNodes className="h-3.5 w-3.5" />
               Federation
             </TabsTrigger>
-            <TabsTrigger value="appearance" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+            <TabsTrigger
+              value="appearance"
+              className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start"
+            >
               <FaPalette className="h-3.5 w-3.5" />
               Appearance
             </TabsTrigger>
@@ -344,9 +332,7 @@ export default function SettingsClient() {
                     <Input
                       label="Instance Name"
                       value={settings.instance_name}
-                      onChange={(e) =>
-                        setSettings({ ...settings, instance_name: e.target.value })
-                      }
+                      onChange={(e) => setSettings({ ...settings, instance_name: e.target.value })}
                       required
                     />
                     <Textarea
@@ -444,13 +430,9 @@ export default function SettingsClient() {
                             type="button"
                             className={[
                               "theme-choice rounded-md border p-4 text-left transition-colors",
-                              active
-                                ? "border-primary bg-primary/10"
-                                : "border-border bg-card",
+                              active ? "border-primary bg-primary/10" : "border-border bg-card",
                             ].join(" ")}
-                            onClick={() =>
-                              setSettings({ ...settings, theme_id: theme.id })
-                            }
+                            onClick={() => setSettings({ ...settings, theme_id: theme.id })}
                           >
                             <span className="flex items-center justify-between gap-3">
                               <span className="font-medium">{theme.label}</span>
@@ -549,9 +531,7 @@ export default function SettingsClient() {
                           ))}
                         </ul>
                       ) : (
-                        <p className="text-sm text-muted-foreground">
-                          Not following anyone yet.
-                        </p>
+                        <p className="text-sm text-muted-foreground">Not following anyone yet.</p>
                       )}
                     </div>
                   </BentoCardContent>
@@ -571,18 +551,14 @@ export default function SettingsClient() {
                         label="Admin Email"
                         type="email"
                         value={settings.admin_email}
-                        onChange={(e) =>
-                          setSettings({ ...settings, admin_email: e.target.value })
-                        }
+                        onChange={(e) => setSettings({ ...settings, admin_email: e.target.value })}
                         placeholder="admin@example.com"
                       />
                       <Input
                         label="SMTP URL"
                         type="url"
                         value={settings.smtp_url}
-                        onChange={(e) =>
-                          setSettings({ ...settings, smtp_url: e.target.value })
-                        }
+                        onChange={(e) => setSettings({ ...settings, smtp_url: e.target.value })}
                         placeholder="smtp://user:pass@smtp.example.com:587"
                       />
                     </div>
@@ -653,9 +629,7 @@ export default function SettingsClient() {
                         }
                         onClick={handlePasswordChange}
                       >
-                        {passwordMutation.isLoading
-                          ? "Changing..."
-                          : "Change Password"}
+                        {passwordMutation.isLoading ? "Changing..." : "Change Password"}
                       </Button>
                     </div>
                   </BentoCardContent>

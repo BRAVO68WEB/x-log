@@ -40,4 +40,3 @@ export function renderMarkdownSync(markdown: string): string {
   const result = processor.processSync(markdown);
   return String(result);
 }
-

@@ -1,5 +1,5 @@
-import { getEnv } from '@xlog/config';
-import { CryptoKey, jwtVerify } from 'jose';
+import { getEnv } from "@xlog/config";
+import { CryptoKey, jwtVerify } from "jose";
 
 export interface OIDCDiscoveryDocument {
   issuer: string;
@@ -48,7 +48,7 @@ export class OIDCClient {
       clientSecret: config?.clientSecret || env.OIDC_CLIENT_SECRET,
       redirectUri: config?.redirectUri || env.OIDC_REDIRECT_URI,
       discoveryUrl: config?.discoveryUrl || env.OIDC_DISCOVERY_URL,
-      scope: config?.scope || 'openid email profile',
+      scope: config?.scope || "openid email profile",
     };
   }
 
@@ -61,14 +61,16 @@ export class OIDCClient {
     }
 
     try {
-      const response = await fetch(this.config.discoveryUrl + '/.well-known/openid-configuration');
+      const response = await fetch(this.config.discoveryUrl + "/.well-known/openid-configuration");
       if (!response.ok) {
         throw new Error(`Failed to fetch discovery document: ${response.statusText}`);
       }
       this.discovery = (await response.json()) as OIDCDiscoveryDocument;
       return this.discovery;
     } catch (error) {
-      throw new Error(`OIDC discovery failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `OIDC discovery failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -79,14 +81,14 @@ export class OIDCClient {
     const discovery = await this.getDiscovery();
     const params = new URLSearchParams({
       client_id: this.config.clientId,
-      response_type: 'code',
+      response_type: "code",
       redirect_uri: this.config.redirectUri,
       scope: this.config.scope!,
       state,
     });
 
     if (nonce) {
-      params.append('nonce', nonce);
+      params.append("nonce", nonce);
     }
 
     return `${discovery.authorization_endpoint}?${params.toString()}`;
@@ -97,9 +99,9 @@ export class OIDCClient {
    */
   async exchangeCode(code: string): Promise<OIDCTokenResponse> {
     const discovery = await this.getDiscovery();
-    
+
     const params = new URLSearchParams({
-      grant_type: 'authorization_code',
+      grant_type: "authorization_code",
       code,
       redirect_uri: this.config.redirectUri,
       client_id: this.config.clientId,
@@ -108,9 +110,9 @@ export class OIDCClient {
 
     try {
       const response = await fetch(discovery.token_endpoint, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          "Content-Type": "application/x-www-form-urlencoded",
         },
         body: params.toString(),
       });
@@ -123,7 +125,9 @@ export class OIDCClient {
       const tokenResponse = (await response.json()) as OIDCTokenResponse;
       return tokenResponse;
     } catch (error) {
-      throw new Error(`Token exchange failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Token exchange failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -132,7 +136,7 @@ export class OIDCClient {
    */
   async verifyIdToken(idToken: string): Promise<OIDCUserInfo> {
     const discovery = await this.getDiscovery();
-    
+
     try {
       // Fetch JWKS if not cached
       if (this.jwks.size === 0) {
@@ -140,12 +144,12 @@ export class OIDCClient {
       }
 
       // Parse the token header to get the kid
-      const [headerB64] = idToken.split('.');
+      const [headerB64] = idToken.split(".");
       const header = JSON.parse(atob(headerB64));
       const kid = header.kid;
 
       if (!kid) {
-        throw new Error('No kid in token header');
+        throw new Error("No kid in token header");
       }
 
       const publicKey = this.jwks.get(kid);
@@ -165,7 +169,9 @@ export class OIDCClient {
 
       return payload as unknown as OIDCUserInfo;
     } catch (error) {
-      throw new Error(`ID token verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `ID token verification failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -174,7 +180,7 @@ export class OIDCClient {
    */
   async getUserInfo(accessToken: string): Promise<OIDCUserInfo> {
     const discovery = await this.getDiscovery();
-    
+
     try {
       const response = await fetch(discovery.userinfo_endpoint, {
         headers: {
@@ -188,7 +194,9 @@ export class OIDCClient {
 
       return (await response.json()) as OIDCUserInfo;
     } catch (error) {
-      throw new Error(`Userinfo request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Userinfo request failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -206,15 +214,17 @@ export class OIDCClient {
       this.jwks.clear();
 
       // Import all keys
-      const { importJWK } = await import('jose');
+      const { importJWK } = await import("jose");
       for (const key of jwks.keys) {
         if (key.kid) {
-          const cryptoKey = await importJWK(key, key.alg) as CryptoKey;
+          const cryptoKey = (await importJWK(key, key.alg)) as CryptoKey;
           this.jwks.set(key.kid, cryptoKey);
         }
       }
     } catch (error) {
-      throw new Error(`JWKS fetch failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `JWKS fetch failed: ${error instanceof Error ? error.message : "Unknown error"}`
+      );
     }
   }
 
@@ -224,11 +234,11 @@ export class OIDCClient {
   async completeFlow(code: string): Promise<OIDCUserInfo> {
     const tokens = await this.exchangeCode(code);
     const userInfo = await this.verifyIdToken(tokens.id_token);
-    
+
     // Optionally fetch additional userinfo if needed
     // const additionalInfo = await this.getUserInfo(tokens.access_token);
     // return { ...userInfo, ...additionalInfo };
-    
+
     return userInfo;
   }
 }

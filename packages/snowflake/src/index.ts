@@ -95,4 +95,3 @@ export function getSnowflake(config?: SnowflakeConfig): Snowflake {
 export function generateId(config?: SnowflakeConfig): string {
   return getSnowflake(config).generate();
 }
-

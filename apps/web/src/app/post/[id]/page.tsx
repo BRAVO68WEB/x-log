@@ -13,9 +13,7 @@ export default function PostPage(props: { params: Promise<{ id: string }> }) {
   return <PostClient {...props} />;
 }
 
-export async function generateMetadata(
-  { params }: { params: { id: string } }
-): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   try {
     const { id } = await params;
     const hdrs = await headers();

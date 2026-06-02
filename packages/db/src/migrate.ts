@@ -7,7 +7,7 @@ async function migrateToLatest() {
   // Get DATABASE_URL from env
   // Bun automatically loads .env files from project root
   const databaseUrl = process.env.DATABASE_URL;
-  
+
   if (!databaseUrl) {
     console.error("Error: DATABASE_URL environment variable is required");
     console.error("Please set DATABASE_URL in your .env file or environment");
@@ -61,7 +61,4 @@ async function migrateToLatest() {
 
 migrateToLatest();
 
-export {
-  migrateToLatest,
-}
-
+export { migrateToLatest };

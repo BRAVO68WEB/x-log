@@ -33,7 +33,7 @@ async function authenticateToken(c: Context, token: string) {
   const env = getEnv();
 
   try {
-    const payload = await verify(token, env.SESSION_SECRET, "HS256") as unknown as AuthPayload;
+    const payload = (await verify(token, env.SESSION_SECRET, "HS256")) as unknown as AuthPayload;
     const db = getDb();
 
     const user = await db

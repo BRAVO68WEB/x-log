@@ -3,12 +3,14 @@
 ## ✅ Completed
 
 ### Infrastructure
+
 - [x] Monorepo structure with Turborepo
 - [x] TypeScript configuration
 - [x] Docker Compose setup
 - [x] Package structure
 
 ### Packages
+
 - [x] `@xlog/config` - Environment configuration with Zod validation
 - [x] `@xlog/types` - Shared TypeScript types
 - [x] `@xlog/snowflake` - Snowflake ID generator
@@ -19,11 +21,13 @@
 - [x] `@xlog/ui` - Shared UI components (placeholder)
 
 ### Database
+
 - [x] Complete schema definition
 - [x] Initial migration (001_initial)
 - [x] Migration runner
 
 ### API (Hono)
+
 - [x] OpenAPI integration
 - [x] Session management and authentication
 - [x] Auth routes (login/logout) with JWT sessions
@@ -42,6 +46,7 @@
   - Inserts outgoing follow into DB for persistence
 
 ### Frontend (Next.js)
+
 - [x] Basic page structure
 - [x] TailwindCSS setup
 - [x] Homepage
@@ -54,6 +59,7 @@
 - [x] Feed redirect routes
 
 ### Worker
+
 - [x] Worker structure
 - [x] Redis integration
 - [x] Federation delivery with HTTP Signatures
@@ -62,12 +68,14 @@
 ## 🚧 In Progress / TODO
 
 ### Core Features
+
 - [ ] Complete TipTap editor integration with API
 - [ ] Media file serving optimization
 - [ ] CSRF protection middleware
 - [ ] Rate limiting middleware
 
 ### Frontend
+
 - [ ] Complete onboarding wizard UI
 - [ ] Post list with pagination
 - [x] Profile editing UI
@@ -77,20 +85,24 @@
 - [ ] Image upload in editor
 
 ### API
+
 - [ ] Complete session handling improvements
 - [ ] Error handling improvements
 - [ ] Input validation enhancements
 - [ ] Media file cleanup/management
 
 ### ActivityPub
+
 - [ ] Better error handling for deliveries
 
 ### Testing
+
 - [ ] Unit tests
 - [ ] Integration tests
 - [ ] E2E tests
 
 ### Documentation
+
 - [ ] API documentation
 - [ ] Federation guide
 - [ ] Deployment guide
@@ -115,6 +127,7 @@
 5. Start development: `bun run dev`
 
 ### ActivityPub & Federation
+
 - [x] Remote actor key fetching for signature verification (fetch actor, verify `publicKeyPem`)
 - [x] Accept activity generation and sending on inbound Follow
 - [x] Undo activity support (Follow, Like)

@@ -182,13 +182,11 @@ export async function followRemoteActor({
       accepted: false,
     })
     .onConflict((oc) =>
-      oc
-        .columns(["local_user_id", "remote_actor"])
-        .doUpdateSet({
-          activity_id: followActivity.id,
-          inbox_url: inboxUrl,
-          accepted: false,
-        })
+      oc.columns(["local_user_id", "remote_actor"]).doUpdateSet({
+        activity_id: followActivity.id,
+        inbox_url: inboxUrl,
+        accepted: false,
+      })
     )
     .execute();
 
@@ -209,9 +207,7 @@ export async function followRemoteActor({
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(
-      `Follow delivery failed: ${response.status} ${text.slice(0, 500)}`
-    );
+    throw new Error(`Follow delivery failed: ${response.status} ${text.slice(0, 500)}`);
   }
 
   return { actor: remoteActorUrl, inbox_url: inboxUrl, accepted: false };

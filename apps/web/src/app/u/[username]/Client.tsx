@@ -15,14 +15,7 @@ import {
 } from "@/components/ui/bento-grid";
 import { useQuery } from "react-query";
 import Image from "next/image";
-import {
-  FaGithub,
-  FaGlobe,
-  FaLinkedin,
-  FaReddit,
-  FaTwitter,
-  FaYoutube,
-} from "react-icons/fa";
+import { FaGithub, FaGlobe, FaLinkedin, FaReddit, FaTwitter, FaYoutube } from "react-icons/fa";
 
 function actorUrlToHandle(data: {
   remote_actor: string;
@@ -54,9 +47,7 @@ function actorUrlToHandle(data: {
   }
 }
 
-export default function UserProfileClient(
-  props: { params: Promise<{ username: string }> }
-) {
+export default function UserProfileClient(props: { params: Promise<{ username: string }> }) {
   const params = use(props.params);
   interface Profile {
     social_youtube: string | undefined;
@@ -103,9 +94,7 @@ export default function UserProfileClient(
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load profile" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load profile" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json() as Promise<Profile>;
@@ -128,14 +117,11 @@ export default function UserProfileClient(
   }>(
     ["followers", params.username],
     async () => {
-      const res = await fetch(
-        `/api/profiles/${params.username}/followers`,
-        { credentials: "include" }
-      );
+      const res = await fetch(`/api/profiles/${params.username}/followers`, {
+        credentials: "include",
+      });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load followers" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load followers" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -167,14 +153,11 @@ export default function UserProfileClient(
   }>(
     ["following", params.username],
     async () => {
-      const res = await fetch(
-        `/api/profiles/${params.username}/following`,
-        { credentials: "include" }
-      );
+      const res = await fetch(`/api/profiles/${params.username}/following`, {
+        credentials: "include",
+      });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load following" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load following" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -264,9 +247,7 @@ export default function UserProfileClient(
                   <Avatar className="h-[120px] w-[120px] border-4 border-card">
                     <AvatarImage
                       src={profile.avatar_url}
-                      alt={
-                        profile.full_name?.split(" ")[0] || params.username
-                      }
+                      alt={profile.full_name?.split(" ")[0] || params.username}
                     />
                     <AvatarFallback className="text-3xl">
                       {(profile.full_name || params.username)[0]?.toUpperCase()}
@@ -287,19 +268,11 @@ export default function UserProfileClient(
                   </p>
                 </div>
               </div>
-              {profile.bio && (
-                <p className="mt-4 leading-relaxed">{profile.bio}</p>
-              )}
+              {profile.bio && <p className="mt-4 leading-relaxed">{profile.bio}</p>}
               {profile.support_url && (
                 <div className="mt-4">
-                  <a
-                    href={profile.support_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <Button>
-                      {profile.support_text || "Support me !!"}
-                    </Button>
+                  <a href={profile.support_url} target="_blank" rel="noopener noreferrer">
+                    <Button>{profile.support_text || "Support me !!"}</Button>
                   </a>
                 </div>
               )}
@@ -315,12 +288,7 @@ export default function UserProfileClient(
               <BentoCardContent>
                 <div className="flex flex-wrap gap-2">
                   {socialLinks.map((link) => (
-                    <a
-                      key={link.label}
-                      href={link.url!}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <a key={link.label} href={link.url!} target="_blank" rel="noopener noreferrer">
                       <Badge
                         variant="outline"
                         className="cursor-pointer hover:bg-accent gap-1.5 py-1"
@@ -345,11 +313,7 @@ export default function UserProfileClient(
                 <p className="text-sm text-muted-foreground font-mono mb-3">
                   @{params.username}@{profile.instance_domain}
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyHandle}
-                >
+                <Button variant="outline" size="sm" onClick={handleCopyHandle}>
                   {copied ? (
                     "Copied!"
                   ) : (
@@ -449,9 +413,7 @@ export default function UserProfileClient(
                   <LoadingSpinner size="sm" />
                 </div>
               ) : following.length === 0 ? (
-                <p className="text-muted-foreground">
-                  Not following anyone yet
-                </p>
+                <p className="text-muted-foreground">Not following anyone yet</p>
               ) : (
                 <ul className="space-y-2">
                   {following.map((f) => (

@@ -130,12 +130,9 @@ feedRoutes.get(
         const activity = row.raw as any;
         const object = getActivityObject(activity);
         const objectId =
-          object?.id ||
-          (typeof activity.object === "string" ? activity.object : row.object_id);
+          object?.id || (typeof activity.object === "string" ? activity.object : row.object_id);
         const title =
-          typeof object?.name === "string" && object.name.trim()
-            ? object.name.trim()
-            : null;
+          typeof object?.name === "string" && object.name.trim() ? object.name.trim() : null;
         const summary =
           typeof object?.summary === "string" && object.summary.trim()
             ? stripHtml(object.summary)

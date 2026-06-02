@@ -33,9 +33,7 @@ interface Post {
   };
 }
 
-export default function PostClient(props: {
-  params: Promise<{ id: string }>;
-}) {
+export default function PostClient(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
@@ -48,9 +46,7 @@ export default function PostClient(props: {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load post" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load post" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json() as Promise<Post>;
@@ -132,7 +128,9 @@ export default function PostClient(props: {
       <div className="max-w-6xl mx-auto flex gap-8">
         <Card className="flex-1 min-w-0">
           <CardContent className="p-8">
-            <h1 className="text-4xl font-normal tracking-[-0.03em] mb-4 font-heading">{post.title}</h1>
+            <h1 className="text-4xl font-normal tracking-[-0.03em] mb-4 font-heading">
+              {post.title}
+            </h1>
             <div className="flex items-center gap-3 text-muted-foreground mb-4 pb-4">
               <span>By</span>
               <Link
@@ -143,10 +141,7 @@ export default function PostClient(props: {
                   {post.author.avatar_url ? (
                     <AvatarImage
                       src={post.author.avatar_url}
-                      alt={
-                        post.author.full_name?.split(" ")[0] ||
-                        post.author.username
-                      }
+                      alt={post.author.full_name?.split(" ")[0] || post.author.username}
                     />
                   ) : (
                     <AvatarFallback>
@@ -154,15 +149,11 @@ export default function PostClient(props: {
                     </AvatarFallback>
                   )}
                 </Avatar>
-                <span>
-                  {post.author.full_name?.split(" ")[0] || post.author.username}
-                </span>
+                <span>{post.author.full_name?.split(" ")[0] || post.author.username}</span>
               </Link>
               <span>·</span>
               <span>
-                {post.published_at
-                  ? new Date(post.published_at).toLocaleDateString()
-                  : "Draft"}
+                {post.published_at ? new Date(post.published_at).toLocaleDateString() : "Draft"}
               </span>
               <div className="ml-auto flex items-center gap-3">
                 <button
@@ -177,11 +168,7 @@ export default function PostClient(props: {
                   ].join(" ")}
                   aria-label={post.liked_by_me ? "Unlike post" : "Like post"}
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
                   </svg>
                   <span>{post.like_count}</span>
@@ -220,10 +207,7 @@ export default function PostClient(props: {
                 <Separator className="my-8" />
                 <div className="flex flex-wrap gap-2">
                   {post.hashtags.map((tag) => (
-                    <Link
-                      key={tag}
-                      href={`/search?hashtag=${encodeURIComponent(tag)}&type=post`}
-                    >
+                    <Link key={tag} href={`/search?hashtag=${encodeURIComponent(tag)}&type=post`}>
                       <Badge variant="secondary" className="cursor-pointer">
                         #{tag}
                       </Badge>

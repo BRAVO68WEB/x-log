@@ -230,7 +230,13 @@ export function PostEditorScreen({ postId }: { postId?: string }) {
           />
         </View>
 
-        <Field label="Title" value={title} onChangeText={setTitle} placeholder="Untitled" colors={colors} />
+        <Field
+          label="Title"
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Untitled"
+          colors={colors}
+        />
         <Field
           label="Summary"
           value={summary}
@@ -269,7 +275,9 @@ export function PostEditorScreen({ postId }: { postId?: string }) {
               onPress={() => setBannerUrl("")}
               style={[styles.secondaryButton, { backgroundColor: colors.surfaceMuted }]}
             >
-              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Remove Banner</Text>
+              <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
+                Remove Banner
+              </Text>
             </Pressable>
           ) : null}
         </View>
@@ -346,7 +354,13 @@ export function PostEditorScreen({ postId }: { postId?: string }) {
             colors={colors}
           />
           <ActionButton
-            label={submitMutation.isPending ? "Publishing..." : postQuery.data?.published_at ? "Update" : "Publish"}
+            label={
+              submitMutation.isPending
+                ? "Publishing..."
+                : postQuery.data?.published_at
+                  ? "Update"
+                  : "Publish"
+            }
             onPress={() => submitMutation.mutate({ publish: true })}
             disabled={submitMutation.isPending}
             variant="primary"

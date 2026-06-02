@@ -39,9 +39,7 @@ export default function OIDCLinkClient() {
             body: JSON.stringify({ state }), // No email/password needed when logged in
           });
           if (!res.ok) {
-            const err = await res
-              .json()
-              .catch(() => ({ error: "Account linking failed" }));
+            const err = await res.json().catch(() => ({ error: "Account linking failed" }));
             throw new Error(err.error || `HTTP ${res.status}`);
           }
           await refetch();
@@ -64,9 +62,7 @@ export default function OIDCLinkClient() {
         body: JSON.stringify({ email, password, state }),
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Account linking failed" }));
+        const err = await res.json().catch(() => ({ error: "Account linking failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -76,8 +72,7 @@ export default function OIDCLinkClient() {
         await refetch();
         router.replace("/?linked=success");
       },
-      onError: (err) =>
-        setError(err instanceof Error ? err.message : "Account linking failed"),
+      onError: (err) => setError(err instanceof Error ? err.message : "Account linking failed"),
       onSettled: () => setLoading(false),
     }
   );
@@ -111,7 +106,8 @@ export default function OIDCLinkClient() {
                 <span className="font-medium">OIDC Account Email:</span> {oidcEmail}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                This is the email from your OIDC provider. Enter your xLog account credentials below.
+                This is the email from your OIDC provider. Enter your xLog account credentials
+                below.
               </p>
             </div>
           )}
@@ -147,9 +143,9 @@ export default function OIDCLinkClient() {
           )}
 
           <div className="space-y-3">
-            <Button 
-              type="submit" 
-              disabled={loading || (!isLoggedIn && (!email || !password))} 
+            <Button
+              type="submit"
+              disabled={loading || (!isLoggedIn && (!email || !password))}
               className="w-full"
             >
               {loading ? (
@@ -163,8 +159,8 @@ export default function OIDCLinkClient() {
                 "Link Account"
               )}
             </Button>
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={() => router.push("/login")}
               variant="secondary"
               className="w-full"

@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const BACKEND_API_URL = process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const BACKEND_API_URL =
+  process.env.BACKEND_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 /**
  * MCP Server Proxy Route
  * Proxies MCP (Model Context Protocol) requests to the backend API server
- * 
+ *
  * The MCP server uses JSON-RPC 2.0 protocol and requires authentication via API key.
- * 
+ *
  * Usage:
  * POST /api/mcp
  * Headers:
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
   let body: string;
   try {
     body = await request.text();
-    
+
     // Validate JSON format
     if (body) {
       try {
@@ -76,11 +77,7 @@ export async function POST(request: NextRequest) {
   request.headers.forEach((value, key) => {
     const lowerKey = key.toLowerCase();
     // Forward important headers
-    if (
-      lowerKey === "authorization" ||
-      lowerKey === "content-type" ||
-      lowerKey === "user-agent"
-    ) {
+    if (lowerKey === "authorization" || lowerKey === "content-type" || lowerKey === "user-agent") {
       headers.set(key, value);
     }
   });
@@ -99,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Get response body
     const responseBody = await response.text();
-    
+
     // Log for debugging (remove in production)
     if (process.env.NODE_ENV === "development" && response.status !== 200) {
       console.log("[MCP Proxy] Backend response:", {
@@ -107,7 +104,7 @@ export async function POST(request: NextRequest) {
         body: responseBody.substring(0, 200),
       });
     }
-    
+
     // Create response with same status
     const nextResponse = new NextResponse(responseBody, {
       status: response.status,
@@ -120,9 +117,7 @@ export async function POST(request: NextRequest) {
     // Forward response headers
     response.headers.forEach((value, key) => {
       const lowerKey = key.toLowerCase();
-      if (
-        !["content-encoding", "content-length", "transfer-encoding"].includes(lowerKey)
-      ) {
+      if (!["content-encoding", "content-length", "transfer-encoding"].includes(lowerKey)) {
         nextResponse.headers.set(key, value);
       }
     });

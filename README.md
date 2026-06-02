@@ -30,11 +30,13 @@ x-log is an open-source, Bun + TypeScript powered blog platform that federates w
 ### Development
 
 1. Install dependencies:
+
 ```bash
 bun install
 ```
 
 2. Set up environment variables:
+
 ```bash
 # For local development (outside Docker)
 cp .env.example .env
@@ -46,6 +48,7 @@ cp infra/compose/.env.example infra/compose/.env
 ```
 
 3. Set up environment file:
+
 ```bash
 make setup
 # Or manually:
@@ -56,6 +59,7 @@ cp infra/compose/.env.example infra/compose/.env
 4. Start services with Docker Compose:
 
 For development with hot-reload/watch mode (recommended):
+
 ```bash
 make dev
 # Or with Docker Compose watch (requires Docker Compose v2.22+):
@@ -63,11 +67,13 @@ make dev-watch
 ```
 
 For production-like setup:
+
 ```bash
 make up
 ```
 
 5. Run migrations:
+
 ```bash
 make migrate
 # Or manually:
@@ -102,6 +108,7 @@ Environment variables:
 ### Services
 
 When running `make dev`, the following services will be available:
+
 - API server on http://localhost:8080 (internal, not exposed in production)
 - Web server on http://localhost:3000 (public-facing)
 - Worker service (background jobs)
@@ -113,16 +120,19 @@ When running `make dev`, the following services will be available:
 All API requests are proxied through Next.js SSR routes. In production, only the Next.js server is exposed to the internet, and it internally communicates with the backend API server.
 
 **Environment Variables:**
+
 - `BACKEND_API_URL` - Internal URL to the backend API server (defaults to `NEXT_PUBLIC_API_URL` or `http://localhost:8080`)
 - `NEXT_PUBLIC_API_URL` - Fallback for backend API URL (used in development)
 
 **API Flow:**
+
 1. Frontend makes requests to `/api/*` (Next.js routes)
 2. Next.js API routes proxy requests to the backend API server
 3. Backend API server processes requests and returns responses
 4. Next.js forwards responses back to the frontend
 
 This architecture ensures:
+
 - Backend API is not directly exposed to the internet
 - Session cookies are properly forwarded
 - CORS issues are avoided

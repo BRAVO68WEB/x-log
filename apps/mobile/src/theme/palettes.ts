@@ -371,19 +371,14 @@ export const instanceThemes: InstanceThemeOption[] = [
 const themeIds = new Set(instanceThemes.map((theme) => theme.id));
 
 export function normalizeThemeId(value: unknown): InstanceThemeId {
-  return themeIds.has(value as InstanceThemeId)
-    ? (value as InstanceThemeId)
-    : "system";
+  return themeIds.has(value as InstanceThemeId) ? (value as InstanceThemeId) : "system";
 }
 
 export function getThemeOption(id: InstanceThemeId) {
   return instanceThemes.find((theme) => theme.id === id) ?? instanceThemes[0];
 }
 
-export function getThemeTokens(
-  id: InstanceThemeId,
-  systemTheme: "light" | "dark"
-) {
+export function getThemeTokens(id: InstanceThemeId, systemTheme: "light" | "dark") {
   if (id === "system") {
     return systemTheme === "dark" ? darkTheme : lightTheme;
   }

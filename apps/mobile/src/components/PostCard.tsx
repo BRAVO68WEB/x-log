@@ -37,7 +37,9 @@ export function PostCard({
         <Text style={[styles.title, { color: colors.text }]}>{post.title || "Untitled"}</Text>
         <Text style={[styles.meta, { color: colors.textMuted }]}>
           {post.author.full_name || post.author.username}
-          {post.published_at ? ` · ${new Date(post.published_at).toLocaleDateString()}` : " · Draft"}
+          {post.published_at
+            ? ` · ${new Date(post.published_at).toLocaleDateString()}`
+            : " · Draft"}
         </Text>
         <Text style={[styles.excerpt, { color: colors.text }]}>
           {makeExcerpt(post.content_markdown) || "No preview available."}

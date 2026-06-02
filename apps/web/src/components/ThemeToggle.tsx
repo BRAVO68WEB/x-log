@@ -18,11 +18,7 @@ export function ThemeToggle() {
     >
       <span className="flex overflow-hidden rounded-full border border-border">
         {theme.swatches.slice(0, 4).map((color) => (
-          <span
-            key={color}
-            className="h-4 w-4"
-            style={{ backgroundColor: color }}
-          />
+          <span key={color} className="h-4 w-4" style={{ backgroundColor: color }} />
         ))}
       </span>
     </Button>

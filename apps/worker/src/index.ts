@@ -130,19 +130,9 @@ async function deliverActivity(delivery: DeliveryJob) {
 
       let activity;
       if (delivery.activityType === "Update") {
-        activity = createUpdateActivity(
-          delivery.activityId,
-          actorId,
-          article,
-          post.published_at
-        );
+        activity = createUpdateActivity(delivery.activityId, actorId, article, post.published_at);
       } else {
-        activity = createCreateActivity(
-          delivery.activityId,
-          actorId,
-          article,
-          post.published_at
-        );
+        activity = createCreateActivity(delivery.activityId, actorId, article, post.published_at);
       }
 
       await db
@@ -247,10 +237,7 @@ async function cleanupReplayCache() {
   while (true) {
     try {
       const cutoff = new Date(Date.now() - 30 * 60 * 1000); // 30 min
-      await db
-        .deleteFrom("replay_cache")
-        .where("created_at", "<", cutoff)
-        .execute();
+      await db.deleteFrom("replay_cache").where("created_at", "<", cutoff).execute();
     } catch (err) {
       console.error("Replay cache cleanup error:", err);
     }

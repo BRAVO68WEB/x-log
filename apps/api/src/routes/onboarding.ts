@@ -1,9 +1,6 @@
 import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
-import {
-  OnboardingStateSchema,
-  OnboardingCompleteSchema,
-} from "@xlog/validation";
+import { OnboardingStateSchema, OnboardingCompleteSchema } from "@xlog/validation";
 import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
 import bcrypt from "bcryptjs";

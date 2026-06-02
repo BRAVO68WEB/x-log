@@ -148,14 +148,8 @@ mastodonRoutes.get("/instance/peers", async (c) => {
   const localDomain = settings.instance_domain.trim().toLowerCase();
 
   const [followers, following] = await Promise.all([
-    db
-      .selectFrom("followers")
-      .select(["remote_domain", "remote_actor"])
-      .execute(),
-    db
-      .selectFrom("following")
-      .select("remote_actor")
-      .execute(),
+    db.selectFrom("followers").select(["remote_domain", "remote_actor"]).execute(),
+    db.selectFrom("following").select("remote_actor").execute(),
   ]);
 
   const peers = new Set<string>();

@@ -23,18 +23,15 @@ export default function AssetsClient() {
 
   const { data, isLoading } = useQuery("media-list", () => mediaApi.list());
 
-  const deleteMutation = useMutation(
-    (filename: string) => mediaApi.delete(filename),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries("media-list");
-        toast.success("File deleted");
-      },
-      onError: (err) => {
-        toast.error(err instanceof Error ? err.message : "Delete failed");
-      },
-    }
-  );
+  const deleteMutation = useMutation((filename: string) => mediaApi.delete(filename), {
+    onSuccess: () => {
+      queryClient.invalidateQueries("media-list");
+      toast.success("File deleted");
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    },
+  });
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,13 +120,15 @@ export default function AssetsClient() {
                   </p>
                   <div className="flex items-center gap-2 mb-1">
                     {item.asset_type === "banner" ? (
-                      <Badge variant="secondary" className="text-xs">Banner</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        Banner
+                      </Badge>
                     ) : item.asset_type === "post_attachment" ? (
-                      <Badge variant="outline" className="text-xs">Attachment</Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Attachment
+                      </Badge>
                     ) : null}
-                    <span className="text-xs text-muted-foreground">
-                      {formatBytes(item.size)}
-                    </span>
+                    <span className="text-xs text-muted-foreground">{formatBytes(item.size)}</span>
                   </div>
                   <div className="mb-3">
                     {item.post_id && item.post_title ? (

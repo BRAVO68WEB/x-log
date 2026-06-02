@@ -34,8 +34,7 @@ const SwapEnterKeys = Extension.create({
   addKeyboardShortcuts() {
     return {
       Enter: ({ editor }) => editor.commands.setHardBreak(),
-      "Mod-Enter": ({ editor }) =>
-        editor.commands.splitBlock(),
+      "Mod-Enter": ({ editor }) => editor.commands.splitBlock(),
     };
   },
 });
@@ -63,9 +62,7 @@ turndownService.addRule("tableRow", {
     const row = `|${content}\n`;
     // Detect header row: direct <th> children (works for both <thead> and TipTap style)
     const cells = Array.from(node.childNodes);
-    const isHeaderRow = cells.some(
-      (child) => (child as Element).tagName === "TH"
-    );
+    const isHeaderRow = cells.some((child) => (child as Element).tagName === "TH");
     if (isHeaderRow) {
       const cols = (content.match(/\|/g) || []).length;
       const separator = "|" + " --- |".repeat(cols);
@@ -95,11 +92,7 @@ interface EditorProps {
   initialSummary?: string;
   initialHashtags?: string[];
   initialBannerUrl?: string;
-  onSave?: (
-    content: JSONContent | string,
-    markdown: string,
-    bannerUrl?: string
-  ) => void;
+  onSave?: (content: JSONContent | string, markdown: string, bannerUrl?: string) => void;
   onPublish?: (
     content: JSONContent | string,
     markdown: string,
@@ -144,9 +137,7 @@ export function Editor({
       body: fd,
     });
     if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Upload failed" }));
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return (await res.json()) as { url: string };
@@ -162,17 +153,13 @@ export function Editor({
       body: fd,
     });
     if (!res.ok) {
-      const err = await res
-        .json()
-        .catch(() => ({ error: "Upload failed" }));
+      const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
     }
     return (await res.json()) as { url: string };
   });
 
-  const handleBannerUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
@@ -224,8 +211,7 @@ export function Editor({
     content: initialContent || "",
     editorProps: {
       attributes: {
-        class:
-          "prose prose-lg max-w-none focus:outline-none min-h-[600px] p-6",
+        class: "prose prose-lg max-w-none focus:outline-none min-h-[600px] p-6",
       },
       handlePaste: (view, event) => {
         const clipboardData = event.clipboardData;
@@ -235,9 +221,7 @@ export function Editor({
         if (!currentEditor) return false;
 
         const items = Array.from(clipboardData.items);
-        const imageItem = items.find((item) =>
-          item.type.startsWith("image/")
-        );
+        const imageItem = items.find((item) => item.type.startsWith("image/"));
 
         if (imageItem) {
           event.preventDefault();
@@ -246,20 +230,12 @@ export function Editor({
             setImageUploading(true);
             uploadImageMutation.mutate(file, {
               onSuccess: (res) => {
-                currentEditor
-                  .chain()
-                  .focus()
-                  .setImage({ src: res.url })
-                  .run();
+                currentEditor.chain().focus().setImage({ src: res.url }).run();
                 toast.success("Image uploaded");
                 setImageUploading(false);
               },
               onError: (err) => {
-                toast.error(
-                  err instanceof Error
-                    ? err.message
-                    : "Image upload failed"
-                );
+                toast.error(err instanceof Error ? err.message : "Image upload failed");
                 setImageUploading(false);
               },
             });
@@ -269,8 +245,7 @@ export function Editor({
 
         const html = clipboardData.getData("text/html");
         if (html) {
-          const base64ImageRegex =
-            /<img[^>]+src=["'](data:image\/[^"']+)["'][^>]*>/gi;
+          const base64ImageRegex = /<img[^>]+src=["'](data:image\/[^"']+)["'][^>]*>/gi;
           const matches = Array.from(html.matchAll(base64ImageRegex));
 
           if (matches.length > 0) {
@@ -286,35 +261,21 @@ export function Editor({
                   try {
                     const response = await fetch(base64Data);
                     const blob = await response.blob();
-                    const file = new File(
-                      [blob],
-                      `pasted-image-${Date.now()}.png`,
-                      { type: blob.type }
-                    );
+                    const file = new File([blob], `pasted-image-${Date.now()}.png`, {
+                      type: blob.type,
+                    });
 
-                    const uploadRes =
-                      await uploadImageMutation.mutateAsync(file);
-                    processedHtml = processedHtml.replace(
-                      base64Data,
-                      uploadRes.url
-                    );
+                    const uploadRes = await uploadImageMutation.mutateAsync(file);
+                    processedHtml = processedHtml.replace(base64Data, uploadRes.url);
                   } catch (err) {
                     console.error("Failed to upload pasted image:", err);
                   }
                 }
 
-                currentEditor
-                  .chain()
-                  .focus()
-                  .insertContent(processedHtml)
-                  .run();
+                currentEditor.chain().focus().insertContent(processedHtml).run();
                 toast.success("Images uploaded");
               } catch (err) {
-                toast.error(
-                  err instanceof Error
-                    ? err.message
-                    : "Failed to process images"
-                );
+                toast.error(err instanceof Error ? err.message : "Failed to process images");
               } finally {
                 setImageUploading(false);
               }
@@ -348,17 +309,13 @@ export function Editor({
             const matchText = match[0];
 
             if (matchIndex > lastIndex) {
-              const textBefore = text
-                .slice(lastIndex, matchIndex)
-                .trim();
+              const textBefore = text.slice(lastIndex, matchIndex).trim();
               if (textBefore) {
                 parts.push({ type: "text", content: textBefore });
               }
             }
 
-            const codeBlockMatch = matchText.match(
-              /```(\w+)?\n?([\s\S]*?)```/
-            );
+            const codeBlockMatch = matchText.match(/```(\w+)?\n?([\s\S]*?)```/);
             if (codeBlockMatch) {
               const language = codeBlockMatch[1] || "";
               const codeContent = codeBlockMatch[2].trim();
@@ -385,12 +342,8 @@ export function Editor({
             if (part.type === "code") {
               chain = chain.insertContent({
                 type: "codeBlock",
-                attrs: part.language
-                  ? { language: part.language }
-                  : {},
-                content: part.content
-                  ? [{ type: "text", text: part.content }]
-                  : [],
+                attrs: part.language ? { language: part.language } : {},
+                content: part.content ? [{ type: "text", text: part.content }] : [],
               });
 
               if (index < parts.length - 1) {
@@ -402,9 +355,7 @@ export function Editor({
                 chain = chain.insertContent(htmlContent);
               } catch (error) {
                 console.error("Markdown parsing error:", error);
-                const paragraphs = part.content
-                  .split(/\n\n+/)
-                  .filter((p) => p.trim());
+                const paragraphs = part.content.split(/\n\n+/).filter((p) => p.trim());
                 paragraphs.forEach((para, paraIndex) => {
                   if (paraIndex > 0) {
                     chain = chain.insertContent({
@@ -432,9 +383,7 @@ export function Editor({
           /!\[.*?\]\(.*?\)/,
         ];
 
-        const hasMarkdownSyntax = markdownPatterns.some((pattern) =>
-          pattern.test(text)
-        );
+        const hasMarkdownSyntax = markdownPatterns.some((pattern) => pattern.test(text));
 
         if (hasMarkdownSyntax) {
           event.preventDefault();
@@ -444,11 +393,7 @@ export function Editor({
 
           try {
             const htmlContent = renderMarkdownSync(text);
-            currentEditor
-              .chain()
-              .focus()
-              .insertContent(htmlContent)
-              .run();
+            currentEditor.chain().focus().insertContent(htmlContent).run();
             return true;
           } catch (error) {
             console.error("Markdown parsing error:", error);
@@ -459,8 +404,8 @@ export function Editor({
         return false;
       },
       handleDrop: (view, event) => {
-        const files = Array.from(event.dataTransfer?.files || []).filter(
-          (file) => file.type.startsWith("image/")
+        const files = Array.from(event.dataTransfer?.files || []).filter((file) =>
+          file.type.startsWith("image/")
         );
         if (files.length === 0) return false;
 
@@ -483,17 +428,11 @@ export function Editor({
           try {
             for (const file of files) {
               const res = await uploadImageMutation.mutateAsync(file);
-              currentEditor
-                .chain()
-                .focus()
-                .setImage({ src: res.url })
-                .run();
+              currentEditor.chain().focus().setImage({ src: res.url }).run();
             }
             toast.success(files.length === 1 ? "Image uploaded" : "Images uploaded");
           } catch (err) {
-            toast.error(
-              err instanceof Error ? err.message : "Image upload failed"
-            );
+            toast.error(err instanceof Error ? err.message : "Image upload failed");
           } finally {
             setImageUploading(false);
           }
@@ -534,10 +473,7 @@ export function Editor({
   };
 
   const addHashtag = (tag?: string) => {
-    const tagToAdd = (tag || hashtagInput)
-      .trim()
-      .toLowerCase()
-      .replace(/^#/, "");
+    const tagToAdd = (tag || hashtagInput).trim().toLowerCase().replace(/^#/, "");
     if (tagToAdd && tagToAdd.length > 0 && !hashtags.includes(tagToAdd)) {
       setHashtags([...hashtags, tagToAdd]);
       setHashtagInput("");
@@ -548,9 +484,7 @@ export function Editor({
     setHashtags(hashtags.filter((t) => t !== tag));
   };
 
-  const handleHashtagInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleHashtagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setHashtagInput(value);
 
@@ -567,9 +501,7 @@ export function Editor({
     }
   };
 
-  const handleHashtagKeyPress = (
-    e: React.KeyboardEvent<HTMLInputElement>
-  ) => {
+  const handleHashtagKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       addHashtag();
@@ -625,11 +557,7 @@ export function Editor({
           <div className="flex items-center gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {hashtags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="secondary"
-                  className="gap-1 pl-2.5"
-                >
+                <Badge key={tag} variant="secondary" className="gap-1 pl-2.5">
                   <span className="text-primary">#</span>
                   {tag}
                   <button
@@ -670,10 +598,7 @@ export function Editor({
               />
               <label
                 htmlFor="banner-upload"
-                className={cn(
-                  buttonVariants({ variant: "outline", size: "sm" }),
-                  "cursor-pointer"
-                )}
+                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer")}
               >
                 Upload Banner
               </label>
@@ -685,9 +610,7 @@ export function Editor({
                 className="sr-only"
               />
               {bannerUploading && (
-                <span className="text-sm text-muted-foreground">
-                  Uploading...
-                </span>
+                <span className="text-sm text-muted-foreground">Uploading...</span>
               )}
               {(bannerImage || bannerUrl) && (
                 <Button
@@ -696,10 +619,7 @@ export function Editor({
                   size="sm"
                   className="text-destructive"
                   onClick={() => {
-                    if (
-                      bannerImage &&
-                      bannerImage.startsWith("blob:")
-                    ) {
+                    if (bannerImage && bannerImage.startsWith("blob:")) {
                       URL.revokeObjectURL(bannerImage);
                     }
                     setBannerImage("");
@@ -738,8 +658,18 @@ export function Editor({
               title="Bold"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 4h8a4 4 0 014 4 4 4 0 01-4 4H6z"
+                />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 12h9a4 4 0 014 4 4 4 0 01-4 4H6z"
+                />
               </svg>
             </ToolbarButton>
             <ToolbarButton
@@ -748,7 +678,12 @@ export function Editor({
               title="Italic"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 4h4m-2 0l-4 16m-2 0h4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 4h4m-2 0l-4 16m-2 0h4"
+                />
               </svg>
             </ToolbarButton>
             <Separator orientation="vertical" className="mx-1 h-6" />
@@ -780,7 +715,12 @@ export function Editor({
               title="Bullet List"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h13M8 12h13m-13 6h13M3 6h.01M3 12h.01M3 18h.01" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 6h13M8 12h13m-13 6h13M3 6h.01M3 12h.01M3 18h.01"
+                />
               </svg>
             </ToolbarButton>
             <ToolbarButton
@@ -789,7 +729,12 @@ export function Editor({
               title="Numbered List"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"
+                />
               </svg>
             </ToolbarButton>
             <Separator orientation="vertical" className="mx-1 h-6" />
@@ -799,7 +744,12 @@ export function Editor({
               title="Code Block"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                />
               </svg>
             </ToolbarButton>
             <ToolbarButton
@@ -812,7 +762,12 @@ export function Editor({
               title="Insert Image"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </ToolbarButton>
             <ToolbarButton
@@ -825,7 +780,12 @@ export function Editor({
               title="Insert Link"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                />
               </svg>
             </ToolbarButton>
           </div>
@@ -835,9 +795,7 @@ export function Editor({
             {imageUploading && (
               <div className="absolute top-4 right-4 bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg flex items-center gap-2 z-10">
                 <LoadingSpinner size="sm" />
-                <span className="text-sm font-medium">
-                  Uploading image...
-                </span>
+                <span className="text-sm font-medium">Uploading image...</span>
               </div>
             )}
           </div>
@@ -848,17 +806,10 @@ export function Editor({
             {editor.state.doc.textContent.length} characters
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={handleSave}
-              disabled={saving}
-            >
+            <Button variant="outline" onClick={handleSave} disabled={saving}>
               {saving ? "Saving..." : "Save Draft"}
             </Button>
-            <Button
-              onClick={handlePublish}
-              disabled={saving || !title.trim()}
-            >
+            <Button onClick={handlePublish} disabled={saving || !title.trim()}>
               {saving ? "Saving..." : publishLabel}
             </Button>
           </div>

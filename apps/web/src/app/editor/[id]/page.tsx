@@ -2,9 +2,7 @@ import { AuthGuard } from "@/components/AuthGuard";
 import type { Metadata } from "next";
 import EditPostClient from "./Client";
 
-export default function EditPostPage(props: {
-  params: Promise<{ id: string }>;
-}) {
+export default function EditPostPage(props: { params: Promise<{ id: string }> }) {
   return (
     <AuthGuard>
       <EditPostClient params={props.params} />

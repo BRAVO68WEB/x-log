@@ -1,16 +1,10 @@
 import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
-import {
-  ProfileResponseSchema,
-  ProfileUpdateSchema,
-} from "@xlog/validation";
+import { ProfileResponseSchema, ProfileUpdateSchema } from "@xlog/validation";
 import { getDb, getInstanceSettings } from "@xlog/db";
 import { getActorUrlSync } from "@xlog/ap";
-import {
-  sessionMiddleware,
-  requireAuth,
-} from "../middleware/session";
+import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { followRemoteActor } from "../lib/activitypub";
 
 export const profilesRoutes = new Hono().use("*", sessionMiddleware);
@@ -34,9 +28,12 @@ profilesRoutes.get(
       },
     },
   }),
-  validator("param", z.object({
-    username: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      username: z.string(),
+    })
+  ),
   async (c) => {
     const { username } = c.req.valid("param");
     const db = getDb();
@@ -127,7 +124,14 @@ profilesRoutes.get(
 
     const rows = await db
       .selectFrom("followers")
-      .select(["remote_actor", "remote_username", "remote_domain", "inbox_url", "approved", "created_at"])
+      .select([
+        "remote_actor",
+        "remote_username",
+        "remote_domain",
+        "inbox_url",
+        "approved",
+        "created_at",
+      ])
       .where("local_user_id", "=", user.id)
       .orderBy("created_at", "desc")
       .limit(200)
@@ -164,14 +168,14 @@ profilesRoutes.get(
             schema: resolver(
               z.object({
                 items: z.array(
-                z.object({
-                  remote_actor: z.string(),
-                  remote_username: z.string().nullable(),
-                  remote_domain: z.string().nullable(),
-                  handle: z.string(),
-                  inbox_url: z.string(),
-                  activity_id: z.string(),
-                  accepted: z.boolean(),
+                  z.object({
+                    remote_actor: z.string(),
+                    remote_username: z.string().nullable(),
+                    remote_domain: z.string().nullable(),
+                    handle: z.string(),
+                    inbox_url: z.string(),
+                    activity_id: z.string(),
+                    accepted: z.boolean(),
                     created_at: z.string(),
                   })
                 ),
@@ -245,9 +249,7 @@ profilesRoutes.post(
         description: "Follow request sent",
         content: {
           "application/json": {
-            schema: resolver(
-              z.object({ success: z.boolean(), actor: z.string() })
-            ),
+            schema: resolver(z.object({ success: z.boolean(), actor: z.string() })),
           },
         },
       },
@@ -324,9 +326,12 @@ profilesRoutes.patch(
       },
     },
   }),
-  validator("param", z.object({
-    username: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      username: z.string(),
+    })
+  ),
   validator("json", ProfileUpdateSchema),
   requireAuth,
   async (c) => {
@@ -350,11 +355,7 @@ profilesRoutes.patch(
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    await db
-      .updateTable("user_profiles")
-      .set(data)
-      .where("user_id", "=", user.id)
-      .execute();
+    await db.updateTable("user_profiles").set(data).where("user_id", "=", user.id).execute();
 
     const updated = await db
       .selectFrom("users")

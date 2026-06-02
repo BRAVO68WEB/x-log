@@ -20,22 +20,15 @@ export function ProtectedGate({
     <Screen>
       <View style={styles.container}>
         <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
         >
           <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-          <Text style={[styles.description, { color: colors.textMuted }]}>
-            {description}
-          </Text>
+          <Text style={[styles.description, { color: colors.textMuted }]}>{description}</Text>
           <Pressable
             style={[styles.primaryButton, { backgroundColor: colors.accent }]}
             onPress={() => router.push(loginTarget)}
           >
-            <Text
-              style={[styles.primaryButtonText, { color: colors.accentContrast }]}
-            >
+            <Text style={[styles.primaryButtonText, { color: colors.accentContrast }]}>
               Login to continue
             </Text>
           </Pressable>
@@ -43,9 +36,7 @@ export function ProtectedGate({
             style={[styles.secondaryButton, { backgroundColor: colors.surfaceMuted }]}
             onPress={() => router.replace(backTarget)}
           >
-            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>
-              Back to feed
-            </Text>
+            <Text style={[styles.secondaryButtonText, { color: colors.text }]}>Back to feed</Text>
           </Pressable>
         </View>
       </View>

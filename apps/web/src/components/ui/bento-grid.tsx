@@ -18,12 +18,7 @@ const colClasses: Record<2 | 3 | 4, string> = {
   4: "md:grid-cols-4",
 };
 
-function BentoGrid({
-  columns = 3,
-  className,
-  children,
-  ...props
-}: BentoGridProps) {
+function BentoGrid({ columns = 3, className, children, ...props }: BentoGridProps) {
   return (
     <div
       className={cn(
@@ -96,10 +91,7 @@ function BentoCard({
       {...props}
     >
       {accent && (
-        <svg
-          className="absolute top-0 right-0 w-12 h-12 pointer-events-none"
-          aria-hidden="true"
-        >
+        <svg className="absolute top-0 right-0 w-12 h-12 pointer-events-none" aria-hidden="true">
           <polyline
             points="48,0 48,12 36,12"
             fill="none"
@@ -119,22 +111,11 @@ function BentoCard({
 /*  BentoCardHeader / BentoCardContent                                 */
 /* ------------------------------------------------------------------ */
 
-function BentoCardHeader({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("flex flex-col space-y-1.5 p-6 pb-2", className)}
-      {...props}
-    />
-  );
+function BentoCardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("flex flex-col space-y-1.5 p-6 pb-2", className)} {...props} />;
 }
 
-function BentoCardContent({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
+function BentoCardContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("p-6 pt-0", className)} {...props} />;
 }
 

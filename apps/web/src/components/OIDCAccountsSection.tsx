@@ -28,20 +28,14 @@ export function OIDCAccountsSection() {
         if (res.status === 401) {
           return [];
         }
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to load OIDC accounts" }));
+        const err = await res.json().catch(() => ({ error: "Failed to load OIDC accounts" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
     },
     {
       onError: (err) => {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load OIDC accounts"
-        );
+        setError(err instanceof Error ? err.message : "Failed to load OIDC accounts");
       },
     }
   );
@@ -53,9 +47,7 @@ export function OIDCAccountsSection() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to unlink account" }));
+        const err = await res.json().catch(() => ({ error: "Failed to unlink account" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -65,11 +57,7 @@ export function OIDCAccountsSection() {
         queryClient.invalidateQueries(["oidc-accounts"]);
       },
       onError: (err) => {
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to unlink account"
-        );
+        setError(err instanceof Error ? err.message : "Failed to unlink account");
       },
     }
   );
@@ -87,19 +75,13 @@ export function OIDCAccountsSection() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to initiate OIDC login" }));
+        const err = await res.json().catch(() => ({ error: "Failed to initiate OIDC login" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       const data = (await res.json()) as { auth_url: string };
       window.location.href = data.auth_url;
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to initiate OIDC login"
-      );
+      setError(err instanceof Error ? err.message : "Failed to initiate OIDC login");
     }
   };
 
@@ -118,9 +100,7 @@ export function OIDCAccountsSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl font-heading">
-          Linked OIDC Accounts
-        </CardTitle>
+        <CardTitle className="text-xl font-heading">Linked OIDC Accounts</CardTitle>
         <p className="text-sm text-muted-foreground">
           Manage your linked OpenID Connect authentication accounts
         </p>
@@ -135,9 +115,7 @@ export function OIDCAccountsSection() {
         <div className="space-y-4">
           {accounts.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                No OIDC accounts linked yet
-              </p>
+              <p className="text-muted-foreground mb-4">No OIDC accounts linked yet</p>
               <Button onClick={handleLinkNew}>Link OIDC Account</Button>
             </div>
           ) : (
@@ -151,19 +129,14 @@ export function OIDCAccountsSection() {
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{account.provider}</span>
                       {account.email && (
-                        <span className="text-sm text-muted-foreground">
-                          · {account.email}
-                        </span>
+                        <span className="text-sm text-muted-foreground">· {account.email}</span>
                       )}
                     </div>
                     {account.name && (
-                      <div className="text-sm text-muted-foreground mt-1">
-                        {account.name}
-                      </div>
+                      <div className="text-sm text-muted-foreground mt-1">{account.name}</div>
                     )}
                     <div className="text-xs text-muted-foreground mt-1">
-                      Linked on{" "}
-                      {new Date(account.created_at).toLocaleDateString()}
+                      Linked on {new Date(account.created_at).toLocaleDateString()}
                     </div>
                   </div>
                   <Button
@@ -177,11 +150,7 @@ export function OIDCAccountsSection() {
                 </div>
               ))}
               <div className="pt-4">
-                <Button
-                  onClick={handleLinkNew}
-                  variant="outline"
-                  className="w-full"
-                >
+                <Button onClick={handleLinkNew} variant="outline" className="w-full">
                   Link Another OIDC Account
                 </Button>
               </div>

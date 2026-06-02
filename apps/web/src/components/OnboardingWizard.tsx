@@ -27,10 +27,7 @@ export function OnboardingWizard() {
     open_registrations: false,
   });
 
-  const updateData = <K extends keyof OnboardingData>(
-    field: K,
-    value: OnboardingData[K]
-  ) => {
+  const updateData = <K extends keyof OnboardingData>(field: K, value: OnboardingData[K]) => {
     setData((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -43,9 +40,7 @@ export function OnboardingWizard() {
         body: JSON.stringify(data),
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to complete onboarding" }));
+        const err = await res.json().catch(() => ({ error: "Failed to complete onboarding" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -75,9 +70,7 @@ export function OnboardingWizard() {
         <h1 className="text-4xl font-normal tracking-[-0.03em] mb-2 font-heading">
           Welcome to x-log
         </h1>
-        <p className="text-muted-foreground">
-          Let&apos;s set up your instance
-        </p>
+        <p className="text-muted-foreground">Let&apos;s set up your instance</p>
       </div>
 
       <div className="mb-8">
@@ -85,15 +78,11 @@ export function OnboardingWizard() {
           {[1, 2, 3, 4, 5].map((s) => (
             <div
               key={s}
-              className={`flex-1 h-2 mx-1 rounded ${
-                s <= step ? "bg-primary" : "bg-muted"
-              }`}
+              className={`flex-1 h-2 mx-1 rounded ${s <= step ? "bg-primary" : "bg-muted"}`}
             />
           ))}
         </div>
-        <p className="text-sm text-muted-foreground text-center">
-          Step {step} of 5
-        </p>
+        <p className="text-sm text-muted-foreground text-center">Step {step} of 5</p>
       </div>
 
       <Card>
@@ -113,18 +102,14 @@ export function OnboardingWizard() {
               <Textarea
                 label="Instance Description"
                 value={data.instance_description || ""}
-                onChange={(e) =>
-                  updateData("instance_description", e.target.value)
-                }
+                onChange={(e) => updateData("instance_description", e.target.value)}
                 placeholder="A federated blog..."
                 rows={3}
               />
               <Input
                 label="Instance Domain"
                 value={data.instance_domain || ""}
-                onChange={(e) =>
-                  updateData("instance_domain", e.target.value)
-                }
+                onChange={(e) => updateData("instance_domain", e.target.value)}
                 placeholder="example.com"
                 required
               />
@@ -144,9 +129,7 @@ export function OnboardingWizard() {
               <Input
                 label="Username"
                 value={data.admin_username || ""}
-                onChange={(e) =>
-                  updateData("admin_username", e.target.value)
-                }
+                onChange={(e) => updateData("admin_username", e.target.value)}
                 placeholder="admin"
                 required
               />
@@ -154,9 +137,7 @@ export function OnboardingWizard() {
                 label="Password"
                 type="password"
                 value={data.admin_password || ""}
-                onChange={(e) =>
-                  updateData("admin_password", e.target.value)
-                }
+                onChange={(e) => updateData("admin_password", e.target.value)}
                 placeholder="Enter a secure password"
                 required
               />
@@ -185,18 +166,14 @@ export function OnboardingWizard() {
               </h2>
               <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
-                  <Label className="font-medium">
-                    Allow open registrations
-                  </Label>
+                  <Label className="font-medium">Allow open registrations</Label>
                   <p className="text-xs text-muted-foreground">
                     Let anyone create an account on your instance
                   </p>
                 </div>
                 <Switch
                   checked={data.open_registrations || false}
-                  onCheckedChange={(checked) =>
-                    updateData("open_registrations", checked)
-                  }
+                  onCheckedChange={(checked) => updateData("open_registrations", checked)}
                 />
               </div>
               <div className="flex gap-4 pt-4">
@@ -237,9 +214,7 @@ export function OnboardingWizard() {
 
           {step === 5 && (
             <div className="space-y-4">
-              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">
-                Review
-              </h2>
+              <h2 className="text-2xl font-normal tracking-[-0.02em] font-heading mb-4">Review</h2>
               <div className="space-y-2 text-sm">
                 <p>
                   <strong>Instance Name:</strong> {data.instance_name}
@@ -251,19 +226,14 @@ export function OnboardingWizard() {
                   <strong>Admin Username:</strong> {data.admin_username}
                 </p>
                 <p>
-                  <strong>Open Registrations:</strong>{" "}
-                  {data.open_registrations ? "Yes" : "No"}
+                  <strong>Open Registrations:</strong> {data.open_registrations ? "Yes" : "No"}
                 </p>
               </div>
               <div className="flex gap-4 pt-4">
                 <Button variant="outline" onClick={() => setStep(4)}>
                   Back
                 </Button>
-                <Button
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="ml-auto"
-                >
+                <Button onClick={handleSubmit} disabled={loading} className="ml-auto">
                   {loading ? "Setting up..." : "Complete Setup"}
                 </Button>
               </div>

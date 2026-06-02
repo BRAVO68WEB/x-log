@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import HomeClient from "./HomeClient";
-import {
-  isLandingRedirectTarget,
-  resolveLandingProfileFromInstance,
-} from "@/lib/landing";
 import {
   absoluteUrl,
   getActorUrl,
@@ -18,16 +13,6 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function Home() {
-  const hdrs = await headers();
-  const origin = getOriginFromHeaders(hdrs);
-  const landingPath = await resolveLandingProfileFromInstance(origin, {
-    includeSelfOrigin: true,
-  });
-
-  if (isLandingRedirectTarget("/", landingPath)) {
-    redirect(landingPath);
-  }
-
   return <HomeClient />;
 }
 
@@ -58,17 +43,13 @@ export async function generateMetadata(): Promise<Metadata> {
     const primary = s.primary_profile;
     const authorName = primary?.full_name || primary?.username;
     const actorUrl = primary ? getActorUrl(primary.username, domain) : undefined;
-    const handle = primary
-      ? getFediverseHandle(primary.username, domain)
-      : undefined;
+    const handle = primary ? getFediverseHandle(primary.username, domain) : undefined;
     const image = absoluteUrl(primary?.banner_url || primary?.avatar_url, base);
 
     return {
       metadataBase: new URL(base),
       title: s.instance_name || "x-log",
-      description:
-        s.instance_description ||
-        "A federated blog platform built on ActivityPub",
+      description: s.instance_description || "A federated blog platform built on ActivityPub",
       authors:
         authorName && primary
           ? [{ name: authorName, url: `/u/${primary.username}` }]

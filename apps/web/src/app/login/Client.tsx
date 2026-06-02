@@ -47,9 +47,7 @@ export default function LoginClient() {
         body: JSON.stringify({ username, password }),
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Login failed" }));
+        const err = await res.json().catch(() => ({ error: "Login failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       return res.json();
@@ -60,8 +58,7 @@ export default function LoginClient() {
         const redirect = searchParams.get("redirect") || "/";
         router.replace(redirect);
       },
-      onError: (err) =>
-        setError(err instanceof Error ? err.message : "Login failed"),
+      onError: (err) => setError(err instanceof Error ? err.message : "Login failed"),
       onSettled: () => setLoading(false),
     }
   );
@@ -80,17 +77,13 @@ export default function LoginClient() {
         credentials: "include",
       });
       if (!res.ok) {
-        const err = await res
-          .json()
-          .catch(() => ({ error: "Failed to initiate OIDC login" }));
+        const err = await res.json().catch(() => ({ error: "Failed to initiate OIDC login" }));
         throw new Error(err.error || `HTTP ${res.status}`);
       }
       const data = (await res.json()) as { auth_url: string };
       window.location.href = data.auth_url;
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to initiate OIDC login"
-      );
+      setError(err instanceof Error ? err.message : "Failed to initiate OIDC login");
       setLoading(false);
     }
   };
@@ -101,9 +94,7 @@ export default function LoginClient() {
         <BentoGrid columns={3}>
           <BentoCard size="2x2" index={0} className="hidden md:flex">
             <div className="flex min-h-[300px] flex-col justify-end gap-3 p-8">
-              <h2 className="text-5xl font-normal tracking-[-0.04em] font-heading">
-                x-log
-              </h2>
+              <h2 className="text-5xl font-normal tracking-[-0.04em] font-heading">x-log</h2>
               <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
                 A federated writing space built on ActivityPub.
               </p>
@@ -172,9 +163,7 @@ export default function LoginClient() {
                     <Separator />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">
-                      Or continue with
-                    </span>
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
                   </div>
                 </div>
                 <Button

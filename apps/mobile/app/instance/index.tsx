@@ -1,13 +1,5 @@
 import { useState } from "react";
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "@/auth/AuthProvider";
 import { LoadingState } from "@/components/LoadingState";
@@ -33,7 +25,10 @@ export default function InstanceScreen() {
       setValue("");
       router.replace("/(tabs)/feed");
     } catch (error) {
-      Alert.alert("Unable to add instance", error instanceof Error ? error.message : "Unknown error");
+      Alert.alert(
+        "Unable to add instance",
+        error instanceof Error ? error.message : "Unknown error"
+      );
     } finally {
       setSubmitting(false);
     }
@@ -46,10 +41,13 @@ export default function InstanceScreen() {
           {instances.length ? "Add another instance" : "Choose your first instance"}
         </Text>
         <Text style={[styles.subtitle, { color: colors.textMuted }]}>
-          Enter the base URL of any x-log server. You can browse public posts without logging in and switch servers later.
+          Enter the base URL of any x-log server. You can browse public posts without logging in and
+          switch servers later.
         </Text>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+        >
           <Text style={[styles.label, { color: colors.text }]}>Instance URL</Text>
           <TextInput
             value={value}
@@ -58,7 +56,14 @@ export default function InstanceScreen() {
             autoCorrect={false}
             placeholder="https://example.com"
             placeholderTextColor={colors.textMuted}
-            style={[styles.input, { backgroundColor: colors.background, borderColor: colors.border, color: colors.text }]}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
           />
           <Pressable
             style={[styles.primaryButton, { backgroundColor: colors.accent }]}
@@ -83,16 +88,19 @@ export default function InstanceScreen() {
                 return (
                   <Pressable
                     key={instance.id}
-                    style={[styles.instanceCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                    style={[
+                      styles.instanceCard,
+                      { backgroundColor: colors.surface, borderColor: colors.border },
+                    ]}
                     onPress={async () => {
                       await switchInstance(instance.id);
                       router.replace("/(tabs)/feed");
                     }}
                   >
-                    {bannerUrl ? (
-                      <Image source={{ uri: bannerUrl }} style={styles.banner} />
-                    ) : null}
-                    <Text style={[styles.instanceName, { color: colors.text }]}>{instance.instanceName}</Text>
+                    {bannerUrl ? <Image source={{ uri: bannerUrl }} style={styles.banner} /> : null}
+                    <Text style={[styles.instanceName, { color: colors.text }]}>
+                      {instance.instanceName}
+                    </Text>
                     <Text style={[styles.instanceMeta, { color: colors.textMuted }]}>
                       {instance.domain} · {instance.totalPublicPosts} public posts
                     </Text>

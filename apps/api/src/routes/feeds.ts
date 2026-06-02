@@ -23,9 +23,12 @@ feedsRoutes.get(
       },
     },
   }),
-  validator("param", z.object({
-    username: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      username: z.string(),
+    })
+  ),
   async (c) => {
     const { username } = c.req.valid("param");
     const db = getDb();
@@ -104,9 +107,12 @@ feedsRoutes.get(
       },
     },
   }),
-  validator("param", z.object({
-    username: z.string(),
-  })),
+  validator(
+    "param",
+    z.object({
+      username: z.string(),
+    })
+  ),
   async (c) => {
     const { username } = c.req.valid("param");
     const db = getDb();
@@ -180,4 +186,3 @@ function escapeXml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 }
-

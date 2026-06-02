@@ -131,11 +131,7 @@ searchRoutes.get(
       const profiles = await db
         .selectFrom("users")
         .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-        .select([
-          "users.username",
-          "user_profiles.full_name",
-          "user_profiles.bio",
-        ])
+        .select(["users.username", "user_profiles.full_name", "user_profiles.bio"])
         .where((eb) =>
           eb.or([
             eb("users.username", "like", `%${q}%`),

@@ -201,7 +201,12 @@ function FeedPage({ instance, pageWidth }: { instance: SavedInstance; pageWidth:
             }}
           />
         ) : (
-          <View style={[styles.remoteCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.remoteCard,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
             <Text style={[styles.remoteActor, { color: colors.accent }]}>
               {(item as any).actor_handle || (item as any).actor}
             </Text>

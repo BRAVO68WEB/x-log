@@ -7,5 +7,9 @@ import { useState } from "react";
 
 export function QueryProvider({ children }: { children?: QueryClientProviderProps["children"] }) {
   const [client] = useState(() => new QueryClient());
-  return <QueryClientProvider client={client}>{children as QueryClientProviderProps["children"]}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      {children as QueryClientProviderProps["children"]}
+    </QueryClientProvider>
+  );
 }

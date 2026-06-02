@@ -24,17 +24,20 @@ function Avatar({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <AvatarContext.Provider value={{ loaded, setLoaded, hasImage, setHasImage }}>
       <div
-        className={cn(
-          "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full",
-          className
-        )}
+        className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)}
         {...props}
       />
     </AvatarContext.Provider>
   );
 }
 
-function AvatarImage({ className, src, onLoad, onError, ...props }: React.ImgHTMLAttributes<HTMLImageElement>) {
+function AvatarImage({
+  className,
+  src,
+  onLoad,
+  onError,
+  ...props
+}: React.ImgHTMLAttributes<HTMLImageElement>) {
   const { setLoaded, setHasImage } = React.useContext(AvatarContext);
   const [error, setError] = React.useState(false);
 

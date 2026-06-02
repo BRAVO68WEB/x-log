@@ -1,18 +1,6 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import { useColorScheme } from "react-native";
-import {
-  getThemeOption,
-  getThemeTokens,
-  normalizeThemeId,
-  type InstanceThemeId,
-} from "./palettes";
+import { getThemeOption, getThemeTokens, normalizeThemeId, type InstanceThemeId } from "./palettes";
 import type { ThemeTokens } from "./tokens";
 
 interface ThemeContextValue {
@@ -28,8 +16,7 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemTheme = useColorScheme();
-  const [themePreference, setThemePreferenceState] =
-    useState<InstanceThemeId>("system");
+  const [themePreference, setThemePreferenceState] = useState<InstanceThemeId>("system");
   const [isReady] = useState(true);
 
   const setThemePreference = useCallback(async (next: InstanceThemeId) => {
@@ -44,9 +31,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const themeOption = getThemeOption(themePreference);
 
   const resolvedTheme =
-    themeOption.appearance === "system"
-      ? systemResolvedTheme
-      : themeOption.appearance;
+    themeOption.appearance === "system" ? systemResolvedTheme : themeOption.appearance;
 
   const colors = getThemeTokens(themePreference, systemResolvedTheme);
 
@@ -59,14 +44,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       setThemePreference,
       setInstanceThemeId,
     }),
-    [
-      colors,
-      isReady,
-      resolvedTheme,
-      setInstanceThemeId,
-      setThemePreference,
-      themePreference,
-    ]
+    [colors, isReady, resolvedTheme, setInstanceThemeId, setThemePreference, themePreference]
   );
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

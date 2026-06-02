@@ -7,8 +7,7 @@ import { cn } from "@/lib/utils";
 
 type VariantMap = "primary" | "secondary" | "danger" | "ghost" | "outline";
 
-interface ButtonProps
-  extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
+interface ButtonProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "children"> {
   variant?: VariantMap;
   size?: "sm" | "md" | "lg";
   children: React.ReactNode;
