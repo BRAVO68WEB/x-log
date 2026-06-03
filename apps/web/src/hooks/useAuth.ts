@@ -54,9 +54,12 @@ export function useAuth() {
       return res.json();
     },
     {
-      onSettled: () => {
+      onSuccess: () => {
         setUser(null);
         router.push("/");
+      },
+      onError: () => {
+        setUser(null);
       },
     }
   );
