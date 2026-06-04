@@ -5,11 +5,11 @@ on:
     branches:
       - main
     paths:
-      - 'apps/**'
-      - 'packages/**'
-      - '.github/workflows/docker-build-push.yml'
-      - 'package.json'
-      - 'turbo.json'
+      - "apps/**"
+      - "packages/**"
+      - ".github/workflows/docker-build-push.yml"
+      - "package.json"
+      - "turbo.json"
   workflow_dispatch:
 
 env:
@@ -61,4 +61,3 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
-

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Editor } from "@/components/Editor";
+import NovelEditor from "@/components/NovelEditor";
 import toast, { Toaster } from "react-hot-toast";
 import { useMutation } from "react-query";
 import type { JSONContent } from "@tiptap/core";
@@ -189,7 +189,7 @@ export default function EditorClient({
 
   return (
     <>
-      <Editor
+      <NovelEditor
         initialContent={initialContent}
         initialTitle={initialTitle}
         initialSummary={initialSummary}

@@ -15,11 +15,7 @@
 @layer components {
   /* Keep theme picker hover neutral even when a palette has vivid action colors. */
   .theme-choice:not(.bg-primary\/10):hover {
-    background-color: color-mix(
-      in oklab,
-      hsl(var(--foreground)) 8%,
-      hsl(var(--card))
-    );
+    background-color: color-mix(in oklab, hsl(var(--foreground)) 8%, hsl(var(--card)));
   }
 }
 
@@ -121,8 +117,12 @@
   @apply bg-muted/30;
 }
 
-.prose h1[id], .prose h2[id], .prose h3[id],
-.prose h4[id], .prose h5[id], .prose h6[id] {
+.prose h1[id],
+.prose h2[id],
+.prose h3[id],
+.prose h4[id],
+.prose h5[id],
+.prose h6[id] {
   @apply scroll-mt-24;
 }
 
