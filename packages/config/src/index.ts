@@ -21,6 +21,7 @@ const envSchema = z.object({
     .default("true"),
   PORT: z.string().transform(Number).default("8080"),
   NEXT_PUBLIC_API_URL: z.string().default("http://localhost:8080"),
+  NEXT_PUBLIC_URL: z.string().default("http://localhost:3000"),
   OIDC_CLIENT_ID: z.string().min(1),
   OIDC_CLIENT_SECRET: z.string().min(1),
   OIDC_REDIRECT_URI: z.string().min(1),

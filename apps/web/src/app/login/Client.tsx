@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/bento-grid";
 import { useMutation } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
+import Link from "next/link";
 
 export default function LoginClient() {
   const [username, setUsername] = useState("");
@@ -133,6 +134,14 @@ export default function LoginClient() {
                     autoComplete="current-password"
                     placeholder="Enter your password"
                   />
+                  <div className="text-right text-xs">
+                    <Link
+                      href="/forgot-password"
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
                 </div>
 
                 {error && (

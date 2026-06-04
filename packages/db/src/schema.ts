@@ -201,6 +201,76 @@ export interface MediaTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+export interface PasswordResetsTable {
+  id: string; // uuid, PK - manually set
+  user_id: string; // FK users.id
+  token_hash: string; // hashed token
+  expires_at: Date;
+  used_at: ColumnType<Date, never, Date> | null;
+  created_at: ColumnType<Date, never, never>; // defaults to now()
+}
+
+export interface FeatureFlagsTable {
+  feature: string; // PK
+  enabled: boolean;
+  updated_at: ColumnType<Date, Date, Date>;
+}
+
+export interface SnippetsTable {
+  id: string;
+  title: string;
+  description: string | null;
+  user_id: string;
+  language: string;
+  code: string;
+  visibility: string;
+  current_version: number;
+  fork_of: string | null;
+  tags: string;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, Date, Date>;
+}
+
+export interface SnippetVersionsTable {
+  id: string;
+  snippet_id: string;
+  version: number;
+  code: string;
+  changelog: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface LinksTable {
+  id: string;
+  url: string;
+  title: string | null;
+  description: string | null;
+  thumbnail: string | null;
+  og_image: string | null;
+  user_id: string;
+  archived_at: ColumnType<Date, never, never>;
+  views: number;
+  is_public: boolean;
+  tags: string;
+  archived_url: string | null;
+}
+
+export interface PostMetaTable {
+  id: string;
+  post_id: string;
+  key: string;
+  value: string;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, Date, Date>;
+}
+
+export interface BookmarksTable {
+  id: string;
+  user_id: string;
+  post_id: string;
+  created_at: ColumnType<Date, never, never>;
+}
+
 export interface Database {
   users: UsersTable;
   user_profiles: UserProfilesTable;
@@ -218,4 +288,11 @@ export interface Database {
   oidc_accounts: OIDCAccountsTable;
   oidc_pending_links: OIDCPendingLinksTable;
   media: MediaTable;
+  feature_flags: FeatureFlagsTable;
+  password_resets: PasswordResetsTable;
+  snippets: SnippetsTable;
+  snippet_versions: SnippetVersionsTable;
+  links: LinksTable;
+  post_meta: PostMetaTable;
+  bookmarks: BookmarksTable;
 }

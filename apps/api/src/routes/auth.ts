@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { z } from "zod";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import {
   LoginSchema,
@@ -695,5 +696,164 @@ authRoutes.delete(
     await db.deleteFrom("oidc_accounts").where("id", "=", accountId).execute();
 
     return c.json({ message: "Account unlinked successfully" });
+  }
+);
+
+// Request password reset email
+authRoutes.post(
+  "/forgot-password",
+  describeRoute({
+    description: "Request a password reset email",
+    tags: ["auth"],
+    responses: {
+      200: {
+        description: "Reset email sent if account exists",
+      },
+      400: {
+        description: "Invalid email format",
+      },
+    },
+  }),
+  validator("json", z.object({ email: z.string().email() })),
+  async (c) => {
+    const { email } = c.req.valid("json");
+    const db = getDb();
+    const env = getEnv();
+
+    // Find user by email
+    const user = await db
+      .selectFrom("users")
+      .selectAll()
+      .where("email", "=", email)
+      .executeTakeFirst();
+
+    // Always return success to prevent email enumeration attacks
+    if (!user || !user.email) {
+      return c.json({ message: "If an account exists, a reset email has been sent" });
+    }
+
+    // Generate reset token
+    const cryptoRandom = await import("crypto");
+    const resetToken = cryptoRandom.randomBytes(32).toString("hex");
+    const tokenHash = cryptoRandom.createHash("sha256").update(resetToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // Delete any existing reset tokens for this user
+    await db.deleteFrom("password_resets").where("user_id", "=", user.id).execute();
+
+    // Store new reset token
+    await db
+      .insertInto("password_resets")
+      .values({
+        id: cryptoRandom.randomUUID(),
+        user_id: user.id,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+      })
+      .execute();
+
+    // TODO: Send email with reset link (integrate with email service)
+    // For now, log the token (remove in production)
+    const resetUrl = `${env.NEXT_PUBLIC_URL}/reset-password?token=${resetToken}`;
+    console.log(`Password reset for ${email}: ${resetUrl}`);
+
+    return c.json({ message: "If an account exists, a reset email has been sent" });
+  }
+);
+
+// Verify reset token
+authRoutes.get(
+  "/verify-reset-token",
+  describeRoute({
+    description: "Verify a password reset token is valid",
+    tags: ["auth"],
+    responses: {
+      200: {
+        description: "Token is valid",
+      },
+      400: {
+        description: "Token is invalid or expired",
+      },
+    },
+  }),
+  async (c) => {
+    const token = c.req.query("token");
+    if (!token) {
+      return c.json({ error: "Token is required" }, 400);
+    }
+
+    const cryptoHash = await import("crypto");
+    const tokenHash = cryptoHash.createHash("sha256").update(token).digest("hex");
+    const db = getDb();
+
+    const reset = await db
+      .selectFrom("password_resets")
+      .selectAll()
+      .where("token_hash", "=", tokenHash)
+      .where("expires_at", ">", new Date())
+      .where("used_at", "is", null)
+      .executeTakeFirst();
+
+    if (!reset) {
+      return c.json({ error: "Token is invalid or expired" }, 400);
+    }
+
+    return c.json({ valid: true, expires_at: reset.expires_at.toISOString() });
+  }
+);
+
+// Reset password with token
+authRoutes.post(
+  "/reset-password",
+  describeRoute({
+    description: "Reset password using a valid token",
+    tags: ["auth"],
+    responses: {
+      200: {
+        description: "Password reset successful",
+      },
+      400: {
+        description: "Token is invalid or expired",
+      },
+    },
+  }),
+  validator("json", z.object({ token: z.string(), password: z.string().min(8) })),
+  async (c) => {
+    const { token, password } = c.req.valid("json");
+    const db = getDb();
+    const cryptoReset = await import("crypto");
+
+    const tokenHash = cryptoReset.createHash("sha256").update(token).digest("hex");
+
+    const reset = await db
+      .selectFrom("password_resets")
+      .selectAll()
+      .where("token_hash", "=", tokenHash)
+      .where("expires_at", ">", new Date())
+      .where("used_at", "is", null)
+      .executeTakeFirst();
+
+    if (!reset) {
+      return c.json({ error: "Token is invalid or expired" }, 400);
+    }
+
+    // Hash new password
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update user password
+    await db
+      .updateTable("users")
+      .set({ password_hash: passwordHash, updated_at: new Date() })
+      .where("id", "=", reset.user_id)
+      .execute();
+
+    // Mark token as used
+    await db
+      .updateTable("password_resets")
+      .set({ used_at: new Date() })
+      .where("id", "=", reset.id)
+      .execute();
+
+    return c.json({ message: "Password reset successful" });
   }
 );

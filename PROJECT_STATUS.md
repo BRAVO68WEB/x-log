@@ -44,6 +44,10 @@
 - [x] Profile follow endpoint (`POST /api/profiles/:username/follow`) with WebFinger resolution
   - Resolves `@user@domain` to actor URL and sends signed Follow
   - Inserts outgoing follow into DB for persistence
+- [x] Password reset API endpoints (POST /forgot-password, GET /verify-reset-token, POST /reset-password)
+- [x] Feature flags management API (GET /admin/features, PUT /admin/features/:feature)
+- [x] Feature flags system (database-backed + ENV override)
+- [x] Content API — snippets, links, post metadata, bookmarks (feature-flagged CRUD)
 
 ### Frontend (Next.js)
 
@@ -57,6 +61,8 @@
 - [x] Settings page (placeholder)
 - [x] Search page (placeholder)
 - [x] Feed redirect routes
+- [x] Password reset pages (/forgot-password, /reset-password)
+- [x] Novel/Tiptap editor integration (slash commands, markdown, image upload)
 
 ### Worker
 
@@ -69,10 +75,24 @@
 
 ### Core Features
 
-- [ ] Complete TipTap editor integration with API
 - [ ] Media file serving optimization
 - [ ] CSRF protection middleware
 - [ ] Rate limiting middleware
+
+### Planned Features (Feature-flagged)
+
+- [x] Code snippets archive (personal Gist with versioning)
+- [x] Link archive (OGP metadata, Wayback Machine integration)
+- [x] Custom post metadata (key-value SEO structured data)
+- [x] Bookmarks (personal save collection)
+- [ ] Reposts/Boosts (share to followers)
+- [ ] Threads (connect posts in sequence)
+- [ ] Short-form posts (280 char microblog)
+- [ ] Scheduled posts (queue for future)
+- [ ] Trending topics (hashtag velocity tracking)
+- [ ] Analytics dashboard (views, reach, insights)
+- [ ] Direct messages (private conversations)
+- [ ] Custom themes (per-user CSS)
 
 ### Frontend
 
@@ -81,11 +101,17 @@
 - [x] Profile editing UI
 - [x] Settings UI
 - [x] Dark mode implementation
+- [x] Password reset pages
+- [x] Image upload in editor
+- [x] Code snippets page (/snippets)
+- [x] Link archive page (/links)
+- [x] Bookmarks page (/bookmarks)
 - [ ] Responsive design polish
-- [ ] Image upload in editor
 
 ### API
 
+- [x] Password reset endpoints
+- [x] Feature flags API
 - [ ] Complete session handling improvements
 - [ ] Error handling improvements
 - [ ] Input validation enhancements
@@ -105,7 +131,7 @@
 
 - [ ] API documentation
 - [ ] Federation guide
-- [ ] Deployment guide
+- [ ] Deployment guide (including one-click Vercel/Cloudflare buttons)
 - [ ] Development guide
 
 ## 📝 Notes
