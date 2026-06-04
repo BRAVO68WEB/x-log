@@ -9,9 +9,14 @@ export const PostCreateSchema = z.object({
   hashtags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20),
   visibility: z.enum(["public", "unlisted", "private"]).default("public"),
   summary: z.string().optional(),
+  repost_of: z.string().optional(),
 });
 
 export const PostUpdateSchema = PostCreateSchema.partial();
+
+export const RepostSchema = z.object({
+  post_id: z.string().min(1),
+});
 
 export const PostResponseSchema = z.object({
   id: z.string(),
@@ -23,6 +28,7 @@ export const PostResponseSchema = z.object({
   hashtags: z.array(z.string()),
   like_count: z.number().int(),
   liked_by_me: z.boolean().optional(),
+  repost_count: z.number().int().optional(),
   author: z.object({
     username: z.string(),
     full_name: z.string().optional().nullable(),
@@ -202,4 +208,9 @@ export const OIDCAccountResponseSchema = z.object({
   email: z.string().nullable(),
   name: z.string().nullable(),
   created_at: z.string(),
+});
+
+// Scheduled Posts schema
+export const ScheduledPostSchema = z.object({
+  scheduled_at: z.string().datetime().optional(),
 });

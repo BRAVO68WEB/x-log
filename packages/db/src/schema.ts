@@ -71,6 +71,11 @@ export interface PostsTable {
   updated_at: ColumnType<Date, never, Date>;
   visibility: PostVisibility;
   ap_object_id: string; // unique
+  // New columns for features
+  repost_of: string | null;
+  thread_id: string | null;
+  thread_position: number | null;
+  scheduled_at: Date | null;
 }
 
 export interface PostHashtagsTable {
@@ -295,4 +300,42 @@ export interface Database {
   links: LinksTable;
   post_meta: PostMetaTable;
   bookmarks: BookmarksTable;
+  threads: ThreadsTable;
+  post_views: PostViewsTable;
+  analytics_aggregates: AnalyticsAggregatesTable;
+  trending: TrendingTable;
+}
+
+export interface ThreadsTable {
+  id: string;
+  user_id: string;
+  title: string | null;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, Date, Date>;
+}
+
+export interface PostViewsTable {
+  id: string;
+  post_id: string;
+  viewed_at: ColumnType<Date, never, never>;
+  referrer: string | null;
+  user_agent: string | null;
+}
+
+export interface AnalyticsAggregatesTable {
+  id: string;
+  user_id: string;
+  date: string;
+  posts_count: number;
+  views_count: number;
+  likes_count: number;
+  reposts_count: number;
+  followers_count: number;
+}
+
+export interface TrendingTable {
+  id: string;
+  hashtag: string;
+  score: number;
+  hour: Date;
 }

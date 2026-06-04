@@ -1,10 +1,56 @@
+# Dependencies
 node_modules
+.bun
+
+# Build outputs
 .next
 dist
 build
 .turbo
+.cache
+
+# Environment files
 .env
 .env.local
+.env.*.local
+!.env.example
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Version control
 .git
 .gitignore
+
+# Documentation
+*.md
+!README.md
+LICENSE
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deploy configs (not needed in image)
+deploy
+*.template.json
+docker-compose*.yml
+fly.toml
+railway.json
+
+# Testing
+coverage
+.nyc_output
+
+# Misc
+.turbo
+.vercel

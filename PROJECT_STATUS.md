@@ -85,14 +85,24 @@
 - [x] Link archive (OGP metadata, Wayback Machine integration)
 - [x] Custom post metadata (key-value SEO structured data)
 - [x] Bookmarks (personal save collection)
-- [ ] Reposts/Boosts (share to followers)
-- [ ] Threads (connect posts in sequence)
+- [x] Reposts/Boosts (share to followers)
+- [x] Threads (connect posts in sequence)
 - [ ] Short-form posts (280 char microblog)
-- [ ] Scheduled posts (queue for future)
+- [x] Scheduled posts (queue for future)
 - [ ] Trending topics (hashtag velocity tracking)
-- [ ] Analytics dashboard (views, reach, insights)
+- [x] Analytics dashboard (views, reach, insights)
+- [x] AI Blog Writer (title generation, outlines, content enhancement, SEO meta, translation, drafts)
 - [ ] Direct messages (private conversations)
 - [ ] Custom themes (per-user CSS)
+
+### One-Click Deploy Templates
+
+- [x] Vercel deployment template (vercel.json, deploy button)
+- [x] Cloudflare Pages deployment template
+- [x] Docker configuration (Dockerfile, docker-compose.yml)
+- [x] Railway deployment support
+- [x] Fly.io deployment support
+- [x] Comprehensive deploy README
 
 ### Frontend
 
@@ -131,7 +141,7 @@
 
 - [ ] API documentation
 - [ ] Federation guide
-- [ ] Deployment guide (including one-click Vercel/Cloudflare buttons)
+- [x] Deployment guide (one-click Vercel/Cloudflare, Docker, Railway, Fly.io)
 - [ ] Development guide
 
 ## 📝 Notes

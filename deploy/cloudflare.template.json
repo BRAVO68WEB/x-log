@@ -1,0 +1,86 @@
+{
+  "name": "xLog Deploy to Cloudflare Pages",
+  "description": "Deploy xLog to Cloudflare Pages with one click",
+  "platform": "cloudflare-pages",
+  "compatibility": [
+    {
+      "framework": "nextjs",
+      "bundle": true
+    }
+  ],
+  "env": [
+    {
+      "name": "DATABASE_URL",
+      "description": "PostgreSQL connection string (use Neon or other PostgreSQL)",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "NEXTAUTH_SECRET",
+      "description": "Secret for session encryption",
+      "type": "string",
+      "required": true,
+      "generator": "secret"
+    },
+    {
+      "name": "NEXTAUTH_URL",
+      "description": "Your deployment URL (e.g., https://your-app.pages.dev)",
+      "type": "string",
+      "required": true,
+      "value": "{{CF_PAGES_URL}}"
+    },
+    {
+      "name": "RESEND_API_KEY",
+      "description": "API key for sending emails (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "SMTP_HOST",
+      "description": "SMTP server host (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "SMTP_PORT",
+      "description": "SMTP server port (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "SMTP_USER",
+      "description": "SMTP username (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "SMTP_PASSWORD",
+      "description": "SMTP password (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "SMTP_FROM",
+      "description": "From email address (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "OPENAI_API_KEY",
+      "description": "OpenAI API key for AI features (optional)",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "OPENAI_BASE_URL",
+      "description": "OpenAI-compatible API base URL (optional)",
+      "type": "string",
+      "required": false
+    }
+  ],
+  "buildCommand": "bun run build",
+  "deployConfig": {
+    "wranglerVersion": "3.0.0",
+    "compatibilityDate": "2024-01-01"
+  }
+}

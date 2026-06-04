@@ -6,6 +6,8 @@ import {
   PostUpdateSchema,
   PostResponseSchema,
   PaginationQuerySchema,
+  RepostSchema,
+  ScheduledPostSchema,
 } from "@xlog/validation";
 import { getDb, getInstanceSettings } from "@xlog/db";
 import { generateId } from "@xlog/snowflake";
@@ -838,5 +840,386 @@ postsRoutes.post(
     }
 
     return c.json({ message: "Post published" });
+  }
+);
+
+// Repost endpoints
+postsRoutes.post(
+  "/:id/repost",
+  describeRoute({
+    description: "Repost a post",
+    tags: ["posts"],
+    responses: {
+      201: {
+        description: "Post reposted",
+        content: {
+          "application/json": {
+            schema: resolver(PostResponseSchema),
+          },
+        },
+      },
+    },
+  }),
+  validator("param", z.object({ id: z.string() })),
+  validator("json", RepostSchema),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const { post_id } = c.req.valid("json");
+    const db = getDb();
+    const settings = await getInstanceSettings();
+
+    // Get original post
+    const originalPost = await db
+      .selectFrom("posts")
+      .innerJoin("users", "users.id", "posts.author_id")
+      .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+      .select([
+        "posts.id",
+        "posts.title",
+        "posts.content_markdown",
+        "posts.visibility",
+        "posts.author_id",
+        "posts.published_at",
+        "posts.ap_object_id",
+        "users.username",
+        "user_profiles.full_name",
+        "user_profiles.avatar_url",
+      ])
+      .where("posts.id", "=", post_id)
+      .executeTakeFirst();
+
+    if (!originalPost) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+
+    // Can't repost private posts from others
+    if (originalPost.visibility === "private" && originalPost.author_id !== user.id) {
+      return c.json({ error: "Cannot repost private posts" }, 403);
+    }
+
+    // Check if already reposted by this user
+    const existingRepost = await db
+      .selectFrom("posts")
+      .select("id")
+      .where("repost_of", "=", post_id)
+      .where("author_id", "=", user.id)
+      .executeTakeFirst();
+
+    if (existingRepost) {
+      return c.json({ error: "Already reposted" }, 400);
+    }
+
+    // Create repost
+    const repostId = generateId();
+    const apObjectId = `https://${settings.instance_domain}/post/${repostId}`;
+
+    await db
+      .insertInto("posts")
+      .values({
+        id: repostId,
+        author_id: user.id,
+        title: `RT: ${originalPost.title || ""}`,
+        content_markdown: originalPost.content_markdown || "",
+        visibility: "public",
+        ap_object_id: apObjectId,
+        like_count: 0,
+        published_at: new Date(),
+        repost_of: post_id,
+      })
+      .execute();
+
+    // Update repost count on original
+    await db
+      .updateTable("posts")
+      .set((eb) => ({ like_count: eb("like_count", "+", 1) }))
+      .where("id", "=", post_id)
+      .execute();
+
+    const post = await db
+      .selectFrom("posts")
+      .innerJoin("users", "users.id", "posts.author_id")
+      .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+      .select([
+        "posts.id",
+        "posts.title",
+        "posts.banner_url",
+        "posts.content_markdown",
+        "posts.hashtags",
+        "posts.like_count",
+        "posts.published_at",
+        "posts.updated_at",
+        "posts.visibility",
+        "posts.repost_of",
+        "users.username",
+        "user_profiles.full_name",
+        "user_profiles.avatar_url",
+      ])
+      .where("posts.id", "=", repostId)
+      .executeTakeFirst();
+
+    return c.json(
+      {
+        id: post!.id,
+        url: getPostUrlSync(post!.id, settings.instance_domain),
+        title: post!.title,
+        banner_url: post!.banner_url,
+        content_html: await renderMarkdown(post!.content_markdown),
+        content_markdown: post!.content_markdown,
+        hashtags: post!.hashtags || [],
+        like_count: post!.like_count,
+        liked_by_me: false,
+        author: {
+          username: post!.username,
+          full_name: post!.full_name || null,
+          avatar_url: post!.avatar_url || null,
+        },
+        published_at: post!.published_at?.toISOString() || null,
+        updated_at: post!.updated_at.toISOString(),
+        visibility: post!.visibility,
+        repost_of: post!.repost_of,
+      },
+      201
+    );
+  }
+);
+
+postsRoutes.delete(
+  "/:id/repost",
+  describeRoute({
+    description: "Undo a repost",
+    tags: ["posts"],
+    responses: {
+      200: {
+        description: "Repost removed",
+      },
+    },
+  }),
+  validator("param", z.object({ id: z.string() })),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const db = getDb();
+
+    // Find the repost
+    const repost = await db
+      .selectFrom("posts")
+      .select(["id", "repost_of", "author_id"])
+      .where("repost_of", "=", id)
+      .where("author_id", "=", user.id)
+      .executeTakeFirst();
+
+    if (!repost) {
+      return c.json({ error: "Repost not found" }, 404);
+    }
+
+    // Delete the repost
+    await db.deleteFrom("posts").where("id", "=", repost.id).execute();
+
+    // Decrement repost count
+    await db
+      .updateTable("posts")
+      .set((eb) => ({ like_count: eb("like_count", "-", 1) }))
+      .where("id", "=", id)
+      .where("like_count", ">", 0)
+      .execute();
+
+    return c.json({ message: "Repost removed" });
+  }
+);
+
+// Scheduled posts endpoints
+postsRoutes.get(
+  "/scheduled",
+  describeRoute({
+    description: "List scheduled posts",
+    tags: ["posts"],
+    responses: {
+      200: {
+        description: "List of scheduled posts",
+      },
+    },
+  }),
+  validator("query", PaginationQuerySchema),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { limit, cursor } = c.req.valid("query");
+    const db = getDb();
+    const settings = await getInstanceSettings();
+
+    let query = db
+      .selectFrom("posts")
+      .innerJoin("users", "users.id", "posts.author_id")
+      .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+      .select([
+        "posts.id",
+        "posts.title",
+        "posts.banner_url",
+        "posts.content_markdown",
+        "posts.hashtags",
+        "posts.scheduled_at",
+        "posts.published_at",
+        "posts.updated_at",
+        "posts.visibility",
+        "users.username",
+        "user_profiles.full_name",
+        "user_profiles.avatar_url",
+      ])
+      .where("posts.author_id", "=", user.id)
+      .where("posts.scheduled_at", "is not", null)
+      .where("posts.published_at", "is", null)
+      .orderBy("posts.scheduled_at", "asc")
+      .limit(limit + 1);
+
+    if (cursor) {
+      query = query.where("posts.scheduled_at", ">", new Date(cursor));
+    }
+
+    const posts = await query.execute();
+    const hasMore = posts.length > limit;
+    const items = posts.slice(0, limit);
+
+    const response = await Promise.all(
+      items.map(async (post) => ({
+        id: post.id,
+        url: getPostUrlSync(post.id, settings.instance_domain),
+        title: post.title,
+        banner_url: post.banner_url,
+        content_html: await renderMarkdown(post.content_markdown),
+        content_markdown: post.content_markdown,
+        hashtags: post.hashtags,
+        like_count: 0,
+        liked_by_me: false,
+        author: {
+          username: post.username,
+          full_name: post.full_name || null,
+          avatar_url: post.avatar_url || null,
+        },
+        scheduled_at: post.scheduled_at?.toISOString() || null,
+        published_at: null,
+        updated_at: post.updated_at.toISOString(),
+        visibility: post.visibility,
+      }))
+    );
+
+    return c.json({
+      items: response,
+      nextCursor: hasMore ? items[items.length - 1].scheduled_at?.toISOString() : undefined,
+      hasMore,
+    });
+  }
+);
+
+postsRoutes.patch(
+  "/:id/schedule",
+  describeRoute({
+    description: "Schedule a post for future publishing",
+    tags: ["posts"],
+    responses: {
+      200: {
+        description: "Post scheduled",
+      },
+    },
+  }),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+    })
+  ),
+  validator("json", ScheduledPostSchema),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const { scheduled_at } = c.req.valid("json");
+    const db = getDb();
+
+    // Check authorization
+    const post = await db
+      .selectFrom("posts")
+      .select(["author_id", "published_at"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    if (!post) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+
+    if (post.author_id !== user.id && user.role !== "admin") {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    if (post.published_at) {
+      return c.json({ error: "Post already published" }, 400);
+    }
+
+    const scheduledAt = scheduled_at ? new Date(scheduled_at) : null;
+    if (scheduledAt && scheduledAt <= new Date()) {
+      return c.json({ error: "Scheduled time must be in the future" }, 400);
+    }
+
+    await db
+      .updateTable("posts")
+      .set({
+        scheduled_at: scheduledAt,
+      })
+      .where("id", "=", id)
+      .execute();
+
+    return c.json({ message: "Post scheduled", scheduled_at: scheduledAt?.toISOString() || null });
+  }
+);
+
+postsRoutes.delete(
+  "/:id/schedule",
+  describeRoute({
+    description: "Unschedule a post (keep as draft)",
+    tags: ["posts"],
+    responses: {
+      200: {
+        description: "Post unscheduled",
+      },
+    },
+  }),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+    })
+  ),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const db = getDb();
+
+    // Check authorization
+    const post = await db
+      .selectFrom("posts")
+      .select(["author_id", "published_at"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+
+    if (!post) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+
+    if (post.author_id !== user.id && user.role !== "admin") {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+
+    await db
+      .updateTable("posts")
+      .set({
+        scheduled_at: null,
+      })
+      .where("id", "=", id)
+      .execute();
+
+    return c.json({ message: "Post unscheduled" });
   }
 );
