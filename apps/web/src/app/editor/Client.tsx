@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NovelEditor from "@/components/NovelEditor";
+import PostMetaPanel from "@/components/PostMetaPanel";
 import toast, { Toaster } from "react-hot-toast";
-import { useMutation } from "react-query";
+import { useMutation, useQueryClient } from "react-query";
 import type { JSONContent } from "@tiptap/core";
 
 interface EditorClientProps {
@@ -200,6 +201,11 @@ export default function EditorClient({
         saving={saving}
         publishLabel={isPublished ? "Update" : "Publish"}
       />
+      {postId && (
+        <div className="max-w-4xl mx-auto px-6 pb-8">
+          <PostMetaPanel postId={postId} />
+        </div>
+      )}
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
     </>
   );

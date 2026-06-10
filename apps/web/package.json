@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@monaco-editor/react": "^4.7.0",
     "@noble/curves": "^2.0.1",
     "@scure/base": "^2.0.0",
     "@tiptap/core": "^2.1.13",

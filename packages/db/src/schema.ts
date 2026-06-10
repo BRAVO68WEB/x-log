@@ -71,6 +71,17 @@ export interface PostsTable {
   updated_at: ColumnType<Date, never, Date>;
   visibility: PostVisibility;
   ap_object_id: string; // unique
+  repost_of_id: string | null; // FK posts.id (for reposts/boosts)
+  post_type: ColumnType<string, string | undefined, string>; // 'article' | 'short', default 'article'
+  thread_id: string | null; // FK threads.id
+  thread_position: number | null;
+}
+
+export interface ThreadsTable {
+  id: string; // snowflake PK
+  user_id: string; // FK users.id
+  title: string | null;
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface PostHashtagsTable {
@@ -201,12 +212,92 @@ export interface MediaTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+export interface FeatureFlagsTable {
+  key: string; // primary key, e.g. 'code_snippets'
+  enabled: boolean;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface PasswordResetsTable {
+  id: string; // uuid, PK
+  user_id: string; // FK users.id
+  token_hash: string;
+  expires_at: Date;
+  used_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface PostMetaTable {
+  id: string; // uuid, PK
+  post_id: string; // FK posts.id
+  key: string;
+  value: string;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface BookmarksTable {
+  id: string; // uuid, PK
+  user_id: string; // FK users.id
+  post_id: string | null; // FK posts.id (nullable for URL bookmarks)
+  url: string | null;
+  post_title: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface SnippetsTable {
+  id: string; // snowflake PK
+  title: string;
+  description: string | null;
+  user_id: string; // FK users.id
+  language: string;
+  code: string;
+  visibility: string; // 'public' | 'followers' | 'private'
+  current_version: ColumnType<number, number | undefined, number>; // default 1
+  fork_of: string | null; // FK snippets.id
+  tags: string[];
+  view_count: ColumnType<number, number | undefined, number>; // default 0
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface SnippetVersionsTable {
+  id: string; // uuid, PK
+  snippet_id: string; // FK snippets.id
+  version: number;
+  code: string;
+  changelog: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface LinksTable {
+  id: string; // snowflake PK
+  url: string;
+  title: string | null;
+  description: string | null;
+  thumbnail: string | null;
+  og_image: string | null;
+  user_id: string; // FK users.id
+  tags: string[];
+  view_count: ColumnType<number, number | undefined, number>; // default 0
+  is_public: ColumnType<boolean, boolean | undefined, boolean>; // default true
+  archived_at: ColumnType<Date, never, never>;
+}
+
+export interface LinkSnapshotsTable {
+  id: string; // uuid, PK
+  link_id: string; // FK links.id
+  archived_url: string | null;
+  archived_at: ColumnType<Date, never, never>;
+}
+
 export interface Database {
   users: UsersTable;
   user_profiles: UserProfilesTable;
   user_keys: UserKeysTable;
   posts: PostsTable;
   post_hashtags: PostHashtagsTable;
+  threads: ThreadsTable;
   followers: FollowersTable;
   following: FollowingTable;
   outbox_activities: OutboxActivitiesTable;
@@ -218,4 +309,12 @@ export interface Database {
   oidc_accounts: OIDCAccountsTable;
   oidc_pending_links: OIDCPendingLinksTable;
   media: MediaTable;
+  feature_flags: FeatureFlagsTable;
+  password_resets: PasswordResetsTable;
+  post_meta: PostMetaTable;
+  bookmarks: BookmarksTable;
+  snippets: SnippetsTable;
+  snippet_versions: SnippetVersionsTable;
+  links: LinksTable;
+  link_snapshots: LinkSnapshotsTable;
 }

@@ -52,6 +52,9 @@ import {
   Youtube,
 } from "lucide-react";
 import { cx } from "class-variance-authority";
+import dynamic from "next/dynamic";
+
+const AIToolbar = dynamic(() => import("./AIToolbar"), { ssr: false });
 
 const lowlight = createLowlight(common);
 
@@ -292,6 +295,7 @@ interface EditorProps {
   ) => void;
   saving?: boolean;
   publishLabel?: string;
+  showAIToolbar?: boolean;
 }
 
 const tiptapImage = TiptapImage.extend({
@@ -357,6 +361,7 @@ export default function Editor({
   onPublish,
   saving = false,
   publishLabel = "Publish",
+  showAIToolbar = true,
 }: EditorProps) {
   const [title, setTitle] = useState(initialTitle || "");
   const [summary, setSummary] = useState(initialSummary || "");
@@ -579,6 +584,28 @@ export default function Editor({
         </div>
 
         <Card className="overflow-hidden mb-6">
+          {showAIToolbar && editorInstance && (
+            <div className="px-4 py-3 border-b border-border bg-accent/30">
+              <AIToolbar
+                selectedText={editorInstance.state.doc.textBetween(
+                  editorInstance.state.selection.from,
+                  editorInstance.state.selection.to,
+                  " "
+                )}
+                fullContent={editorInstance.storage.markdown.getMarkdown()}
+                onReplace={(newText) => {
+                  const { from, to } = editorInstance.state.selection;
+                  if (from !== to) {
+                    editorInstance.chain().focus().deleteRange({ from, to }).insertContent(newText).run();
+                  }
+                }}
+                onAppend={(text) => {
+                  editorInstance.chain().focus().insertContent("\n\n" + text).run();
+                }}
+                onTitleGenerated={(t) => setTitle(t)}
+              />
+            </div>
+          )}
           <EditorRoot>
             <EditorContent
               initialContent={editorContent}

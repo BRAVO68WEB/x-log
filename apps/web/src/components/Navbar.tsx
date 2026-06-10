@@ -17,6 +17,9 @@ import {
   FaNewspaper,
   FaPen,
   FaUser,
+  FaBookmark,
+  FaCode,
+  FaLink,
 } from "react-icons/fa6";
 import type { IconType } from "react-icons";
 
@@ -41,6 +44,9 @@ export function Navbar() {
   const authNavItems = [
     { href: "/following", label: "Following", icon: FaNewspaper },
     { href: "/editor", label: "Write", icon: FaPen },
+    { href: "/snippets", label: "Snippets", icon: FaCode },
+    { href: "/links", label: "Links", icon: FaLink },
+    { href: "/bookmarks", label: "Bookmarks", icon: FaBookmark },
     { href: "/assets", label: "Assets", icon: FaBoxArchive },
     { href: "/profile", label: "Profile", icon: FaUser },
     { href: "/settings", label: "Settings", icon: FaGear },

@@ -6,9 +6,9 @@ import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { postsApi } from "@/lib/api";
+import { postsApi, bookmarksApi, repostsApi } from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
-import { useMutation } from "react-query";
+import { useMutation, useQuery } from "react-query";
 
 interface PostCardProps {
   id: string;
@@ -42,6 +42,58 @@ export function PostCard({
   const { isAuthenticated } = useAuth();
   const [liked, setLiked] = useState(liked_by_me);
   const [count, setCount] = useState(like_count);
+
+  // Bookmark state
+  const { data: bookmarkData } = useQuery(
+    ["bookmark-check", id],
+    () => bookmarksApi.check(id),
+    { enabled: isAuthenticated, staleTime: 60_000 }
+  );
+  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarkDbId, setBookmarkDbId] = useState<string | null>(null);
+
+  // Sync bookmark state from query
+  useState(() => {
+    if (bookmarkData) {
+      setBookmarked(bookmarkData.bookmarked);
+      setBookmarkDbId(bookmarkData.id);
+    }
+  });
+
+  const bookmarkMutation = useMutation(
+    async () => {
+      if (bookmarked && bookmarkDbId) {
+        await bookmarksApi.delete(bookmarkDbId);
+      } else {
+        const result = await bookmarksApi.create({ postId: id });
+        setBookmarkDbId(result.id);
+      }
+    },
+    {
+      onMutate: () => {
+        setBookmarked((prev) => !prev);
+      },
+      onError: () => {
+        setBookmarked((prev) => !prev);
+      },
+    }
+  );
+
+  const [reposted, setReposted] = useState(false);
+  const repostMutation = useMutation(
+    async () => {
+      if (reposted) {
+        await repostsApi.unrepost(id);
+      } else {
+        await repostsApi.repost(id);
+      }
+    },
+    {
+      onMutate: () => setReposted((prev) => !prev),
+      onError: () => setReposted((prev) => !prev),
+    }
+  );
+
   const likeMutation = useMutation(async () => (liked ? postsApi.unlike(id) : postsApi.like(id)), {
     onMutate: () => {
       setLiked((current) => !current);
@@ -131,6 +183,51 @@ export function PostCard({
               <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
             </svg>
             <span>{count}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isAuthenticated) {
+                window.location.href = `/login?redirect=${encodeURIComponent(`/post/${id}`)}`;
+                return;
+              }
+              bookmarkMutation.mutate();
+            }}
+            disabled={bookmarkMutation.isLoading}
+            className={[
+              "flex items-center gap-1 rounded-full px-2 py-1 transition-colors",
+              bookmarked
+                ? "text-primary bg-primary/10"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            ].join(" ")}
+            aria-label={bookmarked ? "Remove bookmark" : "Bookmark post"}
+          >
+            <svg className="w-4 h-4" fill={bookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!isAuthenticated) {
+                window.location.href = `/login?redirect=${encodeURIComponent(`/post/${id}`)}`;
+                return;
+              }
+              repostMutation.mutate();
+            }}
+            disabled={repostMutation.isLoading}
+            className={[
+              "flex items-center gap-1 rounded-full px-2 py-1 transition-colors",
+              reposted
+                ? "text-green-600 bg-green-600/10"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            ].join(" ")}
+            aria-label={reposted ? "Undo repost" : "Repost"}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M17 1l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <path d="M7 23l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
           </button>
         </div>
         {hashtags.length > 0 && (
