@@ -107,11 +107,14 @@ export const postsApi = {
       title: string;
       summary?: string | null;
       banner_url?: string | null;
+      content_markdown: string;
       hashtags: string[];
       like_count: number;
       liked_by_me?: boolean;
       author: { username: string; full_name?: string | null; avatar_url?: string | null };
       published_at: string | null;
+      updated_at: string;
+      visibility: "public" | "unlisted" | "private";
     }
     return apiRequest<{
       items: PostSummary[];
