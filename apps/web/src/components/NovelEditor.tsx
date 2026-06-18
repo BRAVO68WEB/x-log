@@ -29,6 +29,10 @@ import {
   createSuggestionItems,
 } from "novel";
 import { Markdown } from "tiptap-markdown";
+import Table from "@tiptap/extension-table";
+import TableRow from "@tiptap/extension-table-row";
+import TableCell from "@tiptap/extension-table-cell";
+import TableHeader from "@tiptap/extension-table-header";
 import { createLowlight, common } from "lowlight";
 import { useMutation } from "react-query";
 import NextImage from "next/image";
@@ -50,6 +54,7 @@ import {
   TextQuote,
   Twitter,
   Youtube,
+  Table as TableIcon,
 } from "lucide-react";
 import { cx } from "class-variance-authority";
 import dynamic from "next/dynamic";
@@ -220,6 +225,15 @@ const suggestionItems = createSuggestionItems([
       }
     },
   },
+  {
+    title: "Table",
+    description: "Insert a table.",
+    searchTerms: ["table", "grid", "spreadsheet"],
+    icon: <TableIcon size={18} />,
+    command: ({ editor, range }) => {
+      editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    },
+  },
 ]);
 
 const slashCommand = Command.configure({
@@ -296,6 +310,7 @@ interface EditorProps {
   saving?: boolean;
   publishLabel?: string;
   showAIToolbar?: boolean;
+  sidebar?: React.ReactNode;
 }
 
 const tiptapImage = TiptapImage.extend({
@@ -348,6 +363,10 @@ const extensions = [
   TaskItem.configure({
     nested: true,
   }),
+  Table.configure({ resizable: true }),
+  TableRow,
+  TableCell,
+  TableHeader,
   slashCommand,
 ];
 
@@ -362,6 +381,7 @@ export default function Editor({
   saving = false,
   publishLabel = "Publish",
   showAIToolbar = true,
+  sidebar,
 }: EditorProps) {
   const [title, setTitle] = useState(initialTitle || "");
   const [summary, setSummary] = useState(initialSummary || "");
@@ -470,7 +490,7 @@ export default function Editor({
 
   return (
     <div>
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <input
             type="text"
@@ -583,7 +603,8 @@ export default function Editor({
           )}
         </div>
 
-        <Card className="overflow-hidden mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
+          <Card className="overflow-hidden">
           {showAIToolbar && editorInstance && (
             <div className="px-4 py-3 border-b border-border bg-accent/30">
               <AIToolbar
@@ -596,13 +617,28 @@ export default function Editor({
                 onReplace={(newText) => {
                   const { from, to } = editorInstance.state.selection;
                   if (from !== to) {
-                    editorInstance.chain().focus().deleteRange({ from, to }).insertContent(newText).run();
+                    editorInstance
+                      .chain()
+                      .focus()
+                      .deleteRange({ from, to })
+                      .insertContent(newText)
+                      .run();
                   }
                 }}
                 onAppend={(text) => {
-                  editorInstance.chain().focus().insertContent("\n\n" + text).run();
+                  editorInstance
+                    .chain()
+                    .focus()
+                    .insertContent("\n\n" + text)
+                    .run();
                 }}
                 onTitleGenerated={(t) => setTitle(t)}
+                onMetaGenerated={(meta) => {
+                  toast.success(
+                    `Title: ${meta.title}\nDescription: ${meta.description}\nTags: ${meta.tags.join(", ")}`,
+                    { duration: 6000 }
+                  );
+                }}
               />
             </div>
           )}
@@ -668,6 +704,13 @@ export default function Editor({
             </EditorContent>
           </EditorRoot>
         </Card>
+
+        {sidebar && (
+          <aside className="hidden lg:block sticky top-24 self-start">
+            {sidebar}
+          </aside>
+        )}
+        </div>
       </div>
     </div>
   );

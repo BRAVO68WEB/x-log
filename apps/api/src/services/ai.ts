@@ -1,42 +1,80 @@
 import OpenAI from "openai";
+import { getDb } from "@xlog/db";
 
 let client: OpenAI | null = null;
+let cachedBaseUrl: string | null = null;
+let cachedApiKey: string | null = null;
 
-function getClient(): OpenAI | null {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null;
+interface AIConfig {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+}
 
-  if (!client) {
-    client = new OpenAI({
-      baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-      apiKey,
-    });
+async function getAIConfig(): Promise<AIConfig> {
+  // Try database first
+  try {
+    const db = getDb();
+    const settings = await db
+      .selectFrom("instance_settings")
+      .select(["ai_base_url", "ai_api_key", "ai_model", "ai_max_tokens", "ai_temperature"])
+      .where("id", "=", 1)
+      .executeTakeFirst();
+
+    if (settings) {
+      const baseUrl = (settings as any).ai_base_url || process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
+      const apiKey = (settings as any).ai_api_key || process.env.OPENAI_API_KEY || "";
+      const model = (settings as any).ai_model || process.env.OPENAI_MODEL || "gpt-4o";
+      const maxTokens = (settings as any).ai_max_tokens || parseInt(process.env.OPENAI_MAX_TOKENS || "2048", 10);
+      const temperature = (settings as any).ai_temperature ?? parseFloat(process.env.OPENAI_TEMPERATURE || "0.7");
+
+      return { baseUrl, apiKey, model, maxTokens, temperature };
+    }
+  } catch {
+    // DB not available, fall through to env vars
   }
+
+  // Fall back to env vars
+  return {
+    baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+    apiKey: process.env.OPENAI_API_KEY || "",
+    model: process.env.OPENAI_MODEL || "gpt-4o",
+    maxTokens: parseInt(process.env.OPENAI_MAX_TOKENS || "2048", 10),
+    temperature: parseFloat(process.env.OPENAI_TEMPERATURE || "0.7"),
+  };
+}
+
+async function getClient(): Promise<OpenAI | null> {
+  const config = await getAIConfig();
+  if (!config.apiKey) return null;
+
+  // Recreate client if base URL or API key changed
+  if (!client || cachedBaseUrl !== config.baseUrl || cachedApiKey !== config.apiKey) {
+    client = new OpenAI({
+      baseURL: config.baseUrl,
+      apiKey: config.apiKey,
+    });
+    cachedBaseUrl = config.baseUrl;
+    cachedApiKey = config.apiKey;
+  }
+
   return client;
 }
 
-function getModel(): string {
-  return process.env.OPENAI_MODEL || "gpt-4o";
-}
-
-function getMaxTokens(): number {
-  return parseInt(process.env.OPENAI_MAX_TOKENS || "2048", 10);
-}
-
-function getTemperature(): number {
-  return parseFloat(process.env.OPENAI_TEMPERATURE || "0.7");
-}
-
-export function isAIConfigured(): boolean {
-  return !!process.env.OPENAI_API_KEY;
+export async function isAIConfigured(): Promise<boolean> {
+  const config = await getAIConfig();
+  return !!config.apiKey;
 }
 
 export async function generateTitle(content: string): Promise<string> {
-  const ai = getClient();
+  const ai = await getClient();
   if (!ai) throw new Error("AI not configured");
+  const config = await getAIConfig();
 
   const response = await ai.chat.completions.create({
-    model: getModel(),
+    model: config.model,
     messages: [
       {
         role: "system",
@@ -46,18 +84,19 @@ export async function generateTitle(content: string): Promise<string> {
       { role: "user", content },
     ],
     max_tokens: 100,
-    temperature: getTemperature(),
+    temperature: config.temperature,
   });
 
   return response.choices[0]?.message?.content?.trim() || "";
 }
 
 export async function generateOutline(topic: string): Promise<string> {
-  const ai = getClient();
+  const ai = await getClient();
   if (!ai) throw new Error("AI not configured");
+  const config = await getAIConfig();
 
   const response = await ai.chat.completions.create({
-    model: getModel(),
+    model: config.model,
     messages: [
       {
         role: "system",
@@ -66,8 +105,8 @@ export async function generateOutline(topic: string): Promise<string> {
       },
       { role: "user", content: topic },
     ],
-    max_tokens: getMaxTokens(),
-    temperature: getTemperature(),
+    max_tokens: config.maxTokens,
+    temperature: config.temperature,
   });
 
   return response.choices[0]?.message?.content?.trim() || "";
@@ -77,8 +116,9 @@ export async function enhanceContent(
   content: string,
   action: "expand" | "condense" | "engaging" | "fix-grammar"
 ): Promise<string> {
-  const ai = getClient();
+  const ai = await getClient();
   if (!ai) throw new Error("AI not configured");
+  const config = await getAIConfig();
 
   const prompts: Record<string, string> = {
     expand:
@@ -92,13 +132,13 @@ export async function enhanceContent(
   };
 
   const response = await ai.chat.completions.create({
-    model: getModel(),
+    model: config.model,
     messages: [
       { role: "system", content: prompts[action] },
       { role: "user", content },
     ],
-    max_tokens: getMaxTokens(),
-    temperature: getTemperature(),
+    max_tokens: config.maxTokens,
+    temperature: config.temperature,
   });
 
   return response.choices[0]?.message?.content?.trim() || "";
@@ -107,11 +147,12 @@ export async function enhanceContent(
 export async function generateMeta(
   content: string
 ): Promise<{ title: string; description: string; tags: string[] }> {
-  const ai = getClient();
+  const ai = await getClient();
   if (!ai) throw new Error("AI not configured");
+  const config = await getAIConfig();
 
   const response = await ai.chat.completions.create({
-    model: getModel(),
+    model: config.model,
     messages: [
       {
         role: "system",
@@ -141,11 +182,12 @@ export async function translateContent(
   content: string,
   targetLanguage: string
 ): Promise<string> {
-  const ai = getClient();
+  const ai = await getClient();
   if (!ai) throw new Error("AI not configured");
+  const config = await getAIConfig();
 
   const response = await ai.chat.completions.create({
-    model: getModel(),
+    model: config.model,
     messages: [
       {
         role: "system",
@@ -153,7 +195,7 @@ export async function translateContent(
       },
       { role: "user", content },
     ],
-    max_tokens: getMaxTokens(),
+    max_tokens: config.maxTokens,
     temperature: 0.3,
   });
 

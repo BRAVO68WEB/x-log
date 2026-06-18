@@ -25,7 +25,7 @@ interface PostMetaPanelProps {
 
 export default function PostMetaPanel({ postId }: PostMetaPanelProps) {
   const queryClient = useQueryClient();
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [meta, setMeta] = useState<Record<string, string>>({});
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");

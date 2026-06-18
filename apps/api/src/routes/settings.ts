@@ -33,6 +33,11 @@ const InstanceSettingsUpdateSchema = z.object({
       "retro-classic",
     ])
     .optional(),
+  ai_base_url: z.string().url().optional().nullable(),
+  ai_api_key: z.string().optional().nullable(),
+  ai_model: z.string().optional().nullable(),
+  ai_max_tokens: z.number().int().min(1).max(128000).optional().nullable(),
+  ai_temperature: z.number().min(0).max(2).optional().nullable(),
 });
 
 const InstanceSettingsResponseSchema = z.object({
@@ -62,6 +67,11 @@ const InstanceSettingsResponseSchema = z.object({
     "signal",
     "retro-classic",
   ]),
+  ai_base_url: z.string().nullable(),
+  ai_api_key: z.string().nullable(),
+  ai_model: z.string().nullable(),
+  ai_max_tokens: z.number().nullable(),
+  ai_temperature: z.number().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -169,6 +179,11 @@ settingsRoutes.get(
       following_enabled: settings.following_enabled,
       use_profile_as_landing: settings.use_profile_as_landing,
       theme_id: settings.theme_id,
+      ai_base_url: (settings as any).ai_base_url ?? null,
+      ai_api_key: (settings as any).ai_api_key ?? null,
+      ai_model: (settings as any).ai_model ?? null,
+      ai_max_tokens: (settings as any).ai_max_tokens ?? null,
+      ai_temperature: (settings as any).ai_temperature ?? null,
       created_at: settings.created_at.toISOString(),
       updated_at: settings.updated_at.toISOString(),
     });
@@ -244,6 +259,21 @@ settingsRoutes.patch(
     if (data.theme_id !== undefined) {
       updateData.theme_id = data.theme_id;
     }
+    if (data.ai_base_url !== undefined) {
+      updateData.ai_base_url = data.ai_base_url;
+    }
+    if (data.ai_api_key !== undefined) {
+      updateData.ai_api_key = data.ai_api_key;
+    }
+    if (data.ai_model !== undefined) {
+      updateData.ai_model = data.ai_model;
+    }
+    if (data.ai_max_tokens !== undefined) {
+      updateData.ai_max_tokens = data.ai_max_tokens;
+    }
+    if (data.ai_temperature !== undefined) {
+      updateData.ai_temperature = data.ai_temperature;
+    }
 
     // Update settings
     await db.updateTable("instance_settings").set(updateData).where("id", "=", 1).execute();
@@ -269,6 +299,11 @@ settingsRoutes.patch(
       following_enabled: updated!.following_enabled,
       use_profile_as_landing: updated!.use_profile_as_landing,
       theme_id: updated!.theme_id,
+      ai_base_url: (updated as any).ai_base_url ?? null,
+      ai_api_key: (updated as any).ai_api_key ?? null,
+      ai_model: (updated as any).ai_model ?? null,
+      ai_max_tokens: (updated as any).ai_max_tokens ?? null,
+      ai_temperature: (updated as any).ai_temperature ?? null,
       created_at: updated!.created_at.toISOString(),
       updated_at: updated!.updated_at.toISOString(),
     });

@@ -94,11 +94,12 @@ export const usersApi = {
 
 // Posts API
 export const postsApi = {
-  list: async (params?: { limit?: number; cursor?: string; author?: string }) => {
+  list: async (params?: { limit?: number; cursor?: string; author?: string; mine?: boolean }) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.cursor) searchParams.set("cursor", params.cursor);
     if (params?.author) searchParams.set("author", params.author);
+    if (params?.mine) searchParams.set("mine", "true");
 
     const query = searchParams.toString();
     interface PostSummary {
@@ -410,6 +411,14 @@ export const settingsApi = {
       admin_email: string | null;
       smtp_url: string | null;
       federation_enabled: boolean;
+      following_enabled: boolean;
+      use_profile_as_landing: boolean;
+      theme_id: string;
+      ai_base_url: string | null;
+      ai_api_key: string | null;
+      ai_model: string | null;
+      ai_max_tokens: number | null;
+      ai_temperature: number | null;
       created_at: string;
       updated_at: string;
     }>("/api/settings");
@@ -423,6 +432,14 @@ export const settingsApi = {
     admin_email?: string | null;
     smtp_url?: string | null;
     federation_enabled?: boolean;
+    following_enabled?: boolean;
+    use_profile_as_landing?: boolean;
+    theme_id?: string;
+    ai_base_url?: string | null;
+    ai_api_key?: string | null;
+    ai_model?: string | null;
+    ai_max_tokens?: number | null;
+    ai_temperature?: number | null;
   }) => {
     return apiRequest("/api/settings", {
       method: "PATCH",

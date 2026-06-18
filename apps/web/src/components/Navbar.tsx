@@ -20,6 +20,7 @@ import {
   FaBookmark,
   FaCode,
   FaLink,
+  FaFileLines,
 } from "react-icons/fa6";
 import type { IconType } from "react-icons";
 
@@ -44,6 +45,7 @@ export function Navbar() {
   const authNavItems = [
     { href: "/following", label: "Following", icon: FaNewspaper },
     { href: "/editor", label: "Write", icon: FaPen },
+    { href: "/drafts", label: "My Posts", icon: FaFileLines },
     { href: "/snippets", label: "Snippets", icon: FaCode },
     { href: "/links", label: "Links", icon: FaLink },
     { href: "/bookmarks", label: "Bookmarks", icon: FaBookmark },

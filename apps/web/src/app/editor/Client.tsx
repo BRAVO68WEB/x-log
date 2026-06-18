@@ -200,12 +200,8 @@ export default function EditorClient({
         onPublish={handlePublish}
         saving={saving}
         publishLabel={isPublished ? "Update" : "Publish"}
+        sidebar={postId ? <PostMetaPanel postId={postId} /> : undefined}
       />
-      {postId && (
-        <div className="max-w-4xl mx-auto px-6 pb-8">
-          <PostMetaPanel postId={postId} />
-        </div>
-      )}
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
     </>
   );

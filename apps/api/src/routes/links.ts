@@ -7,7 +7,9 @@ import { generateId } from "@xlog/snowflake";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { isFeatureEnabled } from "../lib/features";
 
-async function fetchOgMetadata(url: string): Promise<{ title?: string; description?: string; image?: string }> {
+async function fetchOgMetadata(
+  url: string
+): Promise<{ title?: string; description?: string; image?: string }> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
@@ -178,10 +180,20 @@ linksRoutes.get(
       .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
       .leftJoin("link_snapshots", "link_snapshots.link_id", "links.id")
       .select([
-        "links.id", "links.url", "links.title", "links.description",
-        "links.thumbnail", "links.og_image", "links.tags", "links.view_count",
-        "links.is_public", "links.user_id", "links.archived_at",
-        "users.username", "user_profiles.full_name", "user_profiles.avatar_url",
+        "links.id",
+        "links.url",
+        "links.title",
+        "links.description",
+        "links.thumbnail",
+        "links.og_image",
+        "links.tags",
+        "links.view_count",
+        "links.is_public",
+        "links.user_id",
+        "links.archived_at",
+        "users.username",
+        "user_profiles.full_name",
+        "user_profiles.avatar_url",
         "link_snapshots.archived_url",
       ])
       .where("links.id", "=", id)
@@ -192,7 +204,11 @@ linksRoutes.get(
     }
 
     // Increment view count
-    await db.updateTable("links").set({ view_count: link.view_count + 1 }).where("id", "=", id).execute();
+    await db
+      .updateTable("links")
+      .set({ view_count: link.view_count + 1 })
+      .where("id", "=", id)
+      .execute();
 
     return c.json({
       id: link.id,
@@ -296,9 +312,14 @@ linksRoutes.put(
     const body = c.req.valid("json");
     const db = getDb();
 
-    const link = await db.selectFrom("links").select(["user_id"]).where("id", "=", id).executeTakeFirst();
+    const link = await db
+      .selectFrom("links")
+      .select(["user_id"])
+      .where("id", "=", id)
+      .executeTakeFirst();
     if (!link) return c.json({ error: "Link not found" }, 404);
-    if (link.user_id !== user.id && user.role !== "admin") return c.json({ error: "Not authorized" }, 403);
+    if (link.user_id !== user.id && user.role !== "admin")
+      return c.json({ error: "Not authorized" }, 403);
 
     const updateData: any = {};
     if (body.title !== undefined) updateData.title = body.title;
@@ -335,9 +356,14 @@ linksRoutes.delete(
     const id = c.req.param("id");
     const db = getDb();
 
-    const link = await db.selectFrom("links").select(["user_id"]).where("id", "=", id).executeTakeFirst();
+    const link = await db
+      .selectFrom("links")
+      .select(["user_id"])
+      .where("id", "=", id)
+      .executeTakeFirst();
     if (!link) return c.json({ error: "Link not found" }, 404);
-    if (link.user_id !== user.id && user.role !== "admin") return c.json({ error: "Not authorized" }, 403);
+    if (link.user_id !== user.id && user.role !== "admin")
+      return c.json({ error: "Not authorized" }, 403);
 
     await db.deleteFrom("links").where("id", "=", id).execute();
     return c.json({ deleted: id });
@@ -367,7 +393,11 @@ linksRoutes.post(
     const id = c.req.param("id");
     const db = getDb();
 
-    const link = await db.selectFrom("links").select(["url"]).where("id", "=", id).executeTakeFirst();
+    const link = await db
+      .selectFrom("links")
+      .select(["url"])
+      .where("id", "=", id)
+      .executeTakeFirst();
     if (!link) return c.json({ error: "Link not found" }, 404);
 
     const archivedUrl = await archiveToWayback(link.url);

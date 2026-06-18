@@ -169,6 +169,11 @@ export interface InstanceSettingsTable {
   following_enabled: boolean;
   use_profile_as_landing: boolean;
   theme_id: ColumnType<InstanceThemeId, InstanceThemeId | undefined, InstanceThemeId>;
+  ai_base_url: string | null;
+  ai_api_key: string | null;
+  ai_model: string | null;
+  ai_max_tokens: number | null;
+  ai_temperature: number | null;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
 }

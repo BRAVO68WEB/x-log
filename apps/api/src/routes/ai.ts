@@ -20,8 +20,8 @@ async function checkAI(c: any): Promise<boolean> {
     c.json({ error: "AI writer feature is not enabled" }, 403);
     return false;
   }
-  if (!isAIConfigured()) {
-    c.json({ error: "AI is not configured. Set OPENAI_API_KEY." }, 503);
+  if (!(await isAIConfigured())) {
+    c.json({ error: "AI is not configured. Set OPENAI_API_KEY in Settings → AI." }, 503);
     return false;
   }
   return true;
