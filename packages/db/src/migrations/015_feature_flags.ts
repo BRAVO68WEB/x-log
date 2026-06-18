@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
-export const name = "020_feature_flags";
+export const name = "015_feature_flags";
 
 const FEATURE_KEYS = [
   "code_snippets",

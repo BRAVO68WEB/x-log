@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
-export const name = "025_links";
+export const name = "020_links";
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema

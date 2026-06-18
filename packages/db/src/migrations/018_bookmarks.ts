@@ -1,11 +1,11 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
-export const name = "023_bookmarks_table_ensure";
+export const name = "018_bookmarks";
 
 export async function up(db: Kysely<unknown>): Promise<void> {
-  // Create bookmarks table if it doesn't exist
-  // (migration 019 adds columns to this table, but the base table may be missing)
+  // Create bookmarks table with all columns at once
+  // (consolidates original bookmarks_url + bookmarks_table_ensure)
   await sql`
     CREATE TABLE IF NOT EXISTS bookmarks (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -18,14 +18,14 @@ export async function up(db: Kysely<unknown>): Promise<void> {
   `.execute(db);
 
   await db.schema
-    .createIndex("bookmarks_user_id_023_idx")
+    .createIndex("bookmarks_user_id_idx")
     .ifNotExists()
     .on("bookmarks")
     .column("user_id")
     .execute();
 
   await db.schema
-    .createIndex("bookmarks_user_post_023_idx")
+    .createIndex("bookmarks_user_post_idx")
     .ifNotExists()
     .on("bookmarks")
     .columns(["user_id", "post_id"])
@@ -33,6 +33,7 @@ export async function up(db: Kysely<unknown>): Promise<void> {
 }
 
 export async function down(db: Kysely<unknown>): Promise<void> {
-  await db.schema.dropIndex("bookmarks_user_post_023_idx").ifExists().execute();
-  await db.schema.dropIndex("bookmarks_user_id_023_idx").ifExists().execute();
+  await db.schema.dropIndex("bookmarks_user_post_idx").ifExists().execute();
+  await db.schema.dropIndex("bookmarks_user_id_idx").ifExists().execute();
+  await db.schema.dropTable("bookmarks").ifExists().execute();
 }

@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
-export const name = "021_password_resets";
+export const name = "016_password_resets";
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema

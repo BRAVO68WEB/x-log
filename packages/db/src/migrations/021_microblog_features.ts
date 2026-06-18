@@ -1,7 +1,7 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
-export const name = "026_microblog_features";
+export const name = "021_microblog_features";
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   // ── Reposts: add repost_of_id to posts ──
