@@ -1,0 +1,26 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && bun install --frozen-lockfile && bun run --filter @xlog/web build",
+  "outputDirectory": "apps/web/.next",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && bun install --frozen-lockfile",
+  "env": {
+    "BACKEND_API_URL": "@backend-api-url",
+    "SESSION_SECRET": "@session-secret",
+    "INSTANCE_DOMAIN": "@instance-domain",
+    "OIDC_CLIENT_ID": "@oidc-client-id",
+    "OIDC_CLIENT_SECRET": "@oidc-client-secret",
+    "OIDC_REDIRECT_URI": "@oidc-redirect-uri",
+    "OIDC_DISCOVERY_URL": "@oidc-discovery-url"
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PATCH,PUT,DELETE,OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
+      ]
+    }
+  ]
+}

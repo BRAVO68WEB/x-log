@@ -203,3 +203,124 @@ export const OIDCAccountResponseSchema = z.object({
   name: z.string().nullable(),
   created_at: z.string(),
 });
+
+// Post Meta schemas
+export const PostMetaCreateSchema = z.object({
+  key: z.string().min(1).max(256),
+  value: z.string().max(4096),
+});
+
+export const PostMetaBulkUpdateSchema = z.object({
+  meta: z.record(z.string().max(256), z.string().max(4096)),
+});
+
+export const PostMetaResponseSchema = z.object({
+  meta: z.record(z.string(), z.string()),
+});
+
+// Snippet schemas
+export const SnippetCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  language: z.string().min(1).max(50),
+  code: z.string().min(1),
+  visibility: z.enum(["public", "followers", "private"]).default("public"),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).default([]),
+});
+
+export const SnippetUpdateSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  language: z.string().min(1).max(50).optional(),
+  code: z.string().min(1).optional(),
+  visibility: z.enum(["public", "followers", "private"]).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).optional(),
+  changelog: z.string().max(500).optional(),
+});
+
+export const SnippetResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  language: z.string(),
+  code: z.string(),
+  visibility: z.string(),
+  current_version: z.number().int(),
+  fork_of: z.string().nullable(),
+  tags: z.array(z.string()),
+  view_count: z.number().int(),
+  user: z.object({
+    id: z.string(),
+    username: z.string(),
+    full_name: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+  }),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const SnippetVersionSchema = z.object({
+  id: z.string(),
+  version: z.number().int(),
+  code: z.string(),
+  changelog: z.string().nullable(),
+  created_at: z.string(),
+});
+
+// Link schemas
+export const LinkCreateSchema = z.object({
+  url: z.string().url(),
+  title: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).default([]),
+});
+
+export const LinkUpdateSchema = z.object({
+  title: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).optional(),
+  is_public: z.boolean().optional(),
+});
+
+export const LinkResponseSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  thumbnail: z.string().nullable(),
+  og_image: z.string().nullable(),
+  tags: z.array(z.string()),
+  view_count: z.number().int(),
+  is_public: z.boolean(),
+  archived_url: z.string().nullable(),
+  user: z.object({
+    id: z.string(),
+    username: z.string(),
+    full_name: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+  }),
+  archived_at: z.string(),
+});
+
+// AI schemas
+export const AITitleRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+});
+
+export const AIOutlineRequestSchema = z.object({
+  topic: z.string().min(1).max(5000),
+});
+
+export const AIEnhanceRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+  action: z.enum(["expand", "condense", "engaging", "fix-grammar"]),
+});
+
+export const AIMetaRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+});
+
+export const AITranslateRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+  language: z.string().min(1).max(50),
+});

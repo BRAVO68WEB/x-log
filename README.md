@@ -2,6 +2,12 @@
 
 A federated blog platform built on ActivityPub.
 
+## Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/BRAVO68WEB/x-log&root-directory=apps/web&env=DATABASE_URL,SESSION_SECRET,INSTANCE_DOMAIN,OIDC_CLIENT_ID,OIDC_CLIENT_SECRET,OIDC_REDIRECT_URI,OIDC_DISCOVERY_URL&envDescription=Required%20configuration&envLink=https://github.com/BRAVO68WEB/x-log/blob/main/deploy/.env.production.example)
+
+**Other options:** [Docker Compose](deploy/DEPLOY.md#option-2-docker-compose-self-hosted) · [Docker](deploy/DEPLOY.md#option-3-docker-single-container) · [Full deploy guide](deploy/DEPLOY.md)
+
 ## Overview
 
 x-log is an open-source, Bun + TypeScript powered blog platform that federates with the Fediverse using ActivityPub. Readers on Mastodon, Elk, Soapbox, and compatible clients can search, read, like, and follow x-log profiles and posts directly from their clients.

@@ -34,26 +34,44 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
       hashtags?: string[];
       url?: string;
     };
+
+    // Fetch custom metadata (best-effort, gated by feature flag)
+    let customMeta: Record<string, string> = {};
+    try {
+      const metaRes = await fetch(`${base}/api/posts/${id}/meta`, {
+        cache: "no-store",
+      });
+      if (metaRes.ok) {
+        const metaData = (await metaRes.json()) as { meta?: Record<string, string> };
+        customMeta = metaData.meta || {};
+      }
+    } catch {
+      // Feature may be disabled — ignore
+    }
+
     const domain = getDomainFromOrigin(base);
     const authorName = post.author.full_name || post.author.username;
     const authorPath = `/u/${post.author.username}`;
     const actorUrl = getActorUrl(post.author.username, domain);
     const handle = getFediverseHandle(post.author.username, domain);
-    const canonical = post.url || `/post/${post.id}`;
-    const image = absoluteUrl(post.banner_url, base);
+    const canonical = customMeta["canonical"] || post.url || `/post/${post.id}`;
+    const image = absoluteUrl(customMeta["og:image"] || post.banner_url, base);
+    const description = customMeta["og:description"] || post.summary || undefined;
+    const robots = customMeta["robots"] || undefined;
 
     return {
       metadataBase: new URL(base),
       title: `${post.title} — x-log`,
-      description: post.summary || undefined,
+      description,
       authors: [{ name: authorName, url: authorPath }],
       creator: authorName,
+      robots: robots ? { index: !robots.includes("noindex"), follow: !robots.includes("nofollow") } : undefined,
       alternates: {
         canonical,
       },
       openGraph: {
         title: post.title,
-        description: post.summary || undefined,
+        description,
         url: canonical,
         type: "article",
         publishedTime: post.published_at || undefined,
@@ -63,9 +81,9 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
         images: image ? [image] : undefined,
       },
       twitter: {
-        card: image ? "summary_large_image" : "summary",
+        card: (customMeta["twitter:card"] as any) || (image ? "summary_large_image" : "summary"),
         title: post.title,
-        description: post.summary || undefined,
+        description,
         images: image ? [image] : undefined,
       },
       other: {
@@ -73,6 +91,11 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
         "article:author": actorUrl,
         "fediverse:creator": handle,
         "activitypub:actor": actorUrl,
+        ...Object.fromEntries(
+          Object.entries(customMeta).filter(([k]) =>
+            k.startsWith("og:") || k.startsWith("twitter:") || k.startsWith("custom:")
+          )
+        ),
       },
     };
   } catch {

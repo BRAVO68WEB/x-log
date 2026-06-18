@@ -170,10 +170,11 @@ postsRoutes.get(
     "query",
     PaginationQuerySchema.extend({
       author: z.string().optional(),
+      mine: z.string().optional(),
     })
   ),
   async (c) => {
-    const { limit, cursor, author } = c.req.valid("query");
+    const { limit, cursor, author, mine } = c.req.valid("query");
     const db = getDb();
     const user = c.get("user");
 
@@ -191,14 +192,23 @@ postsRoutes.get(
         "posts.published_at",
         "posts.updated_at",
         "posts.visibility",
+        "posts.author_id",
         "users.username",
         "user_profiles.full_name",
         "user_profiles.avatar_url",
-      ])
-      .where("posts.visibility", "=", "public")
-      .where("posts.published_at", "is not", null)
-      .orderBy("posts.published_at", "desc")
-      .limit(limit + 1);
+      ]);
+
+    if (mine === "true" && user) {
+      // Show all of the authenticated user's posts (including drafts)
+      query = query.where("posts.author_id", "=", user.id);
+    } else {
+      // Public feed: only published public posts
+      query = query
+        .where("posts.visibility", "=", "public")
+        .where("posts.published_at", "is not", null);
+    }
+
+    query = query.orderBy("posts.updated_at", "desc").limit(limit + 1);
 
     if (author) {
       query = query.where("users.username", "=", author);
@@ -305,6 +315,13 @@ postsRoutes.get(
 
     if (!post) {
       return c.json({ error: "Post not found" }, 404);
+    }
+
+    // Unpublished posts (drafts) are only visible to the author or admins
+    if (!post.published_at) {
+      if (!user || (user.id !== post.author_id && user.role !== "admin")) {
+        return c.json({ error: "Post not found" }, 404);
+      }
     }
 
     // Check visibility: public and unlisted posts are visible to everyone

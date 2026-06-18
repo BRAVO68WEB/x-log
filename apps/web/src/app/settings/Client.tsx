@@ -29,7 +29,10 @@ import {
   FaPalette,
   FaShieldHalved,
   FaShareNodes,
+  FaPuzzlePiece,
+  FaRobot,
 } from "react-icons/fa6";
+import FeaturesTab from "./FeaturesTab";
 
 export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState("general");
@@ -55,6 +58,11 @@ export default function SettingsClient() {
     following_enabled: false,
     use_profile_as_landing: false,
     theme_id: "system" as InstanceThemeId,
+    ai_base_url: "",
+    ai_api_key: "",
+    ai_model: "",
+    ai_max_tokens: 2048,
+    ai_temperature: 0.7,
   });
 
   const settingsQuery = useQuery(
@@ -75,6 +83,11 @@ export default function SettingsClient() {
         following_enabled: boolean;
         use_profile_as_landing: boolean;
         theme_id: InstanceThemeId;
+        ai_base_url: string | null;
+        ai_api_key: string | null;
+        ai_model: string | null;
+        ai_max_tokens: number | null;
+        ai_temperature: number | null;
       }>;
     },
     {
@@ -89,6 +102,11 @@ export default function SettingsClient() {
           following_enabled: data.following_enabled,
           use_profile_as_landing: data.use_profile_as_landing,
           theme_id: normalizeThemeId(data.theme_id),
+          ai_base_url: data.ai_base_url || "",
+          ai_api_key: data.ai_api_key || "",
+          ai_model: data.ai_model || "",
+          ai_max_tokens: data.ai_max_tokens || 2048,
+          ai_temperature: data.ai_temperature ?? 0.7,
         });
       },
       onError: (err) => {
@@ -153,6 +171,11 @@ export default function SettingsClient() {
           following_enabled: settings.following_enabled,
           use_profile_as_landing: settings.use_profile_as_landing,
           theme_id: settings.theme_id,
+          ai_base_url: settings.ai_base_url || null,
+          ai_api_key: settings.ai_api_key || null,
+          ai_model: settings.ai_model || null,
+          ai_max_tokens: settings.ai_max_tokens || null,
+          ai_temperature: settings.ai_temperature,
         }),
       });
       if (!res.ok) {
@@ -318,6 +341,14 @@ export default function SettingsClient() {
             <TabsTrigger value="security" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaShieldHalved className="h-3.5 w-3.5" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="features" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaPuzzlePiece className="h-3.5 w-3.5" />
+              Features
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaRobot className="h-3.5 w-3.5" />
+              AI
             </TabsTrigger>
           </TabsList>
 
@@ -631,6 +662,104 @@ export default function SettingsClient() {
                       >
                         {passwordMutation.isLoading ? "Changing..." : "Change Password"}
                       </Button>
+                    </div>
+                  </BentoCardContent>
+                </BentoCard>
+              </BentoGrid>
+            </TabsContent>
+
+            <TabsContent value="features">
+              <FeaturesTab />
+            </TabsContent>
+
+            <TabsContent value="ai">
+              <BentoGrid columns={2}>
+                <BentoCard size="full" index={0} accent>
+                  <BentoCardHeader>
+                    <h2 className="text-xl font-semibold font-heading">AI Writer Settings</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Configure the AI writing assistant. Works with any OpenAI-compatible API.
+                    </p>
+                  </BentoCardHeader>
+                  <BentoCardContent>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Input
+                          label="Base URL"
+                          type="url"
+                          value={settings.ai_base_url}
+                          onChange={(e) => setSettings({ ...settings, ai_base_url: e.target.value })}
+                          placeholder="https://api.openai.com/v1"
+                        />
+                        <Input
+                          label="API Key"
+                          type="password"
+                          value={settings.ai_api_key}
+                          onChange={(e) => setSettings({ ...settings, ai_api_key: e.target.value })}
+                          placeholder="sk-..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Input
+                          label="Model"
+                          value={settings.ai_model}
+                          onChange={(e) => setSettings({ ...settings, ai_model: e.target.value })}
+                          placeholder="gpt-4o"
+                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="ai_max_tokens">Max Tokens</Label>
+                          <Input
+                            id="ai_max_tokens"
+                            type="number"
+                            value={settings.ai_max_tokens}
+                            onChange={(e) =>
+                              setSettings({ ...settings, ai_max_tokens: parseInt(e.target.value) || 2048 })
+                            }
+                            min={1}
+                            max={128000}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ai_temperature">Temperature ({settings.ai_temperature})</Label>
+                          <input
+                            id="ai_temperature"
+                            type="range"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value={settings.ai_temperature}
+                            onChange={(e) =>
+                              setSettings({ ...settings, ai_temperature: parseFloat(e.target.value) })
+                            }
+                            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Precise (0)</span>
+                            <span>Creative (2)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border bg-muted/50 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          {settings.ai_api_key ? (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-green-500" />
+                              <span className="text-sm font-medium">Configured</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                              <span className="text-sm font-medium">Not configured</span>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Supports OpenAI, Ollama, Groq, Fireworks, Together, or any OpenAI-compatible endpoint.
+                          Leave Base URL empty for OpenAI default. Set API Key to enable AI features.
+                        </p>
+                      </div>
                     </div>
                   </BentoCardContent>
                 </BentoCard>
