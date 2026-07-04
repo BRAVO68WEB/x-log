@@ -188,10 +188,10 @@ export class OIDCClient {
     const userInfo = await this.verifyIdToken(tokens.id_token);
 
     // Optionally fetch additional userinfo if needed
-    // const additionalInfo = await this.getUserInfo(tokens.access_token);
-    // return { ...userInfo, ...additionalInfo };
+    const additionalInfo = await this.getUserInfo(tokens.access_token);
+    return { ...userInfo, ...additionalInfo };
 
-    return userInfo;
+    // return userInfo;
   }
 }
 
