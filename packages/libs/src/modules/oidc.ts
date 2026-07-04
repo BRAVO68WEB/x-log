@@ -1,5 +1,5 @@
 import { getEnv } from "@xlog/config";
-import { CryptoKey, jwtVerify } from "jose";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 
 export interface OIDCDiscoveryDocument {
   issuer: string;
@@ -39,7 +39,7 @@ export interface OIDCConfig {
 export class OIDCClient {
   private config: OIDCConfig;
   private discovery: OIDCDiscoveryDocument | null = null;
-  private jwks: Map<string, CryptoKey> = new Map();
+  private jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 
   constructor(config?: Partial<OIDCConfig>) {
     const env = getEnv();
@@ -138,31 +138,11 @@ export class OIDCClient {
     const discovery = await this.getDiscovery();
 
     try {
-      // Fetch JWKS if not cached
-      if (this.jwks.size === 0) {
-        await this.fetchJWKS(discovery.jwks_uri);
+      if (!this.jwks) {
+        this.jwks = createRemoteJWKSet(new URL(discovery.jwks_uri));
       }
 
-      // Parse the token header to get the kid
-      const [headerB64] = idToken.split(".");
-      const header = JSON.parse(atob(headerB64));
-      const kid = header.kid;
-
-      if (!kid) {
-        throw new Error("No kid in token header");
-      }
-
-      const publicKey = this.jwks.get(kid);
-      if (!publicKey) {
-        // Refresh JWKS and try again
-        await this.fetchJWKS(discovery.jwks_uri);
-        const refreshedKey = this.jwks.get(kid);
-        if (!refreshedKey) {
-          throw new Error(`Public key not found for kid: ${kid}`);
-        }
-      }
-
-      const { payload } = await jwtVerify(idToken, this.jwks.get(kid)!, {
+      const { payload } = await jwtVerify(idToken, this.jwks, {
         issuer: discovery.issuer,
         audience: this.config.clientId,
       });
@@ -196,34 +176,6 @@ export class OIDCClient {
     } catch (error) {
       throw new Error(
         `Userinfo request failed: ${error instanceof Error ? error.message : "Unknown error"}`
-      );
-    }
-  }
-
-  /**
-   * Fetch and cache JWKS
-   */
-  private async fetchJWKS(jwksUri: string): Promise<void> {
-    try {
-      const response = await fetch(jwksUri);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch JWKS: ${response.statusText}`);
-      }
-
-      const jwks = (await response.json()) as { keys: any[] };
-      this.jwks.clear();
-
-      // Import all keys
-      const { importJWK } = await import("jose");
-      for (const key of jwks.keys) {
-        if (key.kid) {
-          const cryptoKey = (await importJWK(key, key.alg)) as CryptoKey;
-          this.jwks.set(key.kid, cryptoKey);
-        }
-      }
-    } catch (error) {
-      throw new Error(
-        `JWKS fetch failed: ${error instanceof Error ? error.message : "Unknown error"}`
       );
     }
   }
