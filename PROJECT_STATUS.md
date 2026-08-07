@@ -138,3 +138,4 @@
 - [x] Digest header validation and Date header freshness checks
 - [x] Signature replay protection with short-lived cache
 - [x] Authorized-fetch client support: signed GET when resolving remote actors / public keys
+- [x] Remote public key cache (`remote_keys`, 24h TTL) with invalidate-and-refetch on RSA verify failure

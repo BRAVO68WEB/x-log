@@ -239,7 +239,21 @@ async function cleanupReplayCache() {
   }
 }
 
+// Drop remote public keys older than 7 days (verify path also TTL-refreshes at 24h)
+async function cleanupRemoteKeys() {
+  while (true) {
+    try {
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      await db.deleteFrom("remote_keys").where("fetched_at", "<", cutoff).execute();
+    } catch (err) {
+      console.error("Remote keys cleanup error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 3600_000)); // Hourly
+  }
+}
+
 // Start workers
 processDeliveryJobs();
 processRetryJobs();
 cleanupReplayCache();
+cleanupRemoteKeys();

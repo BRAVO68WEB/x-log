@@ -2,6 +2,8 @@ import crypto from "crypto";
 import { getDb, getInstanceSettings } from "@xlog/db";
 
 const SIGNATURE_TTL_MS = 15 * 60 * 1000;
+/** How long cached remote public keys remain valid before re-fetch. */
+const REMOTE_KEY_TTL_MS = 24 * 60 * 60 * 1000;
 const ACTIVITYPUB_ACCEPT_HEADER =
   'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
 
@@ -469,6 +471,118 @@ export async function fetchRemoteActorInbox(
   return { inbox: actorUrl.replace(/\/$/, "") + "/inbox" };
 }
 
+async function getCachedRemoteKey(
+  keyId: string
+): Promise<{ public_key_pem: string; owner: string } | null> {
+  const db = getDb();
+  const row = await db
+    .selectFrom("remote_keys")
+    .select(["public_key_pem", "owner", "fetched_at"])
+    .where("key_id", "=", keyId)
+    .executeTakeFirst();
+
+  if (!row) return null;
+
+  const ageMs = Date.now() - new Date(row.fetched_at as Date).getTime();
+  if (ageMs > REMOTE_KEY_TTL_MS) {
+    return null;
+  }
+
+  return { public_key_pem: row.public_key_pem, owner: row.owner };
+}
+
+async function cacheRemoteKey(
+  keyId: string,
+  owner: string,
+  publicKeyPem: string
+): Promise<void> {
+  const db = getDb();
+  await db
+    .insertInto("remote_keys")
+    .values({
+      key_id: keyId,
+      owner,
+      public_key_pem: publicKeyPem,
+      fetched_at: new Date(),
+    })
+    .onConflict((oc) =>
+      oc.column("key_id").doUpdateSet({
+        owner,
+        public_key_pem: publicKeyPem,
+        fetched_at: new Date(),
+      })
+    )
+    .execute();
+}
+
+async function invalidateRemoteKey(keyId: string): Promise<void> {
+  const db = getDb();
+  await db.deleteFrom("remote_keys").where("key_id", "=", keyId).execute();
+}
+
+/**
+ * Resolve a remote actor's public key: cache hit (within TTL) or signed GET.
+ * Validates publicKey owner/id before caching.
+ */
+async function resolveRemotePublicKey(
+  keyId: string,
+  actorUrl: string,
+  signerUserId?: string | null,
+  opts?: { bypassCache?: boolean }
+): Promise<string | null> {
+  if (!opts?.bypassCache) {
+    const cached = await getCachedRemoteKey(keyId);
+    if (cached) {
+      if (!actorUrlsEquivalent(cached.owner, actorUrl)) {
+        console.warn(
+          `Remote key cache owner mismatch for ${keyId}; invalidating`
+        );
+        await invalidateRemoteKey(keyId);
+      } else {
+        return cached.public_key_pem;
+      }
+    }
+  }
+
+  const remoteActor = await fetchRemoteActorDocument(actorUrl, {
+    signerUserId: signerUserId || undefined,
+  });
+  if (!remoteActor) {
+    return null;
+  }
+
+  const { actor, actorUrl: resolvedActorUrl } = remoteActor;
+  const publicKeyPem = actor.publicKey?.publicKeyPem;
+  const publicKeyOwner = actor.publicKey?.owner;
+  const publicKeyId = actor.publicKey?.id;
+
+  if (!publicKeyPem) {
+    console.warn("Sig verify failed: no publicKeyPem in actor");
+    return null;
+  }
+  if (publicKeyOwner && !actorUrlsEquivalent(publicKeyOwner, actorUrl)) {
+    console.warn(
+      `Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl}, resolved=${resolvedActorUrl})`
+    );
+    return null;
+  }
+  if (publicKeyId && !keyIdsEquivalent(publicKeyId, keyId)) {
+    console.warn(
+      `Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`
+    );
+    return null;
+  }
+
+  const owner = publicKeyOwner || actorUrl;
+  try {
+    await cacheRemoteKey(keyId, owner, publicKeyPem);
+  } catch (err) {
+    console.warn("Failed to cache remote key:", err);
+  }
+
+  return publicKeyPem;
+}
+
 export async function verifySignature(
   method: string,
   path: string,
@@ -584,34 +698,27 @@ export async function verifySignature(
     }
 
     const signerUserId = await resolveKeyFetchSignerUserId(options?.keyFetchSignerUserId);
-    const remoteActor = await fetchRemoteActorDocument(actorUrl, {
-      signerUserId: signerUserId || undefined,
-    });
-    if (!remoteActor) {
+    let publicKeyPem = await resolveRemotePublicKey(keyId, actorUrl, signerUserId);
+    if (!publicKeyPem) {
       console.warn("Sig verify failed: remote actor fetch failed for all candidates");
       return false;
     }
-    const { actor, actorUrl: resolvedActorUrl } = remoteActor;
-    const publicKeyPem = actor.publicKey?.publicKeyPem;
-    const publicKeyOwner = actor.publicKey?.owner;
-    const publicKeyId = actor.publicKey?.id;
-    if (!publicKeyPem) {
-      console.warn("Sig verify failed: no publicKeyPem in actor");
-      return false;
+
+    let ok = verifySignatureWithKey(method, path, headers, signatureParts, publicKeyPem);
+    if (!ok) {
+      // Stale or rotated key: invalidate cache and re-fetch once
+      console.warn(`RSA verify failed for ${keyId}; invalidating cache and re-fetching`);
+      await invalidateRemoteKey(keyId);
+      publicKeyPem = await resolveRemotePublicKey(keyId, actorUrl, signerUserId, {
+        bypassCache: true,
+      });
+      if (!publicKeyPem) {
+        console.warn("Sig verify failed: remote key re-fetch after invalidate failed");
+        return false;
+      }
+      ok = verifySignatureWithKey(method, path, headers, signatureParts, publicKeyPem);
     }
-    if (publicKeyOwner && !actorUrlsEquivalent(publicKeyOwner, actorUrl)) {
-      console.warn(
-        `Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl}, resolved=${resolvedActorUrl})`
-      );
-      return false;
-    }
-    if (publicKeyId && !keyIdsEquivalent(publicKeyId, keyId)) {
-      console.warn(
-        `Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`
-      );
-      return false;
-    }
-    return verifySignatureWithKey(method, path, headers, signatureParts, publicKeyPem);
+    return ok;
   } catch (error) {
     console.error("Signature verification error:", error);
     return false;
