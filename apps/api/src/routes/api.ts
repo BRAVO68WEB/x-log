@@ -20,6 +20,7 @@ import { adminRoutes } from "./admin";
 import { mastodonRoutes } from "./mastodon";
 import { publicRoutes } from "./public";
 import { feedRoutes } from "./feed";
+import { analyticsRoutes } from "./analytics";
 
 export const apiRoutes = new Hono()
   .route("/auth", authRoutes)
@@ -40,6 +41,7 @@ export const apiRoutes = new Hono()
   .route("/search", searchRoutes)
   .route("/media", mediaRoutes)
   .route("/public", publicRoutes)
+  .route("/analytics", analyticsRoutes)
   .route("/settings", settingsRoutes)
   .route("/v1", mastodonRoutes);
 

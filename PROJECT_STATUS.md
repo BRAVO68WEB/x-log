@@ -110,6 +110,15 @@
 - [x] Next.js proxy for Streamable + jsonrpc
 - [x] README operator docs
 
+### Analytics & observability
+
+- [x] First-party `page_views` + collect/summary API (feature flag `analytics`)
+- [x] Post page beacon + IP hash / DNT / retention cleanup
+- [x] Optional OpenTelemetry bootstrap (`OTEL_ENABLED`)
+- [x] Optional PostHog client (`NEXT_PUBLIC_POSTHOG_*`)
+- [ ] Analytics dashboard UI
+- [ ] Multi-user invite / registration productization
+
 ### Documentation
 
 - [ ] API documentation

@@ -252,8 +252,23 @@ async function cleanupRemoteKeys() {
   }
 }
 
+// Purge first-party analytics events past retention
+async function cleanupPageViews() {
+  while (true) {
+    try {
+      const days = Number(process.env.ANALYTICS_RETENTION_DAYS || 90);
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      await db.deleteFrom("page_views").where("created_at", "<", cutoff).execute();
+    } catch (err) {
+      console.error("Page views cleanup error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 3600_000));
+  }
+}
+
 // Start workers
 processDeliveryJobs();
 processRetryJobs();
 cleanupReplayCache();
 cleanupRemoteKeys();
+cleanupPageViews();

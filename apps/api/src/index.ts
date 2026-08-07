@@ -13,6 +13,9 @@ import { openAPIRouteHandler } from "hono-openapi";
 import { migrateToLatest } from "@xlog/db/migrate";
 import { getEnv } from "@xlog/config";
 import { isMcpEnabled } from "./mcp/context";
+import { startOtelIfEnabled } from "./lib/otel";
+
+await startOtelIfEnabled();
 
 const app = new Hono();
 
