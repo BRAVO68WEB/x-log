@@ -138,6 +138,14 @@ export interface ReplayCacheTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+/** Cached remote actor public keys for HTTP Signature verification */
+export interface RemoteKeysTable {
+  key_id: string; // ActivityPub keyId URL
+  owner: string; // actor URL
+  public_key_pem: string;
+  fetched_at: ColumnType<Date, Date | undefined, Date>;
+}
+
 export interface InboxObjectsTable {
   id: string; // uuid, PK
   type: string;
@@ -311,6 +319,7 @@ export interface Database {
   post_likes: PostLikesTable;
   instance_settings: InstanceSettingsTable;
   replay_cache: ReplayCacheTable;
+  remote_keys: RemoteKeysTable;
   oidc_accounts: OIDCAccountsTable;
   oidc_pending_links: OIDCPendingLinksTable;
   media: MediaTable;
