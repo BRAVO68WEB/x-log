@@ -97,9 +97,9 @@
 
 ### Testing
 
-- [ ] Unit tests
+- [x] Unit tests for HTTP Signatures (`packages/ap` — `bun test`)
 - [ ] Integration tests
-- [ ] E2E tests
+- [ ] E2E tests (partial: `scripts/test-federation.sh` public endpoints)
 
 ### Documentation
 

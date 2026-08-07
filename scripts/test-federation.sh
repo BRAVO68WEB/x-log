@@ -261,6 +261,40 @@ else
   fail "Missing endpoints.sharedInbox"
 fi
 
+# publicKey is required for remote servers to verify our signed deliveries / Accept
+PUBKEY_ID=$(echo "$BODY" | jq -r '.publicKey.id // empty' 2>/dev/null)
+PUBKEY_OWNER=$(echo "$BODY" | jq -r '.publicKey.owner // empty' 2>/dev/null)
+PUBKEY_PEM=$(echo "$BODY" | jq -r '.publicKey.publicKeyPem // empty' 2>/dev/null)
+ACTOR_ID=$(echo "$BODY" | jq -r '.id // empty' 2>/dev/null)
+
+if [[ -n "$PUBKEY_ID" && "$PUBKEY_ID" == *"#main-key" ]]; then
+  pass "publicKey.id ends with #main-key (${PUBKEY_ID})"
+else
+  fail "publicKey.id missing or not #main-key (${PUBKEY_ID})"
+fi
+
+if [[ -n "$PUBKEY_OWNER" && -n "$ACTOR_ID" && "$PUBKEY_OWNER" == "$ACTOR_ID" ]]; then
+  pass "publicKey.owner matches actor id"
+else
+  fail "publicKey.owner mismatch (owner=${PUBKEY_OWNER}, actor=${ACTOR_ID})"
+fi
+
+if echo "$PUBKEY_PEM" | grep -q "BEGIN PUBLIC KEY"; then
+  pass "publicKey.publicKeyPem looks like PEM"
+else
+  fail "publicKey.publicKeyPem missing or not PEM"
+fi
+
+# Public actor documents stay open (no Signature required) for discovery.
+# Authorized-fetch *remotes* still work because x-log signs outbound GETs when
+# fetching their keys/actors — that path is covered by unit tests, not this script.
+fetch_ap "${BASE_URL}/ap/users/${USERNAME}"
+if [[ "$HTTP_CODE" == "200" ]]; then
+  pass "Actor GET without Signature returns 200 (open discovery)"
+else
+  fail "Actor GET without Signature expected 200, got ${HTTP_CODE}"
+fi
+
 # -------------------------------------------------------------------
 # 6. Outbox Collection
 # -------------------------------------------------------------------
@@ -514,6 +548,14 @@ echo -e "  ${GREEN}Passed:${NC}  ${PASSED}"
 echo -e "  ${RED}Failed:${NC}  ${FAILED}"
 echo -e "  ${YELLOW}Skipped:${NC} ${SKIPPED}"
 echo -e "  Total:   ${TOTAL}"
+echo ""
+echo -e "${CYAN}Notes (HTTP Signatures / authorized fetch):${NC}"
+echo "  • This script checks *public* federation endpoints (WebFinger, actor, outbox)."
+echo "  • x-log keeps actor/outbox GETs open (no Signature required) for discovery."
+echo "  • Outbound S2S uses Cavage HTTP Signatures (POST deliveries + signed GET"
+echo "    for remote actor/key fetch against Mastodon authorized-fetch instances)."
+echo "  • Unit tests: bun run --cwd packages/ap test"
+echo "  • Manual: follow this profile from a secure-mode Mastodon and confirm Accept."
 echo ""
 
 if [[ "$FAILED" -gt 0 ]]; then

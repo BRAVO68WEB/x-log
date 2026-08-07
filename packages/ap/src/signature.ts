@@ -197,59 +197,49 @@ async function resolveKeyFetchSignerUserId(preferred?: string): Promise<string |
   return any?.id ?? null;
 }
 
-/**
- * Sign an HTTP request (Cavage draft). Returns all headers that were signed so
- * callers never re-generate Date/Digest after signing.
- */
-export async function signRequest(options: SignRequestOptions): Promise<SignedRequest>;
-/** @deprecated Prefer the options-object form that returns SignedRequest. */
-export async function signRequest(
-  method: string,
-  url: string,
-  body: string,
-  userId: string
-): Promise<string>;
-export async function signRequest(
-  methodOrOptions: string | SignRequestOptions,
-  url?: string,
-  body?: string,
-  userId?: string
-): Promise<SignedRequest | string> {
-  const legacy = typeof methodOrOptions === "string";
-  const opts: SignRequestOptions = legacy
-    ? { method: methodOrOptions, url: url!, body: body ?? "", userId: userId! }
-    : methodOrOptions;
+export type SignHttpRequestOptions = {
+  method: string;
+  url: string;
+  body?: string;
+  privateKeyPem: string;
+  keyId: string;
+  extraHeaders?: Record<string, string>;
+  /** Fixed Date for tests; defaults to now. */
+  date?: string;
+};
 
+export type ParsedSignatureHeader = {
+  keyId?: string;
+  algorithm?: string;
+  headers?: string;
+  signature?: string;
+};
+
+/** Parse a Cavage-style Signature header into key/value pairs. */
+export function parseSignatureHeader(signatureHeader: string): ParsedSignatureHeader {
+  const parts: ParsedSignatureHeader = {};
+  signatureHeader.split(",").forEach((part) => {
+    const match = part.trim().match(/(\w+)="([^"]+)"/);
+    if (match) {
+      (parts as Record<string, string>)[match[1]] = match[2];
+    }
+  });
+  return parts;
+}
+
+/**
+ * Pure HTTP Signature builder (Cavage draft). No DB access — used by signRequest
+ * and unit tests.
+ */
+export function signHttpRequest(opts: SignHttpRequestOptions): SignedRequest {
   const method = opts.method.toUpperCase();
   const methodLower = method.toLowerCase();
-  const hasBody = opts.body !== undefined && opts.body.length > 0 && method !== "GET" && method !== "HEAD";
-
-  const db = getDb();
-  const settings = await getInstanceSettings();
-
-  const userKey = await db
-    .selectFrom("user_keys")
-    .select("private_key_pem")
-    .where("user_id", "=", opts.userId)
-    .executeTakeFirst();
-
-  if (!userKey) {
-    throw new Error("User key not found");
-  }
-
-  const userRow = await db
-    .selectFrom("users")
-    .select(["username"])
-    .where("id", "=", opts.userId)
-    .executeTakeFirst();
-
-  if (!userRow) {
-    throw new Error("User not found for signature");
-  }
+  const hasBody =
+    opts.body !== undefined && opts.body.length > 0 && method !== "GET" && method !== "HEAD";
 
   const urlObj = new URL(opts.url);
   const requestTarget = `${methodLower} ${urlObj.pathname}${urlObj.search}`;
-  const date = new Date().toUTCString();
+  const date = opts.date ?? new Date().toUTCString();
   const host = urlObj.host;
 
   const signatureHeaders: SignatureHeaders = {
@@ -280,25 +270,31 @@ export async function signRequest(
 
   // Include Accept in the signed set when present (common for authorized-fetch GETs)
   const acceptHeader =
-    opts.extraHeaders?.Accept || opts.extraHeaders?.accept || (method === "GET" ? ACTIVITYPUB_ACCEPT_HEADER : undefined);
+    opts.extraHeaders?.Accept ||
+    opts.extraHeaders?.accept ||
+    (method === "GET" ? ACTIVITYPUB_ACCEPT_HEADER : undefined);
   if (acceptHeader) {
     signatureHeaders.accept = acceptHeader;
     requestHeaders.Accept = acceptHeader;
     signedHeaderNames.push("accept");
   }
 
-  // Pass through any extra headers that were not already handled
   if (opts.extraHeaders) {
     for (const [key, value] of Object.entries(opts.extraHeaders)) {
       const lower = key.toLowerCase();
-      if (lower === "content-type" || lower === "accept" || lower === "host" || lower === "date" || lower === "digest") {
+      if (
+        lower === "content-type" ||
+        lower === "accept" ||
+        lower === "host" ||
+        lower === "date" ||
+        lower === "digest"
+      ) {
         continue;
       }
       requestHeaders[key] = value;
     }
   }
 
-  // Build signature string in the same order as headers= list
   const signatureString = signedHeaderNames
     .map((name) => {
       if (name === "(request-target)") {
@@ -323,22 +319,111 @@ export async function signRequest(
   const sign = crypto.createSign("RSA-SHA256");
   sign.update(signatureString);
   sign.end();
-  const signature = sign.sign(userKey.private_key_pem, "base64");
+  const signature = sign.sign(opts.privateKeyPem, "base64");
 
-  const keyId = `https://${settings.instance_domain}/ap/users/${userRow.username}#main-key`;
   requestHeaders.Signature = [
-    `keyId="${keyId}"`,
+    `keyId="${opts.keyId}"`,
     `algorithm="rsa-sha256"`,
     `headers="${signedHeaderNames.join(" ")}"`,
     `signature="${signature}"`,
   ].join(",");
 
-  const result: SignedRequest = {
+  return {
     method,
     url: opts.url,
     headers: requestHeaders,
     body: hasBody ? opts.body : undefined,
   };
+}
+
+/**
+ * Verify RSA-SHA256 over the Cavage signature base string built from
+ * method, path, headers, and the Signature header parts.
+ */
+export function verifyHttpSignature(
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  signatureParts: ParsedSignatureHeader,
+  publicKeyPem: string
+): boolean {
+  try {
+    const signedHeaders = signatureParts.headers?.split(" ") || [];
+    const signatureString = signedHeaders
+      .map((headerName) => {
+        if (headerName === "(request-target)") {
+          return `(request-target): ${method.toLowerCase()} ${path}`;
+        }
+        const headerValue = headers[headerName.toLowerCase()] ?? headers[headerName];
+        return `${headerName.toLowerCase()}: ${headerValue}`;
+      })
+      .join("\n");
+
+    const verify = crypto.createVerify("RSA-SHA256");
+    verify.update(signatureString);
+    verify.end();
+
+    return verify.verify(publicKeyPem, signatureParts.signature || "", "base64");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sign an HTTP request (Cavage draft). Returns all headers that were signed so
+ * callers never re-generate Date/Digest after signing.
+ */
+export async function signRequest(options: SignRequestOptions): Promise<SignedRequest>;
+/** @deprecated Prefer the options-object form that returns SignedRequest. */
+export async function signRequest(
+  method: string,
+  url: string,
+  body: string,
+  userId: string
+): Promise<string>;
+export async function signRequest(
+  methodOrOptions: string | SignRequestOptions,
+  url?: string,
+  body?: string,
+  userId?: string
+): Promise<SignedRequest | string> {
+  const legacy = typeof methodOrOptions === "string";
+  const opts: SignRequestOptions = legacy
+    ? { method: methodOrOptions, url: url!, body: body ?? "", userId: userId! }
+    : methodOrOptions;
+
+  const db = getDb();
+  const settings = await getInstanceSettings();
+
+  const userKey = await db
+    .selectFrom("user_keys")
+    .select("private_key_pem")
+    .where("user_id", "=", opts.userId)
+    .executeTakeFirst();
+
+  if (!userKey) {
+    throw new Error("User key not found");
+  }
+
+  const userRow = await db
+    .selectFrom("users")
+    .select(["username"])
+    .where("id", "=", opts.userId)
+    .executeTakeFirst();
+
+  if (!userRow) {
+    throw new Error("User not found for signature");
+  }
+
+  const keyId = `https://${settings.instance_domain}/ap/users/${userRow.username}#main-key`;
+  const result = signHttpRequest({
+    method: opts.method,
+    url: opts.url,
+    body: opts.body,
+    privateKeyPem: userKey.private_key_pem,
+    keyId,
+    extraHeaders: opts.extraHeaders,
+  });
 
   if (legacy) {
     return result.headers.Signature;
@@ -732,32 +817,10 @@ function verifySignatureWithKey(
   signatureParts: Record<string, string>,
   publicKeyPem: string
 ): boolean {
-  try {
-    const signedHeaders = signatureParts.headers?.split(" ") || [];
-    const signatureString = signedHeaders
-      .map((headerName) => {
-        if (headerName === "(request-target)") {
-          return `(request-target): ${method.toLowerCase()} ${path}`;
-        }
-        const headerValue = headers[headerName.toLowerCase()] ?? headers[headerName];
-        return `${headerName.toLowerCase()}: ${headerValue}`;
-      })
-      .join("\n");
-
-    console.warn(`[SIG DEBUG] Signed headers: ${signedHeaders.join(", ")}`);
-    console.warn(`[SIG DEBUG] Signature string:\n${signatureString}`);
-
-    const verify = crypto.createVerify("RSA-SHA256");
-    verify.update(signatureString);
-    verify.end();
-
-    const result = verify.verify(publicKeyPem, signatureParts.signature || "", "base64");
-    if (!result) {
-      console.warn("Sig verify failed: RSA-SHA256 verification failed");
-    }
-    return result;
-  } catch (error) {
-    console.error("Signature verification error:", error);
-    return false;
+  console.warn(`[SIG DEBUG] Signed headers: ${signatureParts.headers || ""}`);
+  const result = verifyHttpSignature(method, path, headers, signatureParts, publicKeyPem);
+  if (!result) {
+    console.warn("Sig verify failed: RSA-SHA256 verification failed");
   }
+  return result;
 }
