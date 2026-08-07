@@ -123,6 +123,12 @@ function actorUrlFromKeyId(keyId: string): string {
   }
 }
 
+/**
+ * Candidate actor URLs for key fetch.
+ * Only the original host (plus trailing-slash variants) — never invent www.
+ * Probing www.mastodon.social for mastodon.social causes ERR_TLS_CERT_ALTNAME_INVALID
+ * and noisy stack traces in production.
+ */
 function buildRemoteActorCandidates(actorUrl: string): string[] {
   const candidates = new Set<string>();
 
@@ -148,22 +154,16 @@ function buildRemoteActorCandidates(actorUrl: string): string[] {
       add(withSlash.toString());
     }
 
-    const hostVariants = new Set<string>([url.hostname]);
-    if (url.hostname.startsWith("www.")) {
-      hostVariants.add(url.hostname.slice(4));
-    } else {
-      hostVariants.add(`www.${url.hostname}`);
-    }
-
-    for (const hostname of hostVariants) {
-      const variant = new URL(withoutSlash.toString());
-      variant.hostname = hostname;
-      add(variant.toString());
-
-      const variantWithSlash = new URL(variant.toString());
-      if (!variantWithSlash.pathname.endsWith("/")) {
-        variantWithSlash.pathname = `${variantWithSlash.pathname}/`;
-        add(variantWithSlash.toString());
+    // If the keyId host is already www., also try apex (same cert often covers both
+    // the other way; apex→www is unsafe and was the production noise source).
+    if (url.hostname.startsWith("www.") && url.hostname.split(".").length >= 3) {
+      const apex = new URL(withoutSlash.toString());
+      apex.hostname = url.hostname.slice(4);
+      add(apex.toString());
+      if (!apex.pathname.endsWith("/")) {
+        const apexSlash = new URL(apex.toString());
+        apexSlash.pathname = `${apex.pathname}/`;
+        add(apexSlash.toString());
       }
     }
   } catch {
@@ -171,6 +171,17 @@ function buildRemoteActorCandidates(actorUrl: string): string[] {
   }
 
   return [...candidates];
+}
+
+function formatFetchError(err: unknown): string {
+  if (err && typeof err === "object") {
+    const e = err as { code?: string; message?: string; path?: string };
+    if (e.code) {
+      return `${e.code}${e.path ? ` ${e.path}` : e.message ? `: ${e.message}` : ""}`;
+    }
+    if (e.message) return e.message;
+  }
+  return String(err);
 }
 
 async function resolveKeyFetchSignerUserId(preferred?: string): Promise<string | null> {
@@ -218,12 +229,13 @@ export type ParsedSignatureHeader = {
 /** Parse a Cavage-style Signature header into key/value pairs. */
 export function parseSignatureHeader(signatureHeader: string): ParsedSignatureHeader {
   const parts: ParsedSignatureHeader = {};
-  signatureHeader.split(",").forEach((part) => {
-    const match = part.trim().match(/(\w+)="([^"]+)"/);
-    if (match) {
-      (parts as Record<string, string>)[match[1]] = match[2];
-    }
-  });
+  // Support keyId="...", keyId='...', and unquoted simple tokens
+  const re = /(\w+)=(?:"([^"]*)"|'([^']*)'|([^\s,]+))/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(signatureHeader)) !== null) {
+    const value = match[2] ?? match[3] ?? match[4] ?? "";
+    (parts as Record<string, string>)[match[1]] = value;
+  }
   return parts;
 }
 
@@ -481,6 +493,7 @@ export async function fetchRemoteActorDocument(
     : await resolveKeyFetchSignerUserId();
 
   let lastStatus: number | null = null;
+  let lastError: string | null = null;
 
   for (const candidate of candidates) {
     try {
@@ -505,13 +518,21 @@ export async function fetchRemoteActorDocument(
         };
       }
 
-      // Signed request rejected — try unsigned once for non-enforcing servers
-      // that might mishandle signatures on GET (rare); skip if already unsigned.
+      // Actor deleted/suspended — no public key available; stop probing variants
+      if (resp.status === 404 || resp.status === 410) {
+        console.warn(
+          `fetchRemoteActorDocument: actor gone status=${resp.status} url=${candidate}`
+        );
+        break;
+      }
+
+      // Authorized fetch: do not fall back to unsigned on 401/403
       if (signerUserId && (resp.status === 401 || resp.status === 403)) {
-        // authorized fetch is expected to reject unsigned; do not fall back
         continue;
       }
-      if (signerUserId && resp.status >= 400) {
+
+      // Some servers accept unsigned GET even when signed fails for other reasons
+      if (signerUserId && resp.status >= 400 && resp.status < 500) {
         const unsigned = await fetch(candidate, {
           headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
         });
@@ -522,14 +543,22 @@ export async function fetchRemoteActorDocument(
             actor: (await unsigned.json()) as RemoteActorDocument["actor"],
           };
         }
+        if (unsigned.status === 404 || unsigned.status === 410) {
+          console.warn(
+            `fetchRemoteActorDocument: actor gone status=${unsigned.status} url=${candidate}`
+          );
+          break;
+        }
       }
     } catch (err) {
-      console.error(`Failed to fetch remote actor ${candidate}:`, err);
+      // TLS / network — one line, no stack dump (www cert mismatches used to spam logs)
+      lastError = formatFetchError(err);
+      console.warn(`fetchRemoteActorDocument: network error url=${candidate} err=${lastError}`);
     }
   }
 
   console.warn(
-    `fetchRemoteActorDocument failed for ${actorUrl} lastStatus=${lastStatus} signed=${Boolean(signerUserId)}`
+    `fetchRemoteActorDocument failed for ${actorUrl} lastStatus=${lastStatus} lastError=${lastError ?? "-"} signed=${Boolean(signerUserId)}`
   );
   return null;
 }
@@ -557,8 +586,9 @@ export async function fetchRemoteActorInbox(
 }
 
 async function getCachedRemoteKey(
-  keyId: string
-): Promise<{ public_key_pem: string; owner: string } | null> {
+  keyId: string,
+  opts?: { allowStale?: boolean }
+): Promise<{ public_key_pem: string; owner: string; stale: boolean } | null> {
   const db = getDb();
   const row = await db
     .selectFrom("remote_keys")
@@ -569,11 +599,12 @@ async function getCachedRemoteKey(
   if (!row) return null;
 
   const ageMs = Date.now() - new Date(row.fetched_at as Date).getTime();
-  if (ageMs > REMOTE_KEY_TTL_MS) {
+  const stale = ageMs > REMOTE_KEY_TTL_MS;
+  if (stale && !opts?.allowStale) {
     return null;
   }
 
-  return { public_key_pem: row.public_key_pem, owner: row.owner };
+  return { public_key_pem: row.public_key_pem, owner: row.owner, stale };
 }
 
 async function cacheRemoteKey(
@@ -633,6 +664,15 @@ async function resolveRemotePublicKey(
     signerUserId: signerUserId || undefined,
   });
   if (!remoteActor) {
+    // Actor often returns 410 after deletion while remotes still deliver signed
+    // Delete activities. Use a previously cached key even if past TTL.
+    const stale = await getCachedRemoteKey(keyId, { allowStale: true });
+    if (stale && actorUrlsEquivalent(stale.owner, actorUrl)) {
+      console.warn(
+        `resolveRemotePublicKey: using stale cached key for ${keyId} (actor fetch failed)`
+      );
+      return stale.public_key_pem;
+    }
     return null;
   }
 
@@ -709,18 +749,13 @@ export async function verifySignature(
       }
     }
 
-    // Parse signature header
-    const signatureParts: Record<string, string> = {};
-    signatureHeader.split(",").forEach((part) => {
-      const match = part.trim().match(/(\w+)="([^"]+)"/);
-      if (match) {
-        signatureParts[match[1]] = match[2];
-      }
-    });
+    const signatureParts = parseSignatureHeader(signatureHeader) as Record<string, string>;
 
     const keyId = signatureParts.keyId;
     if (!keyId) {
-      console.warn("Sig verify failed: missing keyId");
+      console.warn(
+        `Sig verify failed: missing keyId (header sample=${signatureHeader.slice(0, 120)})`
+      );
       return false;
     }
 

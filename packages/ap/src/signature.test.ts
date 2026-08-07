@@ -205,4 +205,12 @@ describe("parseSignatureHeader", () => {
     expect(parts.headers).toBe("(request-target) host date");
     expect(parts.signature).toBe("abc+DEF/123=");
   });
+
+  test("accepts single-quoted values", () => {
+    const header =
+      "keyId='https://example.com/ap/users/alice#main-key',algorithm='rsa-sha256',headers='(request-target) host date',signature='abc'";
+    const parts = parseSignatureHeader(header);
+    expect(parts.keyId).toBe("https://example.com/ap/users/alice#main-key");
+    expect(parts.algorithm).toBe("rsa-sha256");
+  });
 });
