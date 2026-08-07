@@ -101,6 +101,15 @@
 - [ ] Integration tests
 - [ ] E2E tests (partial: `scripts/test-federation.sh` public endpoints)
 
+### MCP
+
+- [x] Shared tool registry (read + write)
+- [x] Streamable HTTP via `@modelcontextprotocol/sdk` at `/mcp`
+- [x] Legacy JSON-RPC at `/mcp/jsonrpc` and `/api/mcp`
+- [x] `MCP_API_KEY` / `MCP_ACTOR_USERNAME` config (no prod SESSION_SECRET fallback)
+- [x] Next.js proxy for Streamable + jsonrpc
+- [x] README operator docs
+
 ### Documentation
 
 - [ ] API documentation

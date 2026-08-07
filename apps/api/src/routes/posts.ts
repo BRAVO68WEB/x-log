@@ -8,19 +8,22 @@ import {
   PaginationQuerySchema,
 } from "@xlog/validation";
 import { getDb, getInstanceSettings } from "@xlog/db";
-import { generateId } from "@xlog/snowflake";
 import {
   getPostUrlSync,
   getActorUrlSync,
-  getFollowersUrlSync,
-  createArticleObjectSync,
-  createDeleteActivity,
   createLikeActivity,
   createUndoActivity,
 } from "@xlog/ap";
 import { renderMarkdown } from "@xlog/markdown";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
+import {
+  createPost,
+  updatePost,
+  publishPost,
+  deletePost,
+  PostServiceError,
+} from "../services/posts";
 
 async function getLikedPostIds(
   postIds: string[],
@@ -64,82 +67,6 @@ async function fetchPostLikeCount(postId: string) {
     .where("id", "=", postId)
     .executeTakeFirst();
   return row?.like_count ?? 0;
-}
-
-const EMPTY_CONTENT_BLOCKS = {
-  type: "doc",
-  content: [],
-} satisfies Record<string, unknown>;
-
-function extractImageUrls(doc: unknown): string[] {
-  const urls: string[] = [];
-  function walk(node: any) {
-    if (!node) return;
-    if (node.type === "image" && node.attrs?.src) {
-      urls.push(node.attrs.src);
-    }
-    if (Array.isArray(node.content)) {
-      node.content.forEach(walk);
-    }
-  }
-  walk(doc);
-  return urls;
-}
-
-function extractMarkdownImageUrls(markdown?: string | null): string[] {
-  if (!markdown) return [];
-
-  const urls: string[] = [];
-  const regex = /!\[[^\]]*\]\((https?:\/\/[^)\s]+(?:\s+"[^"]*")?)\)/g;
-
-  for (const match of markdown.matchAll(regex)) {
-    const rawUrl = match[1]?.trim();
-    if (!rawUrl) continue;
-    const cleanedUrl = rawUrl.split(/\s+"/)[0];
-    urls.push(cleanedUrl);
-  }
-
-  return urls;
-}
-
-async function linkMediaToPost(
-  db: ReturnType<typeof getDb>,
-  postId: string,
-  bannerUrl?: string | null,
-  contentBlocks?: unknown,
-  markdown?: string | null
-) {
-  try {
-    if (bannerUrl) {
-      await db
-        .updateTable("media")
-        .set({ post_id: postId, asset_type: "banner" })
-        .where("url", "=", bannerUrl)
-        .where("post_id", "is", null)
-        .execute();
-    }
-    if (contentBlocks && typeof contentBlocks === "object") {
-      const imageUrls = extractImageUrls(contentBlocks);
-      for (const url of imageUrls) {
-        await db
-          .updateTable("media")
-          .set({ post_id: postId })
-          .where("url", "=", url)
-          .where("post_id", "is", null)
-          .execute();
-      }
-    }
-    for (const url of extractMarkdownImageUrls(markdown)) {
-      await db
-        .updateTable("media")
-        .set({ post_id: postId })
-        .where("url", "=", url)
-        .where("post_id", "is", null)
-        .execute();
-    }
-  } catch (err) {
-    console.error("Failed to link media to post:", err);
-  }
 }
 
 export const postsRoutes = new Hono().use("*", sessionMiddleware);
@@ -382,74 +309,41 @@ postsRoutes.post(
   async (c) => {
     const user = c.get("user")!;
     const data = c.req.valid("json");
-    const db = getDb();
     const settings = await getInstanceSettings();
 
-    const postId = generateId();
-    const apObjectId = `https://${settings.instance_domain}/post/${postId}`;
+    try {
+      const post = await createPost(
+        { id: user.id, username: user.username, role: user.role },
+        data
+      );
 
-    await db
-      .insertInto("posts")
-      .values({
-        id: postId,
-        author_id: user.id,
-        title: data.title,
-        banner_url: data.banner_url || null,
-        content_markdown: data.content_markdown,
-        content_blocks_json: (data.content_blocks || EMPTY_CONTENT_BLOCKS) as any,
-        summary: data.summary || null,
-        hashtags: data.hashtags,
-        visibility: data.visibility,
-        ap_object_id: apObjectId,
-        like_count: 0,
-      })
-      .execute();
-
-    // Link uploaded media to this post
-    await linkMediaToPost(db, postId, data.banner_url, data.content_blocks, data.content_markdown);
-
-    const post = await db
-      .selectFrom("posts")
-      .innerJoin("users", "users.id", "posts.author_id")
-      .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-      .select([
-        "posts.id",
-        "posts.title",
-        "posts.banner_url",
-        "posts.content_markdown",
-        "posts.hashtags",
-        "posts.like_count",
-        "posts.published_at",
-        "posts.updated_at",
-        "posts.visibility",
-        "users.username",
-        "user_profiles.full_name",
-        "user_profiles.avatar_url",
-      ])
-      .where("posts.id", "=", postId)
-      .executeTakeFirst();
-
-    return c.json(
-      {
-        id: post!.id,
-        url: getPostUrlSync(post!.id, settings.instance_domain),
-        title: post!.title,
-        banner_url: post!.banner_url,
-        content_html: await renderMarkdown(post!.content_markdown),
-        content_markdown: post!.content_markdown,
-        hashtags: post!.hashtags,
-        like_count: post!.like_count,
-        author: {
-          username: post!.username,
-          full_name: post!.full_name || null,
-          avatar_url: post!.avatar_url || null,
+      return c.json(
+        {
+          id: post.id,
+          url: getPostUrlSync(post.id, settings.instance_domain),
+          title: post.title,
+          banner_url: post.banner_url,
+          content_html: await renderMarkdown(post.content_markdown),
+          content_markdown: post.content_markdown,
+          hashtags: post.hashtags,
+          like_count: post.like_count,
+          author: {
+            username: post.username,
+            full_name: post.full_name || null,
+            avatar_url: post.avatar_url || null,
+          },
+          published_at: post.published_at?.toISOString() || null,
+          updated_at: post.updated_at.toISOString(),
+          visibility: post.visibility,
         },
-        published_at: post!.published_at?.toISOString() || null,
-        updated_at: post!.updated_at.toISOString(),
-        visibility: post!.visibility,
-      },
-      201
-    );
+        201
+      );
+    } catch (err) {
+      if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
+    }
   }
 );
 
@@ -476,60 +370,16 @@ postsRoutes.patch(
     const user = c.get("user")!;
     const { id } = c.req.valid("param");
     const data = c.req.valid("json");
-    const db = getDb();
 
-    // Check authorization
-    const post = await db
-      .selectFrom("posts")
-      .select(["author_id", "published_at", "visibility"])
-      .where("id", "=", id)
-      .executeTakeFirst();
-
-    if (!post) {
-      return c.json({ error: "Post not found" }, 404);
-    }
-
-    if (post.author_id !== user.id && user.role !== "admin") {
-      return c.json({ error: "Forbidden" }, 403);
-    }
-
-    const { content_blocks, ...postUpdateData } = data;
-
-    await db
-      .updateTable("posts")
-      .set({
-        ...postUpdateData,
-        content_blocks_json:
-          content_blocks !== undefined
-            ? ((content_blocks || EMPTY_CONTENT_BLOCKS) as any)
-            : undefined,
-      })
-      .where("id", "=", id)
-      .execute();
-
-    // Link uploaded media to this post
-    await linkMediaToPost(db, id, data.banner_url, content_blocks, data.content_markdown);
-
-    // Trigger federation Update if post is published and not private
-    if (post.published_at && post.visibility !== "private") {
-      try {
-        const settings = await getInstanceSettings();
-        if (settings.federation_enabled) {
-          const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
-          await enqueueDeliveriesToFollowers(
-            post.author_id,
-            id,
-            activityId,
-            "Update",
-            settings.instance_domain
-          );
-        }
-      } catch (err) {
-        console.error("Failed to enqueue Update deliveries:", err);
+    try {
+      await updatePost({ id: user.id, username: user.username, role: user.role }, id, data);
+      return c.json({ message: "Post updated" });
+    } catch (err) {
+      if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
       }
+      throw err;
     }
-
-    return c.json({ message: "Post updated" });
   }
 );
 
@@ -554,61 +404,16 @@ postsRoutes.delete(
   async (c) => {
     const user = c.get("user")!;
     const { id } = c.req.valid("param");
-    const db = getDb();
 
-    // Check authorization
-    const post = await db
-      .selectFrom("posts")
-      .innerJoin("users", "users.id", "posts.author_id")
-      .select([
-        "posts.author_id",
-        "posts.published_at",
-        "posts.visibility",
-        "posts.ap_object_id",
-        "users.username",
-      ])
-      .where("posts.id", "=", id)
-      .executeTakeFirst();
-
-    if (!post) {
-      return c.json({ error: "Post not found" }, 404);
-    }
-
-    if (post.author_id !== user.id && user.role !== "admin") {
-      return c.json({ error: "Forbidden" }, 403);
-    }
-
-    // Build Delete activity before deleting the post from DB
-    if (post.published_at && post.visibility !== "private" && post.ap_object_id) {
-      try {
-        const settings = await getInstanceSettings();
-        if (settings.federation_enabled) {
-          const actorId = getActorUrlSync(post.username, settings.instance_domain);
-          const followersUrl = getFollowersUrlSync(post.username, settings.instance_domain);
-          const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
-          const deleteActivity = createDeleteActivity(
-            activityId,
-            actorId,
-            post.ap_object_id,
-            followersUrl
-          );
-          await enqueueDeliveriesToFollowers(
-            post.author_id,
-            id,
-            activityId,
-            "Delete",
-            settings.instance_domain,
-            JSON.stringify(deleteActivity)
-          );
-        }
-      } catch (err) {
-        console.error("Failed to enqueue Delete deliveries:", err);
+    try {
+      await deletePost({ id: user.id, username: user.username, role: user.role }, id);
+      return c.json({ message: "Post deleted" });
+    } catch (err) {
+      if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
       }
+      throw err;
     }
-
-    await db.deleteFrom("posts").where("id", "=", id).execute();
-
-    return c.json({ message: "Post deleted" });
   }
 );
 
@@ -809,51 +614,15 @@ postsRoutes.post(
   async (c) => {
     const user = c.get("user")!;
     const { id } = c.req.valid("param");
-    const db = getDb();
 
-    // Check authorization
-    const post = await db
-      .selectFrom("posts")
-      .select(["author_id", "visibility"])
-      .where("id", "=", id)
-      .executeTakeFirst();
-
-    if (!post) {
-      return c.json({ error: "Post not found" }, 404);
-    }
-
-    if (post.author_id !== user.id && user.role !== "admin") {
-      return c.json({ error: "Forbidden" }, 403);
-    }
-
-    const publishedAt = new Date();
-    await db
-      .updateTable("posts")
-      .set({
-        published_at: publishedAt,
-      })
-      .where("id", "=", id)
-      .execute();
-
-    // Trigger federation delivery
-    if (post.visibility !== "private") {
-      try {
-        const settings = await getInstanceSettings();
-        if (settings.federation_enabled) {
-          const activityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
-          await enqueueDeliveriesToFollowers(
-            post.author_id,
-            id,
-            activityId,
-            "Create",
-            settings.instance_domain
-          );
-        }
-      } catch (err) {
-        console.error("Failed to enqueue Create deliveries:", err);
+    try {
+      await publishPost({ id: user.id, username: user.username, role: user.role }, id);
+      return c.json({ message: "Post published" });
+    } catch (err) {
+      if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
       }
+      throw err;
     }
-
-    return c.json({ message: "Post published" });
   }
 );

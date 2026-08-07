@@ -165,6 +165,69 @@ x-log/
     └── compose/       # Docker Compose configuration
 ```
 
+## MCP server
+
+x-log exposes a remote **Model Context Protocol** server so agents (Cursor, Claude, etc.) can read public content and create/publish posts as a configured local author.
+
+### Enable
+
+```bash
+# Generate a dedicated key (do not reuse SESSION_SECRET in production)
+openssl rand -hex 32
+```
+
+Set in `.env`:
+
+```bash
+MCP_API_KEY=<your-key>
+# Optional: username write tools act as (default: primary admin)
+MCP_ACTOR_USERNAME=admin
+```
+
+Restart the API. `GET /health` reports `mcp.enabled` and paths.
+
+### Endpoints
+
+| URL | Protocol |
+|-----|----------|
+| `https://{INSTANCE_DOMAIN}/api/mcp` | **Streamable HTTP** (via Next proxy → API `/mcp`) — preferred for Cursor/Claude |
+| `https://{INSTANCE_DOMAIN}/mcp` | Streamable HTTP direct to API (if API is public) |
+| `https://{INSTANCE_DOMAIN}/api/mcp/jsonrpc` | Legacy JSON-RPC 2.0 POST |
+| `https://{INSTANCE_DOMAIN}/mcp/jsonrpc` | Legacy JSON-RPC direct |
+
+Auth: `Authorization: Bearer <MCP_API_KEY>`
+
+### Cursor / Claude remote config example
+
+```json
+{
+  "mcpServers": {
+    "x-log": {
+      "url": "https://YOUR_DOMAIN/api/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### Tools
+
+**Read:** `get_posts`, `get_post`, `get_profile`, `search`, `get_instance_info`  
+**Write (as MCP actor):** `create_post`, `update_post`, `publish_post`, `delete_post`
+
+Write tools use `MCP_ACTOR_USERNAME` (or the primary admin). The Bearer key is equivalent to that author for posting — protect it.
+
+### Legacy JSON-RPC
+
+```bash
+curl -s https://YOUR_DOMAIN/api/mcp/jsonrpc \
+  -H "Authorization: Bearer $MCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
 ## License
 
 AGPL-3.0 (to be confirmed)

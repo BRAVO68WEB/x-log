@@ -2,15 +2,17 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
-import { getEnv } from "@xlog/config";
 import { apiRoutes, adminApiRoutes } from "./routes/api";
 import { federationRoutes } from "./routes/federation";
 import { wellKnownRoutes } from "./routes/well-known";
-import { mcpRoutes } from "./routes/mcp";
+import { mcpLegacyRoutes } from "./routes/mcp";
+import { mcpStreamableRoutes } from "./mcp/streamable";
 import { mediaRoutes } from "./routes/media";
 import { Scalar } from "@scalar/hono-api-reference";
 import { openAPIRouteHandler } from "hono-openapi";
 import { migrateToLatest } from "@xlog/db/migrate";
+import { getEnv } from "@xlog/config";
+import { isMcpEnabled } from "./mcp/context";
 
 const app = new Hono();
 
@@ -93,18 +95,41 @@ app.onError((err, c) => {
 // Routes
 app.route("/api", apiRoutes);
 app.route("/api", adminApiRoutes);
-app.route("/mcp", mcpRoutes); // MCP server at /mcp
+
+// MCP: Streamable HTTP (primary) + nested legacy JSON-RPC under /mcp/jsonrpc
+// (must nest so /mcp does not swallow /mcp/jsonrpc)
+const mcpApp = new Hono();
+mcpApp.route("/jsonrpc", mcpLegacyRoutes);
+mcpApp.route("/", mcpStreamableRoutes);
+app.route("/mcp", mcpApp);
+// Legacy alias for older clients / Next path /api/mcp/jsonrpc → also on API
+app.route("/api/mcp", mcpLegacyRoutes);
+
 app.route("/", federationRoutes);
 app.route("/", wellKnownRoutes);
 app.route("/media", mediaRoutes);
 
 // Health check
 app.get("/health", (c) => {
-  return c.json({ status: "ok" });
+  return c.json({
+    status: "ok",
+    mcp: {
+      enabled: isMcpEnabled(),
+      streamable: "/mcp",
+      jsonrpc: "/mcp/jsonrpc",
+    },
+  });
 });
 
 const env = getEnv();
 const port = Number(env.PORT) || 8080;
+
+if (isMcpEnabled()) {
+  const keySource = getEnv().MCP_API_KEY ? "MCP_API_KEY" : "SESSION_SECRET (dev only)";
+  console.log(`MCP enabled (auth: ${keySource}); Streamable HTTP at /mcp, legacy at /mcp/jsonrpc`);
+} else {
+  console.log("MCP disabled (set MCP_API_KEY to enable)");
+}
 
 console.log(`Server is running on port ${port}`);
 

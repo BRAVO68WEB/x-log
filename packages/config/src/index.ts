@@ -14,7 +14,16 @@ const envSchema = z.object({
     .default("false"),
   SMTP_URL: z.string().optional(),
   SESSION_SECRET: z.string().min(32),
-  MCP_API_KEY: z.string().optional(), // Optional MCP API key (falls back to SESSION_SECRET)
+  /** Dedicated MCP Bearer key. When unset, MCP is disabled in production. */
+  MCP_API_KEY: z.string().min(16).optional(),
+  /**
+   * Explicit MCP toggle: "true" | "false".
+   * Default (unset): enabled when MCP_API_KEY is set (or in development
+   * with SESSION_SECRET fallback).
+   */
+  MCP_ENABLED: z.enum(["true", "false"]).optional(),
+  /** Local username write tools act as (defaults to primary admin user). */
+  MCP_ACTOR_USERNAME: z.string().min(1).optional(),
   FEDERATION_ENABLED: z
     .string()
     .transform((val) => val !== "false")
