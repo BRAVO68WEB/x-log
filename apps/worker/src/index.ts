@@ -27,10 +27,6 @@ interface DeliveryJob {
   activityJson?: string;
 }
 
-function computeDigest(body: string): string {
-  return `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
-}
-
 // Process federation delivery jobs
 async function processDeliveryJobs() {
   while (true) {
@@ -151,8 +147,12 @@ async function deliverActivity(delivery: DeliveryJob) {
       body = JSON.stringify(activity);
     }
 
-    const signature = await signRequest("POST", inboxUrl, body, userId);
-    const digest = computeDigest(body);
+    const signed = await signRequest({
+      method: "POST",
+      url: inboxUrl,
+      body,
+      userId,
+    });
 
     await db
       .updateTable("deliveries")
@@ -160,16 +160,10 @@ async function deliverActivity(delivery: DeliveryJob) {
       .where("activity_id", "=", delivery.activityId)
       .execute();
 
-    const response = await fetch(inboxUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/activity+json",
-        Signature: signature,
-        Digest: digest,
-        Date: new Date().toUTCString(),
-        Host: new URL(inboxUrl).host,
-      },
-      body,
+    const response = await fetch(signed.url, {
+      method: signed.method,
+      headers: signed.headers,
+      body: signed.body,
     });
 
     if (response.ok) {

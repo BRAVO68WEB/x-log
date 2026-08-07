@@ -114,6 +114,8 @@
 - Markdown rendering uses unified/remark/rehype pipeline with syntax highlighting
 - TipTap editor is implemented with basic block support
 - HTTP Signature verification works for local and remote users; remote actor key fetching implemented
+- Outbound **signed GET** for remote actor/key fetch (authorized-fetch / Mastodon secure mode compatibility)
+- `signRequest` returns full signed headers (Date/Digest/Signature) so delivery never re-generates Date after signing
 - Inbox verification includes Digest matching, Date skew checks, and replay protection
 - Federation delivery includes retry logic with exponential backoff
 - Media uploads are stored locally; consider S3 integration for production
@@ -135,3 +137,4 @@
 - [x] Following persistence: DB migration `002_following` and real data at `GET /ap/users/:username/following`
 - [x] Digest header validation and Date header freshness checks
 - [x] Signature replay protection with short-lived cache
+- [x] Authorized-fetch client support: signed GET when resolving remote actors / public keys

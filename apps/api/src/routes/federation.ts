@@ -12,71 +12,11 @@ import {
   verifySignature,
   createAcceptActivity,
   signRequest,
+  fetchRemoteActorInbox,
 } from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
 
 export const federationRoutes = new Hono();
-
-const ACTIVITYPUB_ACCEPT_HEADER =
-  'application/activity+json, application/ld+json; profile="https://www.w3.org/ns/activitystreams"';
-
-function trimTrailingSlash(value: string): string {
-  return value.replace(/\/+$/, "");
-}
-
-function buildRemoteActorCandidates(actorUrl: string): string[] {
-  const candidates = new Set<string>();
-
-  const add = (value: string) => {
-    if (value.startsWith("https://")) {
-      candidates.add(value);
-    }
-  };
-
-  try {
-    const url = new URL(actorUrl);
-    url.hash = "";
-
-    add(url.toString());
-
-    const withoutSlash = new URL(url.toString());
-    withoutSlash.pathname = trimTrailingSlash(withoutSlash.pathname) || "/";
-    add(withoutSlash.toString());
-
-    const withSlash = new URL(withoutSlash.toString());
-    if (!withSlash.pathname.endsWith("/")) {
-      withSlash.pathname = `${withSlash.pathname}/`;
-      add(withSlash.toString());
-    }
-
-    const hostVariants = new Set<string>([url.hostname]);
-    if (url.hostname.startsWith("www.")) {
-      hostVariants.add(url.hostname.slice(4));
-    } else {
-      hostVariants.add(`www.${url.hostname}`);
-    }
-
-    for (const hostname of hostVariants) {
-      const variant = new URL(withoutSlash.toString());
-      variant.hostname = hostname;
-      add(variant.toString());
-
-      const variantWithSlash = new URL(variant.toString());
-      if (!variantWithSlash.pathname.endsWith("/")) {
-        variantWithSlash.pathname = `${variantWithSlash.pathname}/`;
-        add(variantWithSlash.toString());
-      }
-    }
-  } catch {
-    add(actorUrl);
-  }
-
-  return [...candidates];
-}
-
-function computeDigest(body: string): string {
-  return `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
-}
 
 function getInboxObjectId(activity: any): string {
   return (
@@ -127,36 +67,6 @@ async function acceptFollowActivity({
   return Number(result.numUpdatedRows || 0);
 }
 
-// Fetch a remote actor's inbox URL by dereferencing their actor object
-async function fetchRemoteActor(actorUrl: string): Promise<{
-  inbox: string;
-  sharedInbox?: string;
-  preferredUsername?: string;
-}> {
-  for (const candidate of buildRemoteActorCandidates(actorUrl)) {
-    try {
-      const resp = await fetch(candidate, {
-        headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
-      });
-      if (resp.ok) {
-        const actor = (await resp.json()) as {
-          inbox?: string;
-          endpoints?: { sharedInbox?: string };
-          preferredUsername?: string;
-        };
-        return {
-          inbox: actor.inbox || candidate.replace(/\/$/, "") + "/inbox",
-          sharedInbox: actor.endpoints?.sharedInbox,
-          preferredUsername: actor.preferredUsername,
-        };
-      }
-    } catch (err) {
-      console.error("Failed to fetch remote actor:", err);
-    }
-  }
-  return { inbox: actorUrl.replace(/\/$/, "") + "/inbox" };
-}
-
 // Shared inbox activity processing
 async function processInboxActivity(
   activity: any,
@@ -176,7 +86,9 @@ async function processInboxActivity(
   // Handle Follow activity
   if (activity.type === "Follow") {
     const remoteActor = activity.actor;
-    const { inbox, sharedInbox, preferredUsername } = await fetchRemoteActor(remoteActor);
+    const { inbox, sharedInbox, preferredUsername } = await fetchRemoteActorInbox(remoteActor, {
+      signerUserId: userId,
+    });
     const inboxUrl = sharedInbox || inbox;
     const remoteDomain = new URL(remoteActor).hostname;
 
@@ -211,18 +123,17 @@ async function processInboxActivity(
       const accept = createAcceptActivity(acceptActivityId, actorId, activity.id, [remoteActor]);
 
       const acceptBody = JSON.stringify(accept);
-      const signature = await signRequest("POST", inboxUrl, acceptBody, userId);
-
-      const response = await fetch(inboxUrl, {
+      const signed = await signRequest({
         method: "POST",
-        headers: {
-          "Content-Type": "application/activity+json",
-          Signature: signature,
-          Digest: computeDigest(acceptBody),
-          Date: new Date().toUTCString(),
-          Host: new URL(inboxUrl).host,
-        },
+        url: inboxUrl,
         body: acceptBody,
+        userId,
+      });
+
+      const response = await fetch(signed.url, {
+        method: signed.method,
+        headers: signed.headers,
+        body: signed.body,
       });
 
       if (!response.ok) {
@@ -790,6 +701,16 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
     return c.json({ error: "Missing signature" }, 401);
   }
 
+  const user = await db
+    .selectFrom("users")
+    .select("id")
+    .where("username", "=", username)
+    .executeTakeFirst();
+
+  if (!user) {
+    return c.json({ error: "User not found" }, 404);
+  }
+
   // Payload size limit (1MB)
   const body = await c.req.text();
   if (body.length > 1_048_576) {
@@ -799,10 +720,10 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
 
   const activity = JSON.parse(body);
 
-  // Verify HTTP Signature
+  // Verify HTTP Signature (signed remote key fetch for authorized-fetch servers)
   const headers: Record<string, string> = {};
   c.req.raw.headers.forEach((value, key) => {
-    headers[key] = value;
+    headers[key.toLowerCase()] = value;
   });
 
   const isValid = await verifySignature(
@@ -810,7 +731,8 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
     `/ap/users/${username}/inbox`,
     headers,
     signatureHeader,
-    body
+    body,
+    { keyFetchSignerUserId: user.id }
   );
 
   if (!isValid) {
@@ -829,16 +751,6 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
       `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
     );
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
-  }
-
-  const user = await db
-    .selectFrom("users")
-    .select("id")
-    .where("username", "=", username)
-    .executeTakeFirst();
-
-  if (!user) {
-    return c.json({ error: "User not found" }, 404);
   }
 
   // Activity ID deduplication
@@ -914,13 +826,48 @@ federationRoutes.post("/ap/inbox", async (c) => {
 
   const activity = JSON.parse(body);
 
-  // Verify HTTP Signature
+  // Resolve a local signer for authorized-fetch key lookup before verify
+  const settings = await getInstanceSettings();
+  const localPrefix = `https://${settings.instance_domain}/ap/users/`;
+  const recipients = [
+    ...(Array.isArray(activity.to) ? activity.to : []),
+    ...(Array.isArray(activity.cc) ? activity.cc : []),
+  ];
+  const targetedUsernames = recipients
+    .filter((r: string) => typeof r === "string" && r.startsWith(localPrefix))
+    .map((r: string) => r.slice(localPrefix.length).split("/")[0]);
+
+  let keyFetchSignerUserId: string | undefined;
+  if (targetedUsernames.length > 0) {
+    const targetUser = await db
+      .selectFrom("users")
+      .select("id")
+      .where("username", "=", targetedUsernames[0])
+      .executeTakeFirst();
+    keyFetchSignerUserId = targetUser?.id;
+  }
+  if (!keyFetchSignerUserId && activity.type === "Follow") {
+    const followed = getActivityObjectId(activity);
+    if (followed?.startsWith(localPrefix)) {
+      const followedUsername = followed.slice(localPrefix.length).split("/")[0];
+      const followedUser = await db
+        .selectFrom("users")
+        .select("id")
+        .where("username", "=", followedUsername)
+        .executeTakeFirst();
+      keyFetchSignerUserId = followedUser?.id;
+    }
+  }
+
+  // Verify HTTP Signature (signed remote key fetch for authorized-fetch servers)
   const headers: Record<string, string> = {};
   c.req.raw.headers.forEach((value, key) => {
-    headers[key] = value;
+    headers[key.toLowerCase()] = value;
   });
 
-  const isValid = await verifySignature("POST", `/ap/inbox`, headers, signatureHeader, body);
+  const isValid = await verifySignature("POST", `/ap/inbox`, headers, signatureHeader, body, {
+    keyFetchSignerUserId,
+  });
 
   if (!isValid) {
     console.warn(
@@ -939,19 +886,6 @@ federationRoutes.post("/ap/inbox", async (c) => {
     );
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
-
-  // Parse to/cc to find targeted local users
-  const recipients = [
-    ...(Array.isArray(activity.to) ? activity.to : []),
-    ...(Array.isArray(activity.cc) ? activity.cc : []),
-  ];
-
-  // Extract local usernames from actor URLs
-  const settings = await getInstanceSettings();
-  const localPrefix = `https://${settings.instance_domain}/ap/users/`;
-  const targetedUsernames = recipients
-    .filter((r: string) => typeof r === "string" && r.startsWith(localPrefix))
-    .map((r: string) => r.slice(localPrefix.length));
 
   console.warn(
     `Inbox shared type=${activity.type} actor=${activity.actor} object=${getActivityObjectId(activity)} targets=${targetedUsernames.join(",") || "-"}`
