@@ -16,7 +16,6 @@ import { feedsRoutes } from "./feeds";
 import { searchRoutes } from "./search";
 import { mediaRoutes } from "./media";
 import { settingsRoutes } from "./settings";
-import { mcpRoutes } from "./mcp";
 import { adminRoutes } from "./admin";
 import { mastodonRoutes } from "./mastodon";
 import { publicRoutes } from "./public";
@@ -42,7 +41,6 @@ export const apiRoutes = new Hono()
   .route("/media", mediaRoutes)
   .route("/public", publicRoutes)
   .route("/settings", settingsRoutes)
-  .route("/mcp", mcpRoutes)
   .route("/v1", mastodonRoutes);
 
 export const adminApiRoutes = new Hono().route("/admin", adminRoutes);

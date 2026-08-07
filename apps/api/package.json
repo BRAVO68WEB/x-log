@@ -15,6 +15,7 @@
     "@hono/node-server": "^1.19.6",
     "@hono/standard-validator": "^0.2.0",
     "@hono/zod-validator": "^0.4.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@scalar/hono-api-reference": "^0.9.25",
     "@xlog/ap": "workspace:*",
     "@xlog/config": "workspace:*",
