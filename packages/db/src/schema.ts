@@ -67,6 +67,7 @@ export interface PostsTable {
   summary: string | null;
   hashtags: string[]; // text[]
   like_count: number; // default 0
+  view_count: ColumnType<number, number | undefined, number>; // default 0
   published_at: Date | null;
   updated_at: ColumnType<Date, never, Date>;
   visibility: PostVisibility;
@@ -75,6 +76,21 @@ export interface PostsTable {
   post_type: ColumnType<string, string | undefined, string>; // 'article' | 'short', default 'article'
   thread_id: string | null; // FK threads.id
   thread_position: number | null;
+}
+
+/** First-party page/post view events (analytics feature flag) */
+export interface PageViewsTable {
+  id: ColumnType<string, string | undefined, never>;
+  created_at: ColumnType<Date, Date | undefined, never>;
+  path: string;
+  post_id: string | null;
+  author_id: string | null;
+  referrer: string | null;
+  referrer_host: string | null;
+  user_agent: string | null;
+  ip_hash: string | null;
+  ip_raw: string | null;
+  session_id: string | null;
 }
 
 export interface ThreadsTable {
@@ -331,4 +347,5 @@ export interface Database {
   snippet_versions: SnippetVersionsTable;
   links: LinksTable;
   link_snapshots: LinkSnapshotsTable;
+  page_views: PageViewsTable;
 }

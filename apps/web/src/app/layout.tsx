@@ -9,6 +9,8 @@ import { Footer } from "@/components/Footer";
 import { OnboardingGuard } from "@/components/OnboardingGuard";
 import { QueryProvider } from "@/components/QueryProvider";
 import { InstanceThemeProvider } from "@/components/InstanceThemeProvider";
+import { Suspense } from "react";
+import { PostHogProvider } from "@/components/PostHogProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -72,9 +74,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <InstanceThemeProvider>
           <OnboardingGuard>
             <QueryProvider>
-              <Navbar />
-              <div className="min-h-[calc(100vh-4rem)]">{children}</div>
-              <Footer />
+              <Suspense fallback={null}>
+                <PostHogProvider>
+                  <Navbar />
+                  <div className="min-h-[calc(100vh-4rem)]">{children}</div>
+                  <Footer />
+                </PostHogProvider>
+              </Suspense>
             </QueryProvider>
           </OnboardingGuard>
         </InstanceThemeProvider>

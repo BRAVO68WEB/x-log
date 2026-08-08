@@ -165,6 +165,52 @@ x-log/
     └── compose/       # Docker Compose configuration
 ```
 
+## Analytics & observability (opt-in)
+
+### First-party page views
+
+Off by default. Enable the **`analytics`** feature flag (admin UI or `FEATURE_ANALYTICS=true`).
+
+- Beacon: post pages call `POST /api/analytics/collect` when enabled
+- Stores path, post_id, referrer, UA, **hashed IP** (raw IP only if `ANALYTICS_STORE_RAW_IP=true`)
+- Respects DNT / Sec-GPC when `ANALYTICS_RESPECT_DNT=true` (default)
+- Summary: `GET /api/analytics/summary` (auth; admin = all posts, author = own)
+- Retention: worker purges rows older than `ANALYTICS_RETENTION_DAYS` (default 90)
+
+### OpenTelemetry
+
+```bash
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
+OTEL_SERVICE_NAME=x-log-api
+```
+
+API process dynamically loads OTEL only when enabled. Point at your own OTLP collector (Grafana Tempo, Jaeger, etc.).
+
+### PostHog
+
+Use **your** PostHog project (not x-log SaaS telemetry):
+
+```bash
+# Web client
+NEXT_PUBLIC_POSTHOG_ENABLED=true
+NEXT_PUBLIC_POSTHOG_KEY=phc_...
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+
+# Optional server events
+POSTHOG_SERVER_ENABLED=true
+POSTHOG_KEY=phc_...
+POSTHOG_HOST=https://us.i.posthog.com
+```
+
+No PostHog network calls when disabled.
+
+## Multi-user (product direction)
+
+**Default:** single-author instance (one owner, registrations closed).
+
+**Later (phased):** invite-only multi-author on one domain; each author is a separate ActivityPub actor. Not a community platform—see project plan for M0–M3. Schema already supports multiple `users`; product polish is incremental.
+
 ## MCP server
 
 x-log exposes a remote **Model Context Protocol** server so agents (Cursor, Claude, etc.) can read public content and create/publish posts as a configured local author.

@@ -34,6 +34,43 @@ const envSchema = z.object({
   OIDC_CLIENT_SECRET: z.string().min(1),
   OIDC_REDIRECT_URI: z.string().min(1),
   OIDC_DISCOVERY_URL: z.string().min(1),
+
+  // First-party analytics (also gated by feature flag "analytics")
+  ANALYTICS_SALT: z.string().optional(),
+  ANALYTICS_STORE_RAW_IP: z
+    .string()
+    .transform((v) => v === "true")
+    .default("false"),
+  ANALYTICS_RESPECT_DNT: z
+    .string()
+    .transform((v) => v !== "false")
+    .default("true"),
+  ANALYTICS_RETENTION_DAYS: z.coerce.number().int().min(1).max(3650).default(90),
+
+  // OpenTelemetry (opt-in)
+  OTEL_ENABLED: z
+    .string()
+    .transform((v) => v === "true")
+    .default("false"),
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
+  OTEL_EXPORTER_OTLP_HEADERS: z.string().optional(),
+  OTEL_SERVICE_NAME: z.string().default("x-log-api"),
+  OTEL_TRACES_SAMPLER_ARG: z.coerce.number().min(0).max(1).default(0.1),
+
+  // PostHog (opt-in; client uses NEXT_PUBLIC_*)
+  POSTHOG_ENABLED: z
+    .string()
+    .transform((v) => v === "true")
+    .default("false"),
+  POSTHOG_KEY: z.string().optional(),
+  POSTHOG_HOST: z.string().default("https://us.i.posthog.com"),
+  POSTHOG_SERVER_ENABLED: z
+    .string()
+    .transform((v) => v === "true")
+    .default("false"),
+  NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
+  NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
+  NEXT_PUBLIC_POSTHOG_ENABLED: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
