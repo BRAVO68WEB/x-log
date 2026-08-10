@@ -119,6 +119,23 @@ export interface PostsTable {
   post_type: ColumnType<string, string | undefined, string>; // 'article' | 'short', default 'article'
   thread_id: string | null; // FK threads.id
   thread_position: number | null;
+  /** Monotonic content revision (see post_versions) */
+  current_version: ColumnType<number, number | undefined, number>;
+}
+
+export interface PostVersionsTable {
+  id: string; // uuid
+  post_id: string;
+  version: number;
+  title: string;
+  content_markdown: string;
+  content_blocks_json: ColumnType<Record<string, unknown>, unknown, unknown>;
+  summary: string | null;
+  banner_url: string | null;
+  hashtags: string[];
+  changelog: string | null;
+  created_by: string | null;
+  created_at: ColumnType<Date, never, never>;
 }
 
 /** First-party page/post view events (analytics feature flag) */
@@ -396,6 +413,7 @@ export interface Database {
   user_profiles: UserProfilesTable;
   user_keys: UserKeysTable;
   posts: PostsTable;
+  post_versions: PostVersionsTable;
   post_hashtags: PostHashtagsTable;
   threads: ThreadsTable;
   followers: FollowersTable;

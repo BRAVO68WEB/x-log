@@ -26,6 +26,12 @@ import {
   deletePost,
   PostServiceError,
 } from "../services/posts";
+import {
+  listPostVersions,
+  getPostVersion,
+  restorePostVersion,
+  PostVersionError,
+} from "../services/post-versions";
 import { isFeatureEnabled } from "../lib/features";
 
 async function getLikedPostIds(
@@ -417,6 +423,113 @@ postsRoutes.delete(
       return c.json({ message: "Post deleted" });
     } catch (err) {
       if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
+    }
+  }
+);
+
+// ── Post version history (author only) ─────────────────────────────
+
+postsRoutes.get(
+  "/:id/versions",
+  describeRoute({
+    description: "List post content versions (author/admin)",
+    tags: ["posts"],
+    responses: {
+      200: { description: "Version list" },
+      403: { description: "Forbidden" },
+      404: { description: "Post not found" },
+    },
+  }),
+  validator("param", z.object({ id: z.string() })),
+  requireAuthor,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    try {
+      const result = await listPostVersions(
+        { id: user.id, username: user.username, role: user.role },
+        id
+      );
+      return c.json(result);
+    } catch (err) {
+      if (err instanceof PostVersionError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
+    }
+  }
+);
+
+postsRoutes.get(
+  "/:id/versions/:version",
+  describeRoute({
+    description: "Get a specific post version snapshot",
+    tags: ["posts"],
+    responses: {
+      200: { description: "Version snapshot" },
+      404: { description: "Not found" },
+    },
+  }),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+      version: z.string().regex(/^\d+$/),
+    })
+  ),
+  requireAuthor,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id, version } = c.req.valid("param");
+    try {
+      const result = await getPostVersion(
+        { id: user.id, username: user.username, role: user.role },
+        id,
+        Number(version)
+      );
+      return c.json(result);
+    } catch (err) {
+      if (err instanceof PostVersionError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
+    }
+  }
+);
+
+postsRoutes.post(
+  "/:id/versions/:version/restore",
+  describeRoute({
+    description: "Restore a post version as a new current revision",
+    tags: ["posts"],
+    responses: {
+      200: { description: "Restored" },
+      404: { description: "Not found" },
+    },
+  }),
+  validator(
+    "param",
+    z.object({
+      id: z.string(),
+      version: z.string().regex(/^\d+$/),
+    })
+  ),
+  requireAuthor,
+  async (c) => {
+    const user = c.get("user")!;
+    const { id, version } = c.req.valid("param");
+    try {
+      const result = await restorePostVersion(
+        { id: user.id, username: user.username, role: user.role },
+        id,
+        Number(version)
+      );
+      return c.json(result);
+    } catch (err) {
+      if (err instanceof PostVersionError) {
         return c.json({ error: err.message }, err.status);
       }
       throw err;

@@ -4,8 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NovelEditor from "@/components/NovelEditor";
 import PostMetaPanel from "@/components/PostMetaPanel";
+import PostVersionHistory from "@/components/PostVersionHistory";
 import toast, { Toaster } from "react-hot-toast";
-import { useMutation, useQueryClient } from "react-query";
+import { useMutation } from "react-query";
 import type { JSONContent } from "@tiptap/core";
 import { withCsrf } from "@/lib/csrf";
 
@@ -31,6 +32,12 @@ export default function EditorClient({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [postId, setPostId] = useState<string | null>(initialPostId || null);
+  const [editorKey, setEditorKey] = useState(0);
+  const [content, setContent] = useState(initialContent);
+  const [title, setTitle] = useState(initialTitle);
+  const [summary, setSummary] = useState(initialSummary);
+  const [hashtags, setHashtags] = useState(initialHashtags);
+  const [bannerUrl, setBannerUrl] = useState(initialBannerUrl);
 
   const createMutation = useMutation(
     async (payload: {
@@ -192,16 +199,36 @@ export default function EditorClient({
   return (
     <>
       <NovelEditor
-        initialContent={initialContent}
-        initialTitle={initialTitle}
-        initialSummary={initialSummary}
-        initialHashtags={initialHashtags}
-        initialBannerUrl={initialBannerUrl}
+        key={editorKey}
+        initialContent={content}
+        initialTitle={title}
+        initialSummary={summary}
+        initialHashtags={hashtags}
+        initialBannerUrl={bannerUrl}
         onSave={handleSave}
         onPublish={handlePublish}
         saving={saving}
         publishLabel={isPublished ? "Update" : "Publish"}
-        sidebar={postId ? <PostMetaPanel postId={postId} /> : undefined}
+        sidebar={
+          postId ? (
+            <div className="space-y-4">
+              <PostVersionHistory
+                postId={postId}
+                onRestored={(snap) => {
+                  setTitle(snap.title);
+                  setSummary(snap.summary || undefined);
+                  setHashtags(snap.hashtags);
+                  setBannerUrl(snap.banner_url || undefined);
+                  setContent(
+                    (snap.content_blocks_json as JSONContent) || snap.content_markdown
+                  );
+                  setEditorKey((k) => k + 1);
+                }}
+              />
+              <PostMetaPanel postId={postId} />
+            </div>
+          ) : undefined
+        }
       />
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
     </>
