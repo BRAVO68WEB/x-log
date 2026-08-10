@@ -130,6 +130,45 @@ docker run -d \
 | `INSTANCE_NAME` | Display name | `x-log` |
 | `OPEN_REGISTRATIONS` | Force public signup on (`/register`) | `false` |
 | `MAX_LOCAL_AUTHORS` | Cap active admin+author accounts | `10` |
+| `MEDIA_DRIVER` | `local` or `s3` (R2/S3/MinIO) | `local` |
+
+### Media storage (S3 / R2 / MinIO)
+
+Default is **local** disk (`uploads/`) for development.
+
+For production, use S3-compatible object storage:
+
+```bash
+MEDIA_DRIVER=s3
+# Cloudflare R2 example
+MEDIA_S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+MEDIA_S3_REGION=auto
+MEDIA_S3_BUCKET=xlog-media
+MEDIA_S3_ACCESS_KEY_ID=...
+MEDIA_S3_SECRET_ACCESS_KEY=...
+# Public/CDN URL (recommended) — uploads return this URL
+MEDIA_S3_PUBLIC_URL=https://media.yourdomain.com
+# Optional key prefix
+# MEDIA_S3_PREFIX=xlog/
+# MinIO usually needs:
+# MEDIA_S3_FORCE_PATH_STYLE=true
+```
+
+**Behavior**
+- `local`: files under `uploads/`, served at `/api/media/:filename`
+- `s3` + `MEDIA_S3_PUBLIC_URL`: objects stored in bucket; clients get public URLs; GET `/api/media/:f` redirects to CDN
+- `s3` without public URL: objects still uploaded; API proxies GET via S3 GetObject
+
+**Migrate existing local files**
+
+```bash
+MEDIA_DRIVER=s3 MEDIA_S3_... DRY_RUN=true bun run apps/api/scripts/migrate-media-to-s3.ts
+MEDIA_DRIVER=s3 MEDIA_S3_... bun run apps/api/scripts/migrate-media-to-s3.ts
+```
+
+**Backup**
+- Database: standard Postgres dump
+- Media: with `local`, backup `uploads/`; with `s3`, use provider lifecycle/versioning + bucket backups
 | `FEDERATION_ENABLED` | Enable ActivityPub | `true` |
 | `BACKEND_API_URL` | Internal API URL | `http://localhost:8080` |
 

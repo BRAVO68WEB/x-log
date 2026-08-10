@@ -73,6 +73,23 @@ const envSchema = z.object({
   NEXT_PUBLIC_POSTHOG_KEY: z.string().optional(),
   NEXT_PUBLIC_POSTHOG_HOST: z.string().optional(),
   NEXT_PUBLIC_POSTHOG_ENABLED: z.string().optional(),
+
+  // Media storage (local default; S3-compatible for R2/S3/MinIO)
+  MEDIA_DRIVER: z.enum(["local", "s3"]).default("local"),
+  MEDIA_S3_ENDPOINT: z.string().optional(),
+  MEDIA_S3_REGION: z.string().default("auto"),
+  MEDIA_S3_BUCKET: z.string().optional(),
+  MEDIA_S3_ACCESS_KEY_ID: z.string().optional(),
+  MEDIA_S3_SECRET_ACCESS_KEY: z.string().optional(),
+  /** Public base URL for objects (no trailing slash), e.g. https://cdn.example.com */
+  MEDIA_S3_PUBLIC_URL: z.string().optional(),
+  /** Path-style URLs (MinIO / some S3-compatible). Default true when endpoint set. */
+  MEDIA_S3_FORCE_PATH_STYLE: z
+    .string()
+    .transform((v) => v === "true")
+    .optional(),
+  /** Key prefix inside bucket, e.g. "xlog/" */
+  MEDIA_S3_PREFIX: z.string().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;

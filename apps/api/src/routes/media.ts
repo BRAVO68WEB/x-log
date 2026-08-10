@@ -3,9 +3,15 @@ import { describeRoute, resolver } from "hono-openapi";
 import { z } from "zod";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { getDb, getInstanceSettings } from "@xlog/db";
-import { writeFile, mkdir, readdir, stat, unlink } from "fs/promises";
+import { getEnv } from "@xlog/config";
+import {
+  getMediaStorage,
+  makeObjectKey,
+  getMediaDriver,
+} from "../lib/media-storage";
 import { join } from "path";
 import { existsSync } from "fs";
+import { readdir, stat } from "fs/promises";
 
 export const mediaRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -39,58 +45,52 @@ mediaRoutes.post(
       return c.json({ error: "No file provided" }, 400);
     }
 
-    // Validate file type
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       return c.json({ error: "Invalid file type" }, 400);
     }
 
-    // Validate file size (max 10MB)
     const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       return c.json({ error: "File too large" }, 400);
     }
 
-    // Validate asset_type if provided
     const assetType = (body.asset_type as string) || "post_attachment";
     if (assetType !== "banner" && assetType !== "post_attachment") {
       return c.json({ error: "Invalid asset_type" }, 400);
     }
 
-    const uploadDir = join(process.cwd(), "uploads");
-    const filename = `${crypto.randomUUID()}-${file.name}`;
-    const filepath = join(uploadDir, filename);
+    try {
+      const storage = await getMediaStorage();
+      const key = makeObjectKey(file.name || "upload.bin");
+      const arrayBuffer = await file.arrayBuffer();
+      const { url, key: storedKey } = await storage.put({
+        key,
+        body: Buffer.from(arrayBuffer),
+        contentType: file.type,
+      });
 
-    // Ensure upload directory exists
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
+      const db = getDb();
+      await db
+        .insertInto("media")
+        .values({
+          filename: storedKey,
+          url,
+          user_id: user.id,
+          asset_type: assetType as "banner" | "post_attachment",
+          size: file.size,
+          mime_type: file.type,
+        })
+        .execute();
+
+      return c.json({ url, driver: storage.driver });
+    } catch (err) {
+      console.error("[media] upload failed:", err);
+      return c.json(
+        { error: err instanceof Error ? err.message : "Upload failed" },
+        500
+      );
     }
-
-    // Save file
-    const arrayBuffer = await file.arrayBuffer();
-    await writeFile(filepath, Buffer.from(arrayBuffer));
-
-    const settings = await getInstanceSettings();
-    const isDev = process.env.NODE_ENV === "development";
-    const url = isDev
-      ? `http://${settings.instance_domain}/api/media/${filename}`
-      : `https://${settings.instance_domain}/api/media/${filename}`;
-
-    // Insert DB record
-    const db = getDb();
-    await db
-      .insertInto("media")
-      .values({
-        filename,
-        url,
-        user_id: user.id,
-        asset_type: assetType as "banner" | "post_attachment",
-        size: file.size,
-        mime_type: file.type,
-      })
-      .execute();
-
-    return c.json({ url });
   }
 );
 
@@ -99,31 +99,6 @@ mediaRoutes.get(
   describeRoute({
     description: "List uploaded media files",
     tags: ["media"],
-    responses: {
-      200: {
-        description: "List of media files",
-        content: {
-          "application/json": {
-            schema: resolver(
-              z.object({
-                items: z.array(
-                  z.object({
-                    filename: z.string(),
-                    url: z.string(),
-                    size: z.number(),
-                    uploaded_at: z.string(),
-                    type: z.string(),
-                    asset_type: z.string().nullable(),
-                    post_id: z.string().nullable(),
-                    post_title: z.string().nullable(),
-                  })
-                ),
-              })
-            ),
-          },
-        },
-      },
-    },
   }),
   requireAuth,
   async (c) => {
@@ -133,7 +108,6 @@ mediaRoutes.get(
     const isDev = process.env.NODE_ENV === "development";
     const protocol = isDev ? "http" : "https";
 
-    // Query DB for tracked media — authors only see own; admins see all
     let mediaQuery = db
       .selectFrom("media")
       .leftJoin("posts", "media.post_id", "posts.id")
@@ -155,7 +129,6 @@ mediaRoutes.get(
     }
 
     const dbItems = await mediaQuery.execute();
-
     const trackedFilenames = new Set(dbItems.map((item) => item.filename));
 
     const items: {
@@ -178,8 +151,8 @@ mediaRoutes.get(
       post_title: item.post_title || null,
     }));
 
-    // Backwards compat: untracked filesystem files only for admins
-    if (user.role === "admin") {
+    // Local driver only: untracked filesystem files for admins
+    if (user.role === "admin" && getMediaDriver() === "local") {
       const uploadDir = join(process.cwd(), "uploads");
       if (existsSync(uploadDir)) {
         const files = await readdir(uploadDir);
@@ -208,11 +181,13 @@ mediaRoutes.get(
           });
         }
 
-        items.sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
+        items.sort(
+          (a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+        );
       }
     }
 
-    return c.json({ items });
+    return c.json({ items, driver: getMediaDriver() });
   }
 );
 
@@ -221,17 +196,12 @@ mediaRoutes.delete(
   describeRoute({
     description: "Delete an uploaded media file",
     tags: ["media"],
-    responses: {
-      200: { description: "File deleted" },
-      404: { description: "File not found" },
-    },
   }),
   requireAuth,
   async (c) => {
     const user = c.get("user")!;
     const filename = c.req.param("filename");
 
-    // Prevent path traversal
     if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
       return c.json({ error: "Invalid filename" }, 400);
     }
@@ -248,19 +218,25 @@ mediaRoutes.delete(
         return c.json({ error: "Forbidden" }, 403);
       }
     } else if (user.role !== "admin") {
-      // Untracked files: only admins may delete
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    const filepath = join(process.cwd(), "uploads", filename);
-    if (existsSync(filepath)) {
-      await unlink(filepath);
+    try {
+      const storage = await getMediaStorage();
+      await storage.delete(filename);
+    } catch (err) {
+      console.error("[media] delete storage error:", err);
     }
 
     if (record) {
       await db.deleteFrom("media").where("filename", "=", filename).execute();
-    } else if (!existsSync(filepath)) {
-      return c.json({ error: "File not found" }, 404);
+    } else {
+      // local untracked: check existence via get
+      const storage = await getMediaStorage();
+      const obj = await storage.get(filename);
+      if (!obj && !record) {
+        return c.json({ error: "File not found" }, 404);
+      }
     }
 
     return c.json({ message: "File deleted" });
@@ -269,14 +245,29 @@ mediaRoutes.delete(
 
 mediaRoutes.get("/:filename", async (c) => {
   const filename = c.req.param("filename");
-  const filepath = join(process.cwd(), "uploads", filename);
-
-  if (!existsSync(filepath)) {
-    return c.json({ error: "File not found" }, 404);
+  if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
+    return c.json({ error: "Invalid filename" }, 400);
   }
 
-  const file = Bun.file(filepath);
-  return c.body(await file.arrayBuffer(), 200, {
-    "Content-Type": file.type || "application/octet-stream",
-  });
+  const env = getEnv();
+  // S3 with public CDN: redirect so API doesn't proxy bytes
+  if (env.MEDIA_DRIVER === "s3" && env.MEDIA_S3_PUBLIC_URL) {
+    const storage = await getMediaStorage();
+    return c.redirect(storage.publicUrl(filename), 302);
+  }
+
+  try {
+    const storage = await getMediaStorage();
+    const obj = await storage.get(filename);
+    if (!obj) {
+      return c.json({ error: "File not found" }, 404);
+    }
+    return c.body(new Uint8Array(obj.body), 200, {
+      "Content-Type": obj.contentType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    });
+  } catch (err) {
+    console.error("[media] serve error:", err);
+    return c.json({ error: "File not found" }, 404);
+  }
 });
