@@ -12,68 +12,97 @@ import {
 } from "../lib/features";
 import { createInvite, inviteStatus } from "../lib/invites";
 import { assertUnderAuthorCap, countLocalAuthors } from "../lib/local-users";
+import {
+  getDeliveryStats24h,
+  listRecentFailedDeliveries,
+  retryAllFailed,
+  retryDelivery,
+} from "../lib/federation-stats";
+import {
+  addDomainBlock,
+  listDomainBlocks,
+  removeDomainBlock,
+} from "../lib/federation-blocks";
 
 export const adminRoutes = new Hono().use("*", sessionMiddleware);
 
-// ── Failed deliveries ──────────────────────────────────────────────
+// ── Federation deliveries ──────────────────────────────────────────
 
 adminRoutes.get(
   "/deliveries/failed",
   describeRoute({
     description: "List failed federation deliveries",
-    tags: ["admin"],
-    responses: {
-      200: {
-        description: "Failed deliveries",
-        content: {
-          "application/json": {
-            schema: resolver(
-              z.object({
-                items: z.array(
-                  z.object({
-                    activity_id: z.string(),
-                    remote_inbox: z.string(),
-                    status: z.string(),
-                    attempt_count: z.number(),
-                    last_error: z.string().nullable(),
-                    updated_at: z.string(),
-                    activity_json: z.any().nullable(),
-                  })
-                ),
-              })
-            ),
-          },
-        },
-      },
-    },
+    tags: ["admin", "federation"],
   }),
   requireAdmin,
   async (c) => {
-    const db = getDb();
-    const items = await db
-      .selectFrom("deliveries")
-      .select([
-        "activity_id",
-        "remote_inbox",
-        "status",
-        "attempt_count",
-        "last_error",
-        "updated_at",
-        "activity_json",
-      ])
-      .where("status", "=", "failed")
-      .orderBy("updated_at", "desc")
-      .limit(100)
-      .execute();
-
-    return c.json({
-      items: items.map((item) => ({
-        ...item,
-        updated_at: item.updated_at.toISOString(),
-      })),
-    });
+    const items = await listRecentFailedDeliveries(100);
+    return c.json({ items });
   }
 );
+
+adminRoutes.get("/federation/stats", requireAdmin, async (c) => {
+  const stats = await getDeliveryStats24h();
+  const recent_failures = await listRecentFailedDeliveries(30);
+  return c.json({ ...stats, recent_failures });
+});
+
+adminRoutes.post("/deliveries/:id/retry", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const result = await retryDelivery(id);
+  if (!result.ok) {
+    return c.json({ error: result.error || "Retry failed" }, 400);
+  }
+  return c.json({ message: "Delivery re-queued" });
+});
+
+adminRoutes.post("/deliveries/retry-failed", requireAdmin, async (c) => {
+  const result = await retryAllFailed(50);
+  return c.json({ message: `Re-queued ${result.enqueued} deliveries`, ...result });
+});
+
+// ── Domain blocklist ───────────────────────────────────────────────
+
+adminRoutes.get("/federation/blocks", requireAdmin, async (c) => {
+  const blocks = await listDomainBlocks();
+  return c.json({ blocks });
+});
+
+adminRoutes.post(
+  "/federation/blocks",
+  requireAdmin,
+  validator(
+    "json",
+    z.object({
+      domain: z.string().min(3).max(253),
+      reason: z.string().max(500).optional().nullable(),
+    })
+  ),
+  async (c) => {
+    const admin = c.get("user")!;
+    const body = c.req.valid("json");
+    try {
+      const block = await addDomainBlock({
+        domain: body.domain,
+        reason: body.reason,
+        createdBy: admin.id,
+      });
+      return c.json(block, 201);
+    } catch (err) {
+      return c.json(
+        { error: err instanceof Error ? err.message : "Failed to block domain" },
+        400
+      );
+    }
+  }
+);
+
+adminRoutes.delete("/federation/blocks/:id", requireAdmin, async (c) => {
+  const id = c.req.param("id");
+  const ok = await removeDomainBlock(id);
+  if (!ok) return c.json({ error: "Block not found" }, 404);
+  return c.json({ message: "Block removed" });
+});
 
 // ── Feature flags ──────────────────────────────────────────────────
 

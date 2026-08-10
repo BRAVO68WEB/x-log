@@ -36,6 +36,7 @@ import {
 } from "react-icons/fa6";
 import FeaturesTab from "./FeaturesTab";
 import UsersTab from "./UsersTab";
+import FederationOpsPanel from "./FederationOpsPanel";
 import AnalyticsDashboard from "../analytics/AnalyticsDashboard";
 
 export default function SettingsClient() {
@@ -520,6 +521,18 @@ export default function SettingsClient() {
                         }
                       />
                     </div>
+                  </BentoCardContent>
+                </BentoCard>
+
+                <BentoCard size="full" index={1}>
+                  <BentoCardHeader>
+                    <h2 className="text-xl font-semibold font-heading">Operator tools</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Delivery health, retries, and domain blocks
+                    </p>
+                  </BentoCardHeader>
+                  <BentoCardContent>
+                    <FederationOpsPanel />
                   </BentoCardContent>
                 </BentoCard>
               </BentoGrid>

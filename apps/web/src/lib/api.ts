@@ -532,6 +532,20 @@ export interface FeatureFlagItem {
   envValue: string | null;
 }
 
+export interface FederationDeliveryFailure {
+  id: string;
+  activity_id: string;
+  remote_inbox: string;
+  remote_host?: string | null;
+  status: string;
+  attempt_count: number;
+  last_error: string | null;
+  updated_at: string;
+  user_id?: string | null;
+  post_id?: string | null;
+  activity_json?: unknown | null;
+}
+
 export interface AdminUser {
   id: string;
   username: string;
@@ -568,16 +582,59 @@ export const adminApi = {
 
   getFailedDeliveries: async () => {
     return apiRequest<{
-      items: {
-        activity_id: string;
-        remote_inbox: string;
-        status: string;
-        attempt_count: number;
-        last_error: string | null;
-        updated_at: string;
-        activity_json: unknown | null;
-      }[];
+      items: FederationDeliveryFailure[];
     }>("/api/admin/deliveries/failed");
+  },
+
+  getFederationStats: async () => {
+    return apiRequest<{
+      window_hours: number;
+      total: number;
+      by_status: {
+        pending: number;
+        sent: number;
+        failed: number;
+        retrying: number;
+      };
+      recent_failures: FederationDeliveryFailure[];
+    }>("/api/admin/federation/stats");
+  },
+
+  retryDelivery: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/admin/deliveries/${id}/retry`, {
+      method: "POST",
+    });
+  },
+
+  retryAllFailedDeliveries: async () => {
+    return apiRequest<{ message: string; enqueued: number }>(
+      "/api/admin/deliveries/retry-failed",
+      { method: "POST" }
+    );
+  },
+
+  listFederationBlocks: async () => {
+    return apiRequest<{
+      blocks: Array<{
+        id: string;
+        domain: string;
+        reason: string | null;
+        created_at: string;
+      }>;
+    }>("/api/admin/federation/blocks");
+  },
+
+  addFederationBlock: async (data: { domain: string; reason?: string | null }) => {
+    return apiRequest<{ id: string; domain: string }>("/api/admin/federation/blocks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  removeFederationBlock: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/admin/federation/blocks/${id}`, {
+      method: "DELETE",
+    });
   },
 
   listUsers: async () => {

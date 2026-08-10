@@ -730,6 +730,17 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
 
   const activity = JSON.parse(body);
 
+  // Domain blocklist
+  try {
+    const { isDomainBlocked } = await import("../lib/federation-blocks");
+    if (activity.actor && (await isDomainBlocked(String(activity.actor)))) {
+      console.warn(`Inbox rejected: blocked domain actor=${activity.actor}`);
+      return c.json({ error: "Forbidden" }, 403);
+    }
+  } catch {
+    /* ignore */
+  }
+
   // Verify HTTP Signature (signed remote key fetch for authorized-fetch servers)
   const headers: Record<string, string> = {};
   c.req.raw.headers.forEach((value, key) => {
@@ -835,6 +846,17 @@ federationRoutes.post("/ap/inbox", async (c) => {
   }
 
   const activity = JSON.parse(body);
+
+  // Domain blocklist
+  try {
+    const { isDomainBlocked } = await import("../lib/federation-blocks");
+    if (activity.actor && (await isDomainBlocked(String(activity.actor)))) {
+      console.warn(`Shared inbox rejected: blocked domain actor=${activity.actor}`);
+      return c.json({ error: "Forbidden" }, 403);
+    }
+  } catch {
+    /* ignore */
+  }
 
   // Resolve a local signer for authorized-fetch key lookup before verify
   const settings = await getInstanceSettings();

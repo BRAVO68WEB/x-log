@@ -170,6 +170,15 @@ export interface DeliveriesTable {
   activity_json: ColumnType<Record<string, unknown> | null, unknown, unknown>;
 }
 
+/** Domains blocked from federation (inbox + outbound) */
+export interface FederationDomainBlocksTable {
+  id: string;
+  domain: string;
+  reason: string | null;
+  created_by: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
 export interface FollowingTable {
   id: string; // uuid, PK
   local_user_id: string; // FK users.id
@@ -377,6 +386,7 @@ export interface Database {
   following: FollowingTable;
   outbox_activities: OutboxActivitiesTable;
   deliveries: DeliveriesTable;
+  federation_domain_blocks: FederationDomainBlocksTable;
   inbox_objects: InboxObjectsTable;
   post_likes: PostLikesTable;
   instance_settings: InstanceSettingsTable;
