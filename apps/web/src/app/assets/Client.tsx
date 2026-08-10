@@ -20,12 +20,15 @@ function formatBytes(bytes: number): string {
 export default function AssetsClient() {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
 
   const { data, isLoading } = useQuery("media-list", () => mediaApi.list());
+  const { data: stats } = useQuery("media-stats", () => mediaApi.stats());
 
   const deleteMutation = useMutation((filename: string) => mediaApi.delete(filename), {
     onSuccess: () => {
       queryClient.invalidateQueries("media-list");
+      queryClient.invalidateQueries("media-stats");
       toast.success("File deleted");
     },
     onError: (err) => {
@@ -40,6 +43,7 @@ export default function AssetsClient() {
       setUploading(true);
       await mediaApi.upload(file);
       queryClient.invalidateQueries("media-list");
+      queryClient.invalidateQueries("media-stats");
       toast.success("File uploaded");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Upload failed");
@@ -64,14 +68,59 @@ export default function AssetsClient() {
     }
   };
 
+  const handleCleanupOrphans = async () => {
+    try {
+      setCleaning(true);
+      const preview = await mediaApi.cleanup({
+        dry_run: true,
+        older_than_days: 7,
+        include_untracked: true,
+      });
+      if (preview.deleted_count === 0) {
+        toast.success("No orphan files older than 7 days");
+        return;
+      }
+      if (
+        !confirm(
+          `Delete ${preview.deleted_count} orphan file(s) older than 7 days?\n\nThis removes unlinked uploads (and admin untracked local files). Cannot be undone.`
+        )
+      ) {
+        return;
+      }
+      const result = await mediaApi.cleanup({
+        dry_run: false,
+        older_than_days: 7,
+        include_untracked: true,
+      });
+      queryClient.invalidateQueries("media-list");
+      queryClient.invalidateQueries("media-stats");
+      toast.success(
+        `Deleted ${result.deleted_count} orphan(s)` +
+          (result.failed_count ? ` (${result.failed_count} failed)` : "")
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Cleanup failed");
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   const items = data?.items || [];
 
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <h1 className="text-3xl font-normal tracking-[-0.02em] font-heading">Assets</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={cleaning || (stats?.orphan_files ?? 0) === 0}
+              onClick={handleCleanupOrphans}
+            >
+              {cleaning ? "Cleaning…" : "Clean orphans (7d+)"}
+            </Button>
             <label
               htmlFor="asset-upload"
               className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 cursor-pointer"
@@ -88,6 +137,53 @@ export default function AssetsClient() {
             />
           </div>
         </div>
+
+        {stats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+            <Card>
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Driver</p>
+                <p className="text-sm font-medium font-mono">{stats.driver}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Files</p>
+                <p className="text-sm font-medium">
+                  {stats.total_files}{" "}
+                  <span className="text-muted-foreground font-normal">
+                    ({formatBytes(stats.total_bytes)})
+                  </span>
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Linked to posts</p>
+                <p className="text-sm font-medium">{stats.linked_files}</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-3">
+                <p className="text-xs text-muted-foreground">Orphans</p>
+                <p className="text-sm font-medium">
+                  {stats.orphan_files}
+                  {stats.orphan_bytes > 0 && (
+                    <span className="text-muted-foreground font-normal">
+                      {" "}
+                      ({formatBytes(stats.orphan_bytes)})
+                    </span>
+                  )}
+                  {stats.untracked_local > 0 && (
+                    <span className="block text-xs text-muted-foreground">
+                      +{stats.untracked_local} untracked on disk
+                    </span>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center items-center min-h-[300px]">
@@ -128,6 +224,11 @@ export default function AssetsClient() {
                         Attachment
                       </Badge>
                     ) : null}
+                    {!item.post_id && (
+                      <Badge variant="outline" className="text-xs text-amber-600">
+                        Orphan
+                      </Badge>
+                    )}
                     <span className="text-xs text-muted-foreground">{formatBytes(item.size)}</span>
                   </div>
                   <div className="mb-3">

@@ -449,11 +449,65 @@ export const mediaApi = {
   },
 
   list: async () => {
-    return apiRequest<{ items: MediaItem[] }>("/api/media");
+    return apiRequest<{ items: MediaItem[]; driver?: string }>("/api/media");
+  },
+
+  stats: async () => {
+    return apiRequest<{
+      driver: "local" | "s3";
+      total_files: number;
+      total_bytes: number;
+      linked_files: number;
+      orphan_files: number;
+      orphan_bytes: number;
+      untracked_local: number;
+    }>("/api/media/stats");
+  },
+
+  listOrphans: async (params?: { older_than_days?: number; include_untracked?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.older_than_days != null) {
+      sp.set("older_than_days", String(params.older_than_days));
+    }
+    if (params?.include_untracked) sp.set("include_untracked", "true");
+    const q = sp.toString();
+    return apiRequest<{
+      items: Array<{
+        filename: string;
+        url: string;
+        size: number;
+        uploaded_at: string;
+        source: string;
+      }>;
+      count: number;
+    }>(`/api/media/orphans${q ? `?${q}` : ""}`);
+  },
+
+  cleanup: async (opts?: {
+    dry_run?: boolean;
+    older_than_days?: number;
+    include_untracked?: boolean;
+    limit?: number;
+  }) => {
+    return apiRequest<{
+      dry_run: boolean;
+      deleted: string[];
+      failed: Array<{ filename: string; error: string }>;
+      deleted_count: number;
+      failed_count: number;
+    }>("/api/media/cleanup", {
+      method: "POST",
+      body: JSON.stringify({
+        dry_run: opts?.dry_run ?? true,
+        older_than_days: opts?.older_than_days ?? 7,
+        include_untracked: opts?.include_untracked ?? false,
+        limit: opts?.limit ?? 100,
+      }),
+    });
   },
 
   delete: async (filename: string) => {
-    return apiRequest<{ message: string }>(`/api/media/${filename}`, {
+    return apiRequest<{ message: string }>(`/api/media/${encodeURIComponent(filename)}`, {
       method: "DELETE",
     });
   },

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { describeRoute, resolver } from "hono-openapi";
+import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { getDb, getInstanceSettings } from "@xlog/db";
@@ -9,6 +9,14 @@ import {
   makeObjectKey,
   getMediaDriver,
 } from "../lib/media-storage";
+import {
+  cleanupOrphanMedia,
+  etagMatches,
+  getMediaStats,
+  listDbOrphans,
+  listUntrackedLocalFiles,
+  mediaEtag,
+} from "../lib/media-cleanup";
 import { join } from "path";
 import { existsSync } from "fs";
 import { readdir, stat } from "fs/promises";
@@ -191,6 +199,100 @@ mediaRoutes.get(
   }
 );
 
+// Static paths before /:filename
+mediaRoutes.get(
+  "/stats",
+  describeRoute({
+    description: "Media library stats (counts and bytes)",
+    tags: ["media"],
+  }),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const stats = await getMediaStats({
+      userId: user.id,
+      isAdmin: user.role === "admin",
+    });
+    return c.json(stats);
+  }
+);
+
+mediaRoutes.get(
+  "/orphans",
+  describeRoute({
+    description: "List orphan media (unlinked to posts)",
+    tags: ["media"],
+  }),
+  requireAuth,
+  async (c) => {
+    const user = c.get("user")!;
+    const olderThanDays = Math.max(0, Number(c.req.query("older_than_days") || "0") || 0);
+    const includeUntracked = c.req.query("include_untracked") === "true";
+
+    const items = await listDbOrphans({
+      userId: user.id,
+      isAdmin: user.role === "admin",
+      olderThanDays: olderThanDays || undefined,
+      limit: 200,
+    });
+
+    if (includeUntracked && user.role === "admin") {
+      const untracked = await listUntrackedLocalFiles();
+      for (const u of untracked) items.push(u);
+    }
+
+    return c.json({
+      items,
+      count: items.length,
+      older_than_days: olderThanDays || null,
+    });
+  }
+);
+
+mediaRoutes.post(
+  "/cleanup",
+  describeRoute({
+    description: "Purge orphan media (dry_run supported)",
+    tags: ["media"],
+    responses: {
+      200: { description: "Cleanup result" },
+    },
+  }),
+  requireAuth,
+  validator(
+    "json",
+    z.object({
+      dry_run: z.boolean().optional().default(true),
+      older_than_days: z.number().int().min(0).max(3650).optional().default(7),
+      include_untracked: z.boolean().optional().default(false),
+      limit: z.number().int().min(1).max(200).optional().default(100),
+    })
+  ),
+  async (c) => {
+    const user = c.get("user")!;
+    const body = c.req.valid("json");
+
+    if (body.include_untracked && user.role !== "admin") {
+      return c.json({ error: "Only admins can clean untracked local files" }, 403);
+    }
+
+    const result = await cleanupOrphanMedia({
+      userId: user.id,
+      isAdmin: user.role === "admin",
+      dryRun: body.dry_run ?? true,
+      olderThanDays: body.older_than_days ?? 7,
+      includeUntracked: Boolean(body.include_untracked),
+      limit: body.limit ?? 100,
+    });
+
+    return c.json({
+      ...result,
+      deleted_count: result.deleted.length,
+      failed_count: result.failed.length,
+    });
+  }
+);
+
 mediaRoutes.delete(
   "/:filename",
   describeRoute({
@@ -262,12 +364,58 @@ mediaRoutes.get("/:filename", async (c) => {
     if (!obj) {
       return c.json({ error: "File not found" }, 404);
     }
-    return c.body(new Uint8Array(obj.body), 200, {
+
+    const etag = mediaEtag(filename, obj.body.length);
+    const headers: Record<string, string> = {
       "Content-Type": obj.contentType,
+      "Content-Length": String(obj.body.length),
       "Cache-Control": "public, max-age=31536000, immutable",
-    });
+      ETag: etag,
+      "X-Content-Type-Options": "nosniff",
+    };
+
+    const inm = c.req.header("if-none-match");
+    if (etagMatches(inm, etag)) {
+      return new Response(null, { status: 304, headers });
+    }
+
+    return c.body(new Uint8Array(obj.body), 200, headers);
   } catch (err) {
     console.error("[media] serve error:", err);
+    return c.json({ error: "File not found" }, 404);
+  }
+});
+
+mediaRoutes.on("HEAD", "/:filename", async (c) => {
+  const filename = c.req.param("filename");
+  if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
+    return c.json({ error: "Invalid filename" }, 400);
+  }
+
+  const env = getEnv();
+  if (env.MEDIA_DRIVER === "s3" && env.MEDIA_S3_PUBLIC_URL) {
+    const storage = await getMediaStorage();
+    return c.redirect(storage.publicUrl(filename), 302);
+  }
+
+  try {
+    const storage = await getMediaStorage();
+    const obj = await storage.get(filename);
+    if (!obj) {
+      return c.json({ error: "File not found" }, 404);
+    }
+    const etag = mediaEtag(filename, obj.body.length);
+    return new Response(null, {
+      status: 200,
+      headers: {
+        "Content-Type": obj.contentType,
+        "Content-Length": String(obj.body.length),
+        "Cache-Control": "public, max-age=31536000, immutable",
+        ETag: etag,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  } catch {
     return c.json({ error: "File not found" }, 404);
   }
 });

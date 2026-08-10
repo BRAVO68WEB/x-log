@@ -9,6 +9,7 @@ Docs for running and operating an x-log instance after onboarding.
 | [Analytics privacy](./analytics-privacy.md) | First-party views, flags, DNT, retention |
 | [Security](./security.md) | Session cookies, CSRF, rate limits |
 | [Authoring](./authoring.md) | Schedule, import, post version history |
+| [Media](./media.md) | Storage drivers, serving headers, orphan cleanup |
 
 Also see:
 
