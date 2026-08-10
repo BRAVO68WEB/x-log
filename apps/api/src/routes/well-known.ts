@@ -130,7 +130,7 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
     version: "2.1",
     software: {
       name: "x-log",
-      version: "0.3.0",
+      version: "1.0.0",
       repository: "https://github.com/BRAVO68WEB/x-log",
       homepage: "https://github.com/BRAVO68WEB/x-log",
     },
@@ -195,7 +195,7 @@ wellKnownRoutes.get("/nodeinfo/2.0", async (c) => {
     version: "2.0",
     software: {
       name: "x-log",
-      version: "0.3.0",
+      version: "1.0.0",
     },
     protocols: ["activitypub"],
     services: {
@@ -273,7 +273,7 @@ wellKnownRoutes.get("/.well-known/x-nodeinfo2", async (c) => {
         baseUrl: `https://${settings.instance_domain}`,
         name: settings.instance_name,
         software: "x-log",
-        version: "0.3.0",
+        version: "1.0.0",
       },
       openRegistrations: false,
       protocols: ["activitypub"],
