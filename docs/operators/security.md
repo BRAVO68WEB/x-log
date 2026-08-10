@@ -14,8 +14,29 @@ Dashboard auth uses an HTTP-only JWT cookie:
 
 Both use `SameSite=Strict`, `Path=/`, and `Secure` in production.
 
+**Sliding refresh:** when a cookie session has fewer than **2 days** remaining,
+the API re-issues a fresh 7-day JWT on the next request (cookie path only; Bearer
+mobile tokens are not slid).
+
+`GET /api/users/me` includes:
+
+- `auth_method`: `"cookie"` | `"bearer"`
+- `session_expires_at`: ISO timestamp (when known)
+
 Mobile and MCP clients use `Authorization: Bearer …` instead of cookies. Those
 requests are not subject to CSRF checks.
+
+## API errors
+
+Error JSON always includes a human-readable `error` string. Optional fields:
+
+| Field | Meaning |
+|-------|---------|
+| `code` | Machine code (`unauthorized`, `validation_error`, …) |
+| `details` | Per-field Zod issues: `{ path, message }[]` |
+
+Validation failures from request bodies return **400** with `code: validation_error`
+and structured `details` when the thrown error is a Zod issue list.
 
 ## CSRF protection
 

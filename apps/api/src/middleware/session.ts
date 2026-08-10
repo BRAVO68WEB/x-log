@@ -16,11 +16,17 @@ declare module "hono" {
   interface ContextVariableMap {
     user?: SessionUser;
     sessionId?: string;
+    /** Unix seconds JWT exp when authenticated */
+    sessionExp?: number;
+    /** How the request was authenticated */
+    authMethod?: "cookie" | "bearer";
   }
 }
 
 export const SESSION_COOKIE_NAME = "xlog_session";
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+/** Re-issue cookie when less than this many seconds remain (sliding window). */
+export const SESSION_SLIDE_THRESHOLD_SEC = 60 * 60 * 24 * 2; // 2 days
 const MOBILE_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 interface AuthPayload {
@@ -30,7 +36,15 @@ interface AuthPayload {
   exp: number;
 }
 
-async function authenticateToken(c: Context, token: string) {
+type AuthResult =
+  | { ok: false }
+  | {
+      ok: true;
+      payload: AuthPayload;
+      user: SessionUser;
+    };
+
+async function authenticateToken(token: string): Promise<AuthResult> {
   const env = getEnv();
 
   try {
@@ -44,27 +58,41 @@ async function authenticateToken(c: Context, token: string) {
       .executeTakeFirst();
 
     if (!user) {
-      return false;
+      return { ok: false };
     }
 
     // Soft-deactivated accounts cannot use sessions
     if (user.is_active === false) {
-      return false;
+      return { ok: false };
     }
 
-    c.set("user", {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-    });
-    if (payload.sessionId) {
-      c.set("sessionId", payload.sessionId);
-    }
-
-    return true;
+    return {
+      ok: true,
+      payload,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+      },
+    };
   } catch {
-    return false;
+    return { ok: false };
+  }
+}
+
+function applyAuth(
+  c: Context,
+  result: Extract<AuthResult, { ok: true }>,
+  method: "cookie" | "bearer"
+) {
+  c.set("user", result.user);
+  c.set("authMethod", method);
+  if (result.payload.sessionId) {
+    c.set("sessionId", result.payload.sessionId);
+  }
+  if (typeof result.payload.exp === "number") {
+    c.set("sessionExp", result.payload.exp);
   }
 }
 
@@ -73,20 +101,40 @@ export async function sessionMiddleware(c: Context, next: Next) {
   const authHeader = c.req.header("authorization");
 
   if (sessionToken) {
-    const isAuthenticated = await authenticateToken(c, sessionToken);
-    if (!isAuthenticated) {
+    const result = await authenticateToken(sessionToken);
+    if (!result.ok) {
       // Invalid session token, clear cookie
-      deleteCookie(c, SESSION_COOKIE_NAME);
+      deleteCookie(c, SESSION_COOKIE_NAME, { path: "/" });
       clearCsrfCookie(c);
-    } else if (!getCookie(c, CSRF_COOKIE_NAME)) {
-      // Backfill CSRF cookie for sessions created before CSRF rolled out
-      setCsrfCookie(c);
+    } else {
+      applyAuth(c, result, "cookie");
+      if (!getCookie(c, CSRF_COOKIE_NAME)) {
+        // Backfill CSRF cookie for sessions created before CSRF rolled out
+        setCsrfCookie(c);
+      }
+      // Sliding session: extend cookie JWT when nearing expiry (cookie auth only)
+      const exp = result.payload.exp;
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = exp - now;
+      if (
+        result.payload.tokenType !== "mobile" &&
+        remaining > 0 &&
+        remaining < SESSION_SLIDE_THRESHOLD_SEC
+      ) {
+        const fresh = await createSession(result.user.id);
+        setSessionCookie(c, fresh);
+        // Refresh exp on context for this request
+        c.set("sessionExp", Math.floor(Date.now() / 1000) + SESSION_MAX_AGE);
+      }
     }
   }
 
   if (!c.get("user") && authHeader?.startsWith("Bearer ")) {
     const bearerToken = authHeader.slice("Bearer ".length).trim();
-    await authenticateToken(c, bearerToken);
+    const result = await authenticateToken(bearerToken);
+    if (result.ok) {
+      applyAuth(c, result, "bearer");
+    }
   }
 
   await next();
@@ -95,15 +143,21 @@ export async function sessionMiddleware(c: Context, next: Next) {
 export async function requireAuth(c: Context, next: Next) {
   const user = c.get("user");
   if (!user) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json(
+      { error: "Unauthorized", code: "unauthorized" },
+      401
+    );
   }
   await next();
 }
 
 export async function requireAdmin(c: Context, next: Next) {
   const user = c.get("user");
-  if (!user || user.role !== "admin") {
-    return c.json({ error: "Forbidden" }, 403);
+  if (!user) {
+    return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
+  }
+  if (user.role !== "admin") {
+    return c.json({ error: "Forbidden", code: "forbidden" }, 403);
   }
   await next();
 }
@@ -112,10 +166,13 @@ export async function requireAdmin(c: Context, next: Next) {
 export async function requireAuthor(c: Context, next: Next) {
   const user = c.get("user");
   if (!user) {
-    return c.json({ error: "Unauthorized" }, 401);
+    return c.json({ error: "Unauthorized", code: "unauthorized" }, 401);
   }
   if (user.role !== "admin" && user.role !== "author") {
-    return c.json({ error: "Forbidden: author role required" }, 403);
+    return c.json(
+      { error: "Forbidden: author role required", code: "forbidden" },
+      403
+    );
   }
   await next();
 }

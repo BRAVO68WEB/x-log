@@ -2,11 +2,22 @@ import { z } from "zod";
 
 // Post schemas
 export const PostCreateSchema = z.object({
-  title: z.string().min(1).max(200),
-  banner_url: z.string().url().optional(),
+  title: z
+    .string({ required_error: "Title is required" })
+    .min(1, "Title is required")
+    .max(200, "Title must be at most 200 characters"),
+  banner_url: z.string().url("Banner URL must be a valid URL").optional(),
   content_blocks: z.record(z.any()).optional(), // ProseMirror/TipTap document object
-  content_markdown: z.string().min(1),
-  hashtags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20),
+  content_markdown: z
+    .string({ required_error: "Content is required" })
+    .min(1, "Content is required"),
+  hashtags: z
+    .array(
+      z
+        .string()
+        .regex(/^[a-z0-9_]{1,64}$/i, "Hashtags must be 1–64 alphanumeric or underscore")
+    )
+    .max(20, "At most 20 hashtags"),
   visibility: z.enum(["public", "unlisted", "private"]).default("public"),
   summary: z.string().optional(),
 });
@@ -36,8 +47,8 @@ export const PostResponseSchema = z.object({
 
 // Auth schemas
 export const LoginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const MobileAuthResponseSchema = z.object({
@@ -58,6 +69,9 @@ export const UserResponseSchema = z.object({
   email: z.string().nullable(),
   role: z.enum(["admin", "author", "reader"]),
   created_at: z.string(),
+  avatar_url: z.string().url().optional().nullable(),
+  auth_method: z.enum(["cookie", "bearer"]).optional().nullable(),
+  session_expires_at: z.string().optional().nullable(),
 });
 
 // Profile schemas
@@ -178,13 +192,23 @@ export const PaginationQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 
-// Error response schema (RFC 7807)
+// Error response schema (RFC 7807-inspired; clients primarily use `error`)
 export const ProblemDetailSchema = z.object({
-  type: z.string().url(),
-  title: z.string(),
-  status: z.number().int(),
+  type: z.string().url().optional(),
+  title: z.string().optional(),
+  status: z.number().int().optional(),
   detail: z.string().optional(),
   instance: z.string().optional(),
+  error: z.string(),
+  code: z.string().optional(),
+  details: z
+    .array(
+      z.object({
+        path: z.string(),
+        message: z.string(),
+      })
+    )
+    .optional(),
 });
 
 // OIDC schemas
