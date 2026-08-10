@@ -278,6 +278,7 @@ See `deploy/DEPLOY.md` for full env list and migrate script.
 |---------|-----|
 | **Schedule posts** | Enable feature flag `scheduled_posts`. My Posts → clock icon → pick time. Worker publishes when due. |
 | **Import Markdown** | My Posts → **Import MD**. Paste one or more posts (`---` separated). Creates drafts. |
+| **Notifications** | Nav bell → follows & likes. Optional email when SMTP + user email set. |
 
 Flags: Settings → Features, or `FEATURE_SCHEDULED_POSTS=true`.
 

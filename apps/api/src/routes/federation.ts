@@ -123,6 +123,22 @@ async function processInboxActivity(
       } catch {
         /* ignore */
       }
+
+      try {
+        const { createNotification } = await import("../lib/notifications");
+        const label = preferredUsername
+          ? `@${preferredUsername}@${remoteDomain}`
+          : remoteActor;
+        void createNotification({
+          userId,
+          type: "follow",
+          actorLabel: label,
+          actorUrl: remoteActor,
+          body: "started following you",
+        });
+      } catch {
+        /* ignore */
+      }
     }
 
     try {
@@ -164,7 +180,7 @@ async function processInboxActivity(
       const postId = objectId.split("/").pop();
       const post = await db
         .selectFrom("posts")
-        .select("id")
+        .select(["id", "author_id", "title"])
         .where((eb) => eb.or([eb("id", "=", postId), eb("ap_object_id", "=", objectId)]))
         .executeTakeFirst();
 
@@ -197,6 +213,28 @@ async function processInboxActivity(
         }))
         .where("id", "=", post.id)
         .execute();
+
+      try {
+        const { createNotification } = await import("../lib/notifications");
+        let label = String(activity.actor);
+        try {
+          const u = new URL(String(activity.actor));
+          const seg = u.pathname.split("/").filter(Boolean).pop();
+          label = seg ? `@${seg}@${u.hostname}` : u.hostname;
+        } catch {
+          /* keep raw */
+        }
+        void createNotification({
+          userId: post.author_id,
+          type: "like",
+          actorLabel: label,
+          actorUrl: String(activity.actor),
+          postId: post.id,
+          body: post.title || "liked your post",
+        });
+      } catch {
+        /* ignore */
+      }
     }
   }
 

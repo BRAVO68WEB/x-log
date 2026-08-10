@@ -511,6 +511,21 @@ postsRoutes.post(
           JSON.stringify(likeActivity)
         );
       }
+
+      try {
+        const { createNotification } = await import("../lib/notifications");
+        void createNotification({
+          userId: post.author_id,
+          type: "like",
+          actorLabel: `@${user.username}`,
+          actorUrl: actorId,
+          postId: id,
+          body: "liked your post",
+          actorUserId: user.id,
+        });
+      } catch {
+        /* ignore */
+      }
     }
 
     return c.json({

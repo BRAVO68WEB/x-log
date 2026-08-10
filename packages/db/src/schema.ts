@@ -181,6 +181,20 @@ export interface FederationDomainBlocksTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+export type NotificationType = "follow" | "like";
+
+export interface NotificationsTable {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  actor_label: string;
+  actor_url: string | null;
+  post_id: string | null;
+  body: string | null;
+  read_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
 export interface FollowingTable {
   id: string; // uuid, PK
   local_user_id: string; // FK users.id
@@ -389,6 +403,7 @@ export interface Database {
   outbox_activities: OutboxActivitiesTable;
   deliveries: DeliveriesTable;
   federation_domain_blocks: FederationDomainBlocksTable;
+  notifications: NotificationsTable;
   inbox_objects: InboxObjectsTable;
   post_likes: PostLikesTable;
   instance_settings: InstanceSettingsTable;
