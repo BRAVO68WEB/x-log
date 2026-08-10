@@ -11,9 +11,11 @@ type PostHogClient = {
 
 let client: PostHogClient | null = null;
 let initAttempted = false;
+let cachedDistinctId: string | null = null;
 
 /**
  * Optional server-side PostHog. No-op unless POSTHOG_SERVER_ENABLED + key.
+ * Never call with visitor IPs or raw UA from first-party analytics.
  */
 export async function getPostHog(): Promise<PostHogClient | null> {
   if (initAttempted) return client;
@@ -46,11 +48,46 @@ export async function getPostHog(): Promise<PostHogClient | null> {
   }
 }
 
+/**
+ * Distinct id for instance-level product events:
+ * primary user id → instance:{domain} → "instance:unknown"
+ */
+export async function getTelemetryDistinctId(): Promise<string> {
+  if (cachedDistinctId) return cachedDistinctId;
+  try {
+    const { getPrimaryUser, getInstanceSettings } = await import("@xlog/db");
+    const primary = await getPrimaryUser();
+    if (primary?.id) {
+      cachedDistinctId = primary.id;
+      return cachedDistinctId;
+    }
+    const settings = await getInstanceSettings();
+    cachedDistinctId = `instance:${settings.instance_domain || "unknown"}`;
+    return cachedDistinctId;
+  } catch {
+    const env = getEnv();
+    cachedDistinctId = `instance:${env.INSTANCE_DOMAIN || "unknown"}`;
+    return cachedDistinctId;
+  }
+}
+
 export async function captureServerEvent(
-  distinctId: string,
   event: string,
-  properties?: Record<string, unknown>
+  properties?: Record<string, unknown>,
+  distinctId?: string
 ): Promise<void> {
-  const ph = await getPostHog();
-  ph?.capture({ distinctId, event, properties });
+  try {
+    const ph = await getPostHog();
+    if (!ph) return;
+    const id = distinctId ?? (await getTelemetryDistinctId());
+    // Strip any accidental PII keys
+    const safe: Record<string, unknown> = { ...(properties || {}) };
+    delete safe.ip;
+    delete safe.ip_raw;
+    delete safe.user_agent;
+    delete safe.userAgent;
+    ph.capture({ distinctId: id, event, properties: safe });
+  } catch {
+    // never break product path
+  }
 }

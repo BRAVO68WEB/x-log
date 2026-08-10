@@ -53,70 +53,81 @@ export async function isAnalyticsEnabled(): Promise<boolean> {
  * Returns false if skipped (disabled, bot, DNT, invalid).
  */
 export async function collectPageView(input: CollectViewInput): Promise<boolean> {
-  if (!(await isAnalyticsEnabled())) return false;
+  const { withSpan } = await import("../lib/tracing");
+  return withSpan(
+    "analytics.collect",
+    {
+      "http.route": (input.path || "").slice(0, 128),
+      "xlog.has_post_id": Boolean(input.postId),
+    },
+    async () => {
+      if (!(await isAnalyticsEnabled())) return false;
 
-  const env = getEnv();
-  if (env.ANALYTICS_RESPECT_DNT && (input.dnt || input.gpc)) {
-    return false;
-  }
+      const env = getEnv();
+      if (env.ANALYTICS_RESPECT_DNT && (input.dnt || input.gpc)) {
+        return false;
+      }
 
-  const ua = input.userAgent || "";
-  if (!ua || BOT_UA.test(ua)) {
-    return false;
-  }
+      const ua = input.userAgent || "";
+      if (!ua || BOT_UA.test(ua)) {
+        return false;
+      }
 
-  const path = (input.path || "").slice(0, 2048);
-  if (!path.startsWith("/")) {
-    return false;
-  }
+      const path = (input.path || "").slice(0, 2048);
+      if (!path.startsWith("/")) {
+        return false;
+      }
 
-  const db = getDb();
-  let authorId: string | null = null;
-  let postId = input.postId || null;
+      const db = getDb();
+      let authorId: string | null = null;
+      let postId = input.postId || null;
 
-  if (postId) {
-    const post = await db
-      .selectFrom("posts")
-      .select(["id", "author_id", "visibility", "published_at"])
-      .where("id", "=", postId)
-      .executeTakeFirst();
-    if (!post || !post.published_at || post.visibility === "private") {
-      postId = null;
-    } else {
-      authorId = post.author_id;
+      if (postId) {
+        const post = await db
+          .selectFrom("posts")
+          .select(["id", "author_id", "visibility", "published_at"])
+          .where("id", "=", postId)
+          .executeTakeFirst();
+        if (!post || !post.published_at || post.visibility === "private") {
+          postId = null;
+        } else {
+          authorId = post.author_id;
+        }
+      }
+
+      const ip = input.ip || null;
+      const ipHash = ip ? hashIp(ip) : null;
+      // Never send raw IP to PostHog; first-party store only when env allows
+      const ipRaw = env.ANALYTICS_STORE_RAW_IP && ip ? ip : null;
+      const referrer = input.referrer ? input.referrer.slice(0, 2048) : null;
+      const referrerHost = parseReferrerHost(referrer);
+
+      await db
+        .insertInto("page_views")
+        .values({
+          path,
+          post_id: postId,
+          author_id: authorId,
+          referrer,
+          referrer_host: referrerHost,
+          user_agent: ua.slice(0, 512),
+          ip_hash: ipHash,
+          ip_raw: ipRaw,
+          session_id: input.sessionId ? input.sessionId.slice(0, 128) : null,
+        })
+        .execute();
+
+      if (postId) {
+        await db
+          .updateTable("posts")
+          .set((eb) => ({ view_count: eb("view_count", "+", 1) }))
+          .where("id", "=", postId)
+          .execute();
+      }
+
+      return true;
     }
-  }
-
-  const ip = input.ip || null;
-  const ipHash = ip ? hashIp(ip) : null;
-  const ipRaw = env.ANALYTICS_STORE_RAW_IP && ip ? ip : null;
-  const referrer = input.referrer ? input.referrer.slice(0, 2048) : null;
-  const referrerHost = parseReferrerHost(referrer);
-
-  await db
-    .insertInto("page_views")
-    .values({
-      path,
-      post_id: postId,
-      author_id: authorId,
-      referrer,
-      referrer_host: referrerHost,
-      user_agent: ua.slice(0, 512),
-      ip_hash: ipHash,
-      ip_raw: ipRaw,
-      session_id: input.sessionId ? input.sessionId.slice(0, 128) : null,
-    })
-    .execute();
-
-  if (postId) {
-    await db
-      .updateTable("posts")
-      .set((eb) => ({ view_count: eb("view_count", "+", 1) }))
-      .where("id", "=", postId)
-      .execute();
-  }
-
-  return true;
+  );
 }
 
 export type AnalyticsTopPost = {

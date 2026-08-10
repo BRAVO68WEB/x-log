@@ -260,6 +260,17 @@ export async function publishPost(actor: PostActor, id: string) {
     }
   }
 
+  try {
+    const { captureServerEvent } = await import("../lib/posthog");
+    void captureServerEvent("post_published", {
+      post_id: id,
+      visibility: post.visibility,
+      author_id: post.author_id,
+    });
+  } catch {
+    /* ignore */
+  }
+
   return { id, message: "Post published", published_at: publishedAt };
 }
 

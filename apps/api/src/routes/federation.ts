@@ -113,6 +113,16 @@ async function processInboxActivity(
           approved: true,
         })
         .execute();
+
+      try {
+        const { captureServerEvent } = await import("../lib/posthog");
+        void captureServerEvent("follow_received", {
+          remote_domain: remoteDomain,
+          local_user_id: userId,
+        });
+      } catch {
+        /* ignore */
+      }
     }
 
     try {
