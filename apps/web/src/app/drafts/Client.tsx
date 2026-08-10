@@ -20,6 +20,7 @@ import {
   Clock,
   Send,
 } from "lucide-react";
+import { withCsrf } from "@/lib/csrf";
 
 type FilterTab = "all" | "drafts" | "scheduled" | "published";
 
@@ -53,10 +54,10 @@ export default function DraftsClient() {
 
   const deleteMutation = useMutation(
     (id: string) =>
-      fetch(`/api/posts/${id}`, {
+      fetch(`/api/posts/${id}`, withCsrf({
         method: "DELETE",
         credentials: "include",
-      }).then((r) => {
+      })).then((r) => {
         if (!r.ok) throw new Error("Failed to delete");
       }),
     {
@@ -66,10 +67,10 @@ export default function DraftsClient() {
 
   const publishMutation = useMutation(
     (id: string) =>
-      fetch(`/api/posts/${id}/publish`, {
+      fetch(`/api/posts/${id}/publish`, withCsrf({
         method: "POST",
         credentials: "include",
-      }).then((r) => {
+      })).then((r) => {
         if (!r.ok) throw new Error("Failed to publish");
       }),
     {

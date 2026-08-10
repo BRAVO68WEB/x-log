@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
+import { withCsrf } from "@/lib/csrf";
 
 const FEATURE_NAMES: Record<string, string> = {
   code_snippets: "Code Snippets",
@@ -64,12 +65,12 @@ export default function FeaturesTab() {
 
   const updateMutation = useMutation(
     async ({ feature, enabled }: { feature: string; enabled: boolean }) => {
-      const res = await fetch(`/api/admin/features/${feature}`, {
+      const res = await fetch(`/api/admin/features/${feature}`, withCsrf({
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled }),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to update feature" }));
         throw new Error(err.error || `HTTP ${res.status}`);

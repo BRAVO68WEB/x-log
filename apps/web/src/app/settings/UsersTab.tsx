@@ -14,6 +14,7 @@ import {
   BentoCardContent,
 } from "@/components/ui/bento-grid";
 import { adminApi, type AdminUser, type AdminInvite } from "@/lib/api";
+import { withCsrf } from "@/lib/csrf";
 
 export default function UsersTab() {
   const queryClient = useQueryClient();
@@ -90,12 +91,12 @@ export default function UsersTab() {
 
   const openRegMutation = useMutation(
     async (enabled: boolean) => {
-      const res = await fetch("/api/settings", {
+      const res = await fetch("/api/settings", withCsrf({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ open_registrations: enabled }),
-      });
+      }));
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       return data as { open_registrations: boolean };

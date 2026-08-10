@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useMutation } from "react-query";
+import { withCsrf } from "@/lib/csrf";
 
 interface OnboardingData {
   instance_name: string;
@@ -33,12 +34,12 @@ export function OnboardingWizard() {
 
   const mutation = useMutation(
     async () => {
-      const res = await fetch(`/api/onboarding/complete`, {
+      const res = await fetch(`/api/onboarding/complete`, withCsrf({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to complete onboarding" }));
         throw new Error(err.error || `HTTP ${res.status}`);

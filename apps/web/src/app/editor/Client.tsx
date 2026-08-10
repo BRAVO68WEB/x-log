@@ -7,6 +7,7 @@ import PostMetaPanel from "@/components/PostMetaPanel";
 import toast, { Toaster } from "react-hot-toast";
 import { useMutation, useQueryClient } from "react-query";
 import type { JSONContent } from "@tiptap/core";
+import { withCsrf } from "@/lib/csrf";
 
 interface EditorClientProps {
   postId?: string;
@@ -41,12 +42,12 @@ export default function EditorClient({
       visibility: "public" | "unlisted" | "private";
       summary?: string;
     }) => {
-      const res = await fetch(`/api/posts`, {
+      const res = await fetch(`/api/posts`, withCsrf({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to create post" }));
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -71,12 +72,12 @@ export default function EditorClient({
         summary?: string;
       };
     }) => {
-      const res = await fetch(`/api/posts/${id}`, {
+      const res = await fetch(`/api/posts/${id}`, withCsrf({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to update post" }));
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -86,10 +87,10 @@ export default function EditorClient({
   );
 
   const publishMutation = useMutation(async (id: string) => {
-    const res = await fetch(`/api/posts/${id}/publish`, {
+    const res = await fetch(`/api/posts/${id}/publish`, withCsrf({
       method: "POST",
       credentials: "include",
-    });
+    }));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Failed to publish post" }));
       throw new Error(err.error || `HTTP ${res.status}`);

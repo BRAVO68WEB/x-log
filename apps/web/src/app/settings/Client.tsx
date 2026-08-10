@@ -38,6 +38,7 @@ import FeaturesTab from "./FeaturesTab";
 import UsersTab from "./UsersTab";
 import FederationOpsPanel from "./FederationOpsPanel";
 import AnalyticsDashboard from "../analytics/AnalyticsDashboard";
+import { withCsrf } from "@/lib/csrf";
 
 export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState("general");
@@ -186,7 +187,7 @@ export default function SettingsClient() {
 
   const updateMutation = useMutation(
     async () => {
-      const res = await fetch(`/api/settings`, {
+      const res = await fetch(`/api/settings`, withCsrf({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -207,7 +208,7 @@ export default function SettingsClient() {
           ai_max_tokens: settings.ai_max_tokens || null,
           ai_temperature: settings.ai_temperature,
         }),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to save settings" }));
         throw new Error(err.error || `HTTP ${res.status}`);

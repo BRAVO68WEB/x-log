@@ -4,6 +4,8 @@
  * All requests are proxied through Next.js API routes
  */
 
+import { csrfHeaders, isMutatingMethod } from "./csrf";
+
 // Use relative URLs to proxy through Next.js API routes
 const API_BASE = "/api";
 
@@ -12,13 +14,17 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   // Remove leading /api if present since we're already proxying through Next.js
   const cleanEndpoint = endpoint.startsWith("/api") ? endpoint.slice(4) : endpoint;
 
+  const method = (options.method || "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(isMutatingMethod(method) ? csrfHeaders() : {}),
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
   const response = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     credentials: "include", // Include cookies for session
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -388,6 +394,9 @@ export const mediaApi = {
     const response = await fetch(`${API_BASE}/media/upload`, {
       method: "POST",
       credentials: "include",
+      headers: {
+        ...csrfHeaders(),
+      },
       body: formData,
     });
 

@@ -7,6 +7,7 @@ Docs for running and operating an x-log instance after onboarding.
 | [Federation](./federation.md) | ActivityPub, delivery retries, domain blocks |
 | [Multi-user](./multi-user.md) | Invite, open registration, roles, MCP keys |
 | [Analytics privacy](./analytics-privacy.md) | First-party views, flags, DNT, retention |
+| [Security](./security.md) | Session cookies, CSRF, rate limits |
 
 Also see:
 

@@ -1,170 +1,105 @@
 # x-log Project Status
 
-## ✅ Completed
+Living snapshot of what has shipped. Prefer this over scavenging old TODOs in
+chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 
-### Infrastructure
+## Shipped
 
-- [x] Monorepo structure with Turborepo
-- [x] TypeScript configuration
-- [x] Docker Compose setup
-- [x] Package structure
+### Infrastructure and packages
 
-### Packages
-
-- [x] `@xlog/config` - Environment configuration with Zod validation
-- [x] `@xlog/types` - Shared TypeScript types
-- [x] `@xlog/snowflake` - Snowflake ID generator
-- [x] `@xlog/db` - Kysely database client and schema
-- [x] `@xlog/validation` - Zod schemas for API validation
-- [x] `@xlog/ap` - ActivityPub helpers and formatters
-- [x] `@xlog/markdown` - Markdown rendering with rehype/remark pipeline
-- [x] `@xlog/ui` - Shared UI components (placeholder)
-
-### Database
-
-- [x] Complete schema definition
-- [x] Initial migration (001_initial)
-- [x] Migration runner
+- [x] Monorepo (Turborepo), TypeScript, Docker Compose
+- [x] `@xlog/config`, `@xlog/types`, `@xlog/snowflake`, `@xlog/db`, `@xlog/validation`
+- [x] `@xlog/ap` (ActivityPub helpers, HTTP Signatures, tests)
+- [x] `@xlog/markdown` (remark/rehype pipeline)
+- [x] Database schema + migrations runner
 
 ### API (Hono)
 
-- [x] OpenAPI integration
-- [x] Session management and authentication
-- [x] Auth routes (login/logout) with JWT sessions
-- [x] Onboarding routes
-- [x] User routes with auth
-- [x] Profile routes with auth
-- [x] Post routes (CRUD) with auth and markdown rendering
-- [x] Feed routes (RSS/Atom) with markdown rendering
-- [x] Search routes with full-text search
-- [x] Media upload routes
-- [x] ActivityPub endpoints (Actor, Inbox, Outbox, Followers, Following)
-- [x] HTTP Signature verification for ActivityPub inbox
-- [x] Well-known endpoints (WebFinger, NodeInfo, host-meta)
-- [x] Profile follow endpoint (`POST /api/profiles/:username/follow`) with WebFinger resolution
-  - Resolves `@user@domain` to actor URL and sends signed Follow
-  - Inserts outgoing follow into DB for persistence
-
-### Frontend (Next.js)
-
-- [x] Basic page structure
-- [x] TailwindCSS setup
-- [x] Homepage
-- [x] Post detail page with markdown rendering
-- [x] Profile pages
-- [x] TipTap/ProseMirror editor implementation
-- [x] Onboarding page (placeholder)
-- [x] Settings page (placeholder)
-- [x] Search page (placeholder)
-- [x] Feed redirect routes
-
-### Worker
-
-- [x] Worker structure
-- [x] Redis integration
-- [x] Federation delivery with HTTP Signatures
-- [x] Retry logic with exponential backoff
-
-## 🚧 In Progress / TODO
-
-### Core Features
-
-- [ ] Complete TipTap editor integration with API
-- [ ] Media file serving optimization
-- [ ] CSRF protection middleware
-- [ ] Rate limiting middleware
-
-### Frontend
-
-- [ ] Complete onboarding wizard UI
-- [ ] Post list with pagination
-- [x] Profile editing UI
-- [x] Settings UI
-- [x] Dark mode implementation
-- [ ] Responsive design polish
-- [ ] Image upload in editor
-
-### API
-
-- [ ] Complete session handling improvements
-- [ ] Error handling improvements
-- [ ] Input validation enhancements
-- [ ] Media file cleanup/management
+- [x] OpenAPI + Scalar `/docs`
+- [x] Session JWT cookies + Bearer (mobile) + role gates (admin/author)
+- [x] Auth: login/logout, OIDC, password reset, open registration, email verify
+- [x] Users, profiles, posts (CRUD, schedule, import), feeds, search
+- [x] Media upload (`MEDIA_DRIVER=local|s3`)
+- [x] Bookmarks, snippets, links, threads, reposts, AI helpers
+- [x] Settings + admin features + multi-user invites
+- [x] Analytics collect/status/summary (feature-flagged)
+- [x] In-app notifications (follow/like) + optional email
+- [x] MCP Streamable HTTP + legacy JSON-RPC + per-user MCP keys
+- [x] Rate limit helpers (registration / invite accept)
+- [x] **CSRF middleware** for cookie-session mutating `/api/*` (double-submit + Origin)
 
 ### ActivityPub
 
-- [ ] Better error handling for deliveries
+- [x] Actor, inbox, outbox, followers, following
+- [x] HTTP Signature verify + outbound signed GET (authorized-fetch)
+- [x] Federation delivery worker + retries
+- [x] Operator UX: delivery stats/retry + domain blocklist
+- [x] Well-known: WebFinger, NodeInfo, host-meta
 
-### Testing
+### Frontend (Next.js)
 
-- [x] Unit tests for HTTP Signatures (`packages/ap` — `bun test`)
-- [x] Unit tests for analytics/invites/rate-limit/blocks (`apps/api` — `bun test`)
-- [ ] Integration tests
-- [ ] E2E tests (partial: `scripts/test-federation.sh` public endpoints)
+- [x] Homepage / landing, post detail, profiles, search, feeds
+- [x] TipTap/Novel editor + drafts + schedule
+- [x] Settings (general, users/invites, features, federation ops, analytics)
+- [x] Onboarding wizard, login/register/invite/OIDC, notifications
+- [x] Dark mode / themes, analytics beacon, author directory
+- [x] CSRF headers on credentialed mutating client requests
 
-### MCP
+### Product phases (roadmap B68-103)
 
-- [x] Shared tool registry (read + write)
-- [x] Streamable HTTP via `@modelcontextprotocol/sdk` at `/mcp`
-- [x] Legacy JSON-RPC at `/mcp/jsonrpc` and `/api/mcp`
-- [x] `MCP_API_KEY` / `MCP_ACTOR_USERNAME` config (no prod SESSION_SECRET fallback)
-- [x] Next.js proxy for Streamable + jsonrpc
-- [x] README operator docs
-
-### Analytics & observability
-
-- [x] First-party `page_views` + collect/summary API (feature flag `analytics`)
-- [x] Post page beacon + IP hash / DNT / retention cleanup
-- [x] Optional OpenTelemetry bootstrap (`OTEL_ENABLED`)
-- [x] Optional PostHog client (`NEXT_PUBLIC_POSTHOG_*`)
-- [x] Analytics dashboard UI (`/analytics` + Settings tab)
-- [x] OTEL named spans (API + worker) + PostHog server events (Phase 2)
-- [x] Primary author (`primary_user_id`) + solo/multi derived mode (Phase 0)
-- [x] Multi-user invite + authz (Phase 3 M1)
-- [x] Open registration modes + rate limits (Phase 4 M2)
-- [x] Multi-author directory + MCP per-user keys (Phase 5 M3)
-- [x] Federation operator UX: delivery stats/retry + domain blocklist (Phase 6)
-- [x] S3/R2 media driver (`MEDIA_DRIVER=local|s3`) (Phase 7)
-- [x] Scheduled posts + Markdown import (Phase 8a/8b)
-- [x] Quality: unit tests + operator docs + OpenAPI tags (Phase 9)
-- [x] In-app notifications (follow/like) + optional email (8c)
+| Phase | Status |
+|-------|--------|
+| 0 Primary author + solo/multi docs | Done |
+| 1 Analytics dashboard UI | Done |
+| 2 OTEL spans + PostHog server | Done |
+| 3 Multi-user M1 invite + authz | Done |
+| 4 Multi-user M2 registration modes | Done |
+| 5 Multi-user M3 polish + MCP keys | Done |
+| 6 Federation operator UX | Done |
+| 7 S3/R2 media path | Done |
+| 8a/8b Schedule + Markdown import | Done |
+| 8c In-app notifications | Done |
+| 9 Quality/docs (tests, operator guides, OpenAPI tags) | Done |
+| 10 Hygiene (status + Linear cleanup) | In progress |
+| 11a CSRF | In progress (this branch) |
+| 11b Broader rate-limit middleware | Planned |
+| 12 Author depth | Planned |
+| 13 Media ops cleanup | Planned |
+| 14 Quality / E2E depth | Planned |
 
 ### Documentation
 
-- [x] API documentation (Scalar `/docs` + OpenAPI tags for analytics/invites)
-- [x] Federation guide (`docs/operators/federation.md`)
-- [x] Deployment guide (`deploy/DEPLOY.md`)
-- [x] Multi-user + analytics privacy operator docs (`docs/operators/`)
-- [ ] Development guide
+- [x] Operator: federation, multi-user, analytics privacy, **security (CSRF)**
+- [x] Deploy guide (`deploy/DEPLOY.md`)
+- [x] API Scalar + OpenAPI tags
+- [ ] Dedicated development guide (B68-102)
 
-## 📝 Notes
+### Testing
 
-- Session management is implemented using JWT tokens stored in HTTP-only cookies
-- Markdown rendering uses unified/remark/rehype pipeline with syntax highlighting
-- TipTap editor is implemented with basic block support
-- HTTP Signature verification works for local and remote users; remote actor key fetching implemented
-- Outbound **signed GET** for remote actor/key fetch (authorized-fetch / Mastodon secure mode compatibility)
-- `signRequest` returns full signed headers (Date/Digest/Signature) so delivery never re-generates Date after signing
-- Inbox verification includes Digest matching, Date skew checks, and replay protection
-- Federation delivery includes retry logic with exponential backoff
-- Media uploads are stored locally; consider S3 integration for production
+- [x] Unit: HTTP Signatures (`packages/ap`)
+- [x] Unit: analytics, invites, rate-limit, blocks, media-storage, CSRF helpers (`apps/api`)
+- [ ] Broader integration tests
+- [ ] E2E beyond `scripts/test-federation.sh`
 
-## 🚀 Getting Started
+## Still open (honest backlog)
 
-1. Install dependencies: `bun install`
-2. Set up environment: Copy `infra/compose/.env.example` to `infra/compose/.env`
-3. Start services: `docker-compose -f infra/compose/docker-compose.yml up -d`
-4. Run migrations: `cd apps/api && bun run migrate`
-5. Start development: `bun run dev`
+Not “forgotten placeholders” — intentional follow-ups:
 
-### ActivityPub & Federation
+| Item | Notes |
+|------|--------|
+| Global rate-limit middleware | B68-86; per-route limits exist for reg/invite |
+| Media cleanup / serving polish | B68-94 / B68-85 under Phase 13 |
+| Editor/image polish | TipTap already integrated; residual UX in B68-83 / B68-90 |
+| Post list pagination polish | Partial; B68-88 |
+| Responsive design polish | B68-89 |
+| Integration + E2E tests | B68-97 / B68-98 |
+| Development guide | B68-102 |
+| Federation delivery error UX | Improved in Phase 6; B68-95 may still track extras |
 
-- [x] Remote actor key fetching for signature verification (fetch actor, verify `publicKeyPem`)
-- [x] Accept activity generation and sending on inbound Follow
-- [x] Undo activity support (Follow, Like)
-- [x] Outbox renders markdown to HTML for `Article.content`
-- [x] Following persistence: DB migration `002_following` and real data at `GET /ap/users/:username/following`
-- [x] Digest header validation and Date header freshness checks
-- [x] Signature replay protection with short-lived cache
-- [x] Authorized-fetch client support: signed GET when resolving remote actors / public keys
-- [x] Remote public key cache (`remote_keys`, 24h TTL) with invalidate-and-refetch on RSA verify failure
+## Notes
+
+- Default product posture is **solo-first**; multi-user is opt-in via invites /
+  open registration caps (`MAX_LOCAL_AUTHORS`).
+- Analytics, OTEL, and PostHog are **off by default**.
+- Session CSRF: see `docs/operators/security.md`.
+- Media: local disk by default; set `MEDIA_DRIVER=s3` + S3 env for R2/S3/MinIO.
