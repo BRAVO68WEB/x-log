@@ -491,24 +491,24 @@ export default function Editor({
 
   return (
     <div>
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="mb-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
+        <div className="mb-6 sm:mb-8">
           <input
             type="text"
             placeholder="Post title..."
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-5xl font-normal tracking-[-0.04em] leading-tight w-full border-none outline-none bg-transparent font-heading placeholder:text-muted-foreground mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-normal tracking-[-0.04em] leading-tight w-full border-none outline-none bg-transparent font-heading placeholder:text-muted-foreground mb-3 sm:mb-4"
           />
           <textarea
             placeholder="Write a brief summary or excerpt (optional)..."
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             rows={2}
-            className="w-full border-none outline-none bg-transparent text-muted-foreground placeholder:text-muted-foreground mb-6 resize-none text-sm leading-relaxed"
+            className="w-full border-none outline-none bg-transparent text-muted-foreground placeholder:text-muted-foreground mb-4 sm:mb-6 resize-none text-sm leading-relaxed"
           />
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-3 sm:gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {hashtags.map((tag) => (
                 <Badge key={tag} variant="secondary" className="gap-1 pl-2.5">
@@ -516,25 +516,25 @@ export default function Editor({
                   {tag}
                   <button
                     onClick={() => removeHashtag(tag)}
-                    className="hover:text-destructive transition-colors ml-1"
+                    className="hover:text-destructive transition-colors ml-1 min-h-6 min-w-6"
                     aria-label={`Remove ${tag}`}
                   >
                     x
                   </button>
                 </Badge>
               ))}
-              <div className="relative">
+              <div className="relative min-w-0 flex-1 sm:flex-initial">
                 <input
                   type="text"
                   placeholder="Add hashtags..."
                   value={hashtagInput}
                   onChange={handleHashtagInputChange}
                   onKeyDown={handleHashtagKeyDown}
-                  className="px-3 py-1.5 border border-input rounded-md text-sm bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35"
+                  className="w-full sm:w-auto px-3 py-1.5 border border-input rounded-md text-sm bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35"
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2 ml-auto">
+            <div className="flex flex-col xs:flex-row sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
               <input
                 type="url"
                 placeholder="Banner image URL..."
@@ -548,45 +548,50 @@ export default function Editor({
                     setBannerImage("");
                   }
                 }}
-                className="w-64 px-3 py-1.5 border border-input rounded-md text-sm bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35"
+                className="w-full sm:w-64 min-w-0 px-3 py-1.5 border border-input rounded-md text-sm bg-card placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35"
               />
-              <label
-                htmlFor="banner-upload"
-                className={cn(buttonVariants({ variant: "outline", size: "sm" }), "cursor-pointer")}
-              >
-                Upload Banner
-              </label>
-              <input
-                id="banner-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleBannerUpload}
-                className="sr-only"
-              />
-              {bannerUploading && (
-                <span className="text-sm text-muted-foreground">Uploading...</span>
-              )}
-              {(bannerImage || bannerUrl) && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive"
-                  onClick={() => {
-                    if (bannerImage && bannerImage.startsWith("blob:")) {
-                      URL.revokeObjectURL(bannerImage);
-                    }
-                    setBannerImage("");
-                    setBannerUrl("");
-                  }}
+              <div className="flex flex-wrap items-center gap-2">
+                <label
+                  htmlFor="banner-upload"
+                  className={cn(
+                    buttonVariants({ variant: "outline", size: "sm" }),
+                    "cursor-pointer min-h-9"
+                  )}
                 >
-                  Remove
-                </Button>
-              )}
+                  Upload Banner
+                </label>
+                <input
+                  id="banner-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleBannerUpload}
+                  className="sr-only"
+                />
+                {bannerUploading && (
+                  <span className="text-sm text-muted-foreground">Uploading...</span>
+                )}
+                {(bannerImage || bannerUrl) && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive"
+                    onClick={() => {
+                      if (bannerImage && bannerImage.startsWith("blob:")) {
+                        URL.revokeObjectURL(bannerImage);
+                      }
+                      setBannerImage("");
+                      setBannerUrl("");
+                    }}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
           {(bannerImage || bannerUrl) && (
-            <div className="mt-4 relative w-full h-48">
+            <div className="mt-4 relative w-full h-36 sm:h-48">
               <NextImage
                 src={bannerUrl || bannerImage}
                 alt="Banner"
@@ -689,15 +694,24 @@ export default function Editor({
                 </EditorCommandList>
               </EditorCommand>
 
-              <div className="flex items-center justify-between gap-4 px-4 py-3 border-t border-border bg-accent/50">
-                <div className="text-sm text-muted-foreground">
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 px-3 sm:px-4 py-3 border-t border-border bg-accent/50">
+                <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
                   {editorInstance?.storage.characterCount.characters() || 0} characters
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={handleSave} disabled={saving}>
+                <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full sm:w-auto min-h-11 sm:min-h-9"
+                  >
                     {saving ? "Saving..." : "Save Draft"}
                   </Button>
-                  <Button onClick={handlePublish} disabled={saving || !title.trim()}>
+                  <Button
+                    onClick={handlePublish}
+                    disabled={saving || !title.trim()}
+                    className="w-full sm:w-auto min-h-11 sm:min-h-9"
+                  >
                     {saving ? "Saving..." : publishLabel}
                   </Button>
                 </div>
@@ -707,7 +721,7 @@ export default function Editor({
         </Card>
 
         {sidebar && (
-          <aside className="hidden lg:block sticky top-24 self-start">
+          <aside className="lg:sticky lg:top-24 self-start order-last lg:order-none w-full min-w-0">
             {sidebar}
           </aside>
         )}

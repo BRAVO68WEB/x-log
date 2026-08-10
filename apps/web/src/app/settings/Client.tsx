@@ -317,11 +317,11 @@ export default function SettingsClient() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.03em] font-heading">
             Instance Settings
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
             Configure general, federation, and email settings for your instance.
           </p>
         </div>
@@ -342,7 +342,7 @@ export default function SettingsClient() {
           onValueChange={setActiveTab}
           className="grid gap-6 lg:grid-cols-[188px_minmax(0,920px)] lg:items-start"
         >
-          <TabsList className="flex h-auto max-w-full flex-row items-stretch justify-start overflow-x-auto rounded-lg border border-border bg-secondary/70 p-1.5 lg:sticky lg:top-24 lg:w-full lg:flex-col lg:overflow-visible">
+          <TabsList className="flex h-auto max-w-full flex-row items-stretch justify-start overflow-x-auto overscroll-x-contain snap-x snap-mandatory rounded-lg border border-border bg-secondary/70 p-1.5 scrollbar-none lg:sticky lg:top-24 lg:w-full lg:flex-col lg:overflow-visible lg:snap-none">
             <TabsTrigger value="general" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaGear className="h-3.5 w-3.5" />
               General

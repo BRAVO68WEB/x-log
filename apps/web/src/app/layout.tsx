@@ -77,7 +77,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Suspense fallback={null}>
                 <PostHogProvider>
                   <Navbar />
-                  <div className="min-h-[calc(100vh-4rem)]">{children}</div>
+                  <div className="min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] min-w-0 overflow-x-clip">
+                    {children}
+                  </div>
                   <Footer />
                 </PostHogProvider>
               </Suspense>
