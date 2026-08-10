@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 export default function HomeClient() {
   const { isAuthenticated } = useAuth();
-  const { posts, loading, hasMore, loadMore, error } = usePosts({
+  const { posts, loading, loadingMore, hasMore, loadMore, error } = usePosts({
     limit: 12,
     autoLoad: true,
   });
@@ -175,10 +175,17 @@ export default function HomeClient() {
           {/* Load more */}
           {hasMore && (
             <BentoCard size="full" index={posts.length + (isAuthenticated ? 2 : 1)}>
-              <BentoCardContent className="p-6 flex justify-center">
-                <Button variant="outline" onClick={loadMore} disabled={loading}>
-                  {loading ? "Loading..." : "Load More"}
+              <BentoCardContent className="p-6 flex flex-col items-center gap-2">
+                <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading..." : "Load more"}
                 </Button>
+              </BentoCardContent>
+            </BentoCard>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <BentoCard size="full" index={posts.length + (isAuthenticated ? 3 : 2)}>
+              <BentoCardContent className="p-4 text-center text-sm text-muted-foreground">
+                End of posts
               </BentoCardContent>
             </BentoCard>
           )}

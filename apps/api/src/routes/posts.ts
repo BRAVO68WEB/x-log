@@ -33,6 +33,7 @@ import {
   PostVersionError,
 } from "../services/post-versions";
 import { isFeatureEnabled } from "../lib/features";
+import { decodePostCursor, encodePostCursor } from "../lib/post-cursor";
 
 async function getLikedPostIds(
   postIds: string[],
@@ -113,6 +114,8 @@ postsRoutes.get(
     const { limit, cursor, author, mine } = c.req.valid("query");
     const db = getDb();
     const user = c.get("user");
+    const isMine = mine === "true" && Boolean(user);
+    // Public feed: stable publish order. My posts: updated_at (includes drafts).
 
     let query = db
       .selectFrom("posts")
@@ -135,25 +138,49 @@ postsRoutes.get(
         "user_profiles.avatar_url",
       ]);
 
-    if (mine === "true" && user) {
-      // Show all of the authenticated user's posts (including drafts)
-      query = query.where("posts.author_id", "=", user.id);
+    if (isMine) {
+      query = query.where("posts.author_id", "=", user!.id);
     } else {
-      // Public feed: only published public posts
       query = query
         .where("posts.visibility", "=", "public")
         .where("posts.published_at", "is not", null);
     }
 
-    query = query.orderBy("posts.updated_at", "desc").limit(limit + 1);
-
     if (author) {
       query = query.where("users.username", "=", author);
     }
 
-    if (cursor) {
-      query = query.where("posts.id", "<", cursor);
+    const decoded = decodePostCursor(cursor);
+    if (decoded) {
+      // Keyset: (sort_col, id) < (cursor) in DESC order
+      if (isMine) {
+        query = query.where(({ eb, or, and }) =>
+          or([
+            eb("posts.updated_at", "<", decoded.sortAt),
+            and([
+              eb("posts.updated_at", "=", decoded.sortAt),
+              eb("posts.id", "<", decoded.id),
+            ]),
+          ])
+        );
+      } else {
+        query = query.where(({ eb, or, and }) =>
+          or([
+            eb("posts.published_at", "<", decoded.sortAt),
+            and([
+              eb("posts.published_at", "=", decoded.sortAt),
+              eb("posts.id", "<", decoded.id),
+            ]),
+          ])
+        );
+      }
     }
+
+    query = isMine
+      ? query.orderBy("posts.updated_at", "desc").orderBy("posts.id", "desc")
+      : query.orderBy("posts.published_at", "desc").orderBy("posts.id", "desc");
+
+    query = query.limit(limit + 1);
 
     const posts = await query.execute();
 
@@ -191,9 +218,18 @@ postsRoutes.get(
       }))
     );
 
+    let nextCursor: string | undefined;
+    if (hasMore && items.length > 0) {
+      const last = items[items.length - 1];
+      const sortAt = isMine
+        ? last.updated_at
+        : last.published_at ?? last.updated_at;
+      nextCursor = encodePostCursor(sortAt, last.id);
+    }
+
     return c.json({
       items: response,
-      nextCursor: hasMore ? items[items.length - 1].id : undefined,
+      nextCursor,
       hasMore,
     });
   }
