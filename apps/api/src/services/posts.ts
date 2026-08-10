@@ -238,7 +238,7 @@ export async function publishPost(actor: PostActor, id: string) {
   const publishedAt = new Date();
   await db
     .updateTable("posts")
-    .set({ published_at: publishedAt })
+    .set({ published_at: publishedAt, scheduled_at: null, updated_at: publishedAt })
     .where("id", "=", id)
     .execute();
 
@@ -272,6 +272,100 @@ export async function publishPost(actor: PostActor, id: string) {
   }
 
   return { id, message: "Post published", published_at: publishedAt };
+}
+
+/**
+ * Schedule a draft for future publish. Requires feature flag scheduled_posts.
+ * Worker publishes when scheduled_at <= now.
+ */
+export async function schedulePost(
+  actor: PostActor,
+  id: string,
+  scheduledAt: Date
+) {
+  if (scheduledAt.getTime() <= Date.now() + 30_000) {
+    throw new PostServiceError("Schedule time must be at least 30 seconds in the future", 400);
+  }
+
+  const db = getDb();
+  const post = await db
+    .selectFrom("posts")
+    .select(["author_id", "published_at"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+
+  if (!post) throw new PostServiceError("Post not found", 404);
+  assertCanEdit(post.author_id, actor);
+
+  if (post.published_at) {
+    throw new PostServiceError("Cannot schedule an already published post", 400);
+  }
+
+  await db
+    .updateTable("posts")
+    .set({ scheduled_at: scheduledAt, updated_at: new Date() })
+    .where("id", "=", id)
+    .execute();
+
+  return {
+    id,
+    message: "Post scheduled",
+    scheduled_at: scheduledAt.toISOString(),
+  };
+}
+
+export async function unschedulePost(actor: PostActor, id: string) {
+  const db = getDb();
+  const post = await db
+    .selectFrom("posts")
+    .select(["author_id", "published_at", "scheduled_at"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+
+  if (!post) throw new PostServiceError("Post not found", 404);
+  assertCanEdit(post.author_id, actor);
+
+  await db
+    .updateTable("posts")
+    .set({ scheduled_at: null, updated_at: new Date() })
+    .where("id", "=", id)
+    .execute();
+
+  return { id, message: "Schedule cleared" };
+}
+
+/** Used by worker — no session actor */
+export async function publishDueScheduledPosts(): Promise<number> {
+  const db = getDb();
+  const now = new Date();
+  let due: { id: string; author_id: string; visibility: string }[] = [];
+  try {
+    due = await db
+      .selectFrom("posts")
+      .select(["id", "author_id", "visibility"])
+      .where("published_at", "is", null)
+      .where("scheduled_at", "is not", null)
+      .where("scheduled_at", "<=", now)
+      .limit(50)
+      .execute();
+  } catch {
+    // column missing before migration
+    return 0;
+  }
+
+  let count = 0;
+  for (const row of due) {
+    try {
+      await publishPost(
+        { id: row.author_id, username: "system", role: "admin" },
+        row.id
+      );
+      count += 1;
+    } catch (err) {
+      console.error(`[schedule] failed to publish ${row.id}:`, err);
+    }
+  }
+  return count;
 }
 
 export async function deletePost(actor: PostActor, id: string) {

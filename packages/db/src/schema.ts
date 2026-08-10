@@ -110,6 +110,8 @@ export interface PostsTable {
   like_count: number; // default 0
   view_count: ColumnType<number, number | undefined, number>; // default 0
   published_at: Date | null;
+  /** When set and published_at is null, worker publishes at this time */
+  scheduled_at: Date | null;
   updated_at: ColumnType<Date, never, Date>;
   visibility: PostVisibility;
   ap_object_id: string; // unique
