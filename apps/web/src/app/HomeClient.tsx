@@ -102,7 +102,7 @@ export default function HomeClient() {
                 className={cn("p-6 flex flex-col", !featured.banner_url && "flex-1 justify-center")}
               >
                 <Link href={`/post/${featured.id}`}>
-                  <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
+                  <h2 className="text-xl sm:text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading break-words">
                     {featured.title}
                   </h2>
                 </Link>
