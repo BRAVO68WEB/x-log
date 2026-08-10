@@ -16,6 +16,7 @@ import { isMcpEnabled } from "./mcp/context";
 import { startOtelIfEnabled } from "./lib/otel";
 import { csrfMiddleware } from "./middleware/csrf";
 import { rateLimitMiddleware } from "./middleware/rate-limit";
+import { mapThrownError } from "./lib/http-error";
 
 await startOtelIfEnabled();
 
@@ -92,13 +93,18 @@ app.get(
   })
 );
 
-// Global error handler
+// Global error handler — consistent JSON for Zod / HTTPException / ApiError
 app.onError((err, c) => {
-  console.error(`[ERROR] ${c.req.method} ${c.req.path}:`, err.message);
-  console.error(err.stack);
-
-  const status = "status" in err ? (err as any).status : 500;
-  return c.json({ error: status === 500 ? "Internal server error" : err.message }, status);
+  const mapped = mapThrownError(err);
+  if (mapped.status >= 500) {
+    console.error(`[ERROR] ${c.req.method} ${c.req.path}:`, err);
+    if (err instanceof Error && err.stack) console.error(err.stack);
+  } else if (process.env.NODE_ENV !== "production") {
+    console.warn(
+      `[WARN] ${c.req.method} ${c.req.path} - ${mapped.status}: ${mapped.body.error}`
+    );
+  }
+  return c.json(mapped.body, mapped.status as 500);
 });
 
 // Routes

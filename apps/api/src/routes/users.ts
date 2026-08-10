@@ -60,6 +60,7 @@ usersRoutes.get(
       return c.json({ error: "User not found" }, 404);
     }
 
+    const sessionExp = c.get("sessionExp");
     return c.json({
       id: dbUser.id,
       username: dbUser.username,
@@ -67,6 +68,12 @@ usersRoutes.get(
       role: dbUser.role,
       created_at: dbUser.created_at.toISOString(),
       avatar_url: dbUser.avatar_url ?? null,
+      // Session metadata (B68-91): helps clients show expiry / re-auth
+      auth_method: c.get("authMethod") ?? null,
+      session_expires_at:
+        typeof sessionExp === "number"
+          ? new Date(sessionExp * 1000).toISOString()
+          : null,
     });
   }
 );

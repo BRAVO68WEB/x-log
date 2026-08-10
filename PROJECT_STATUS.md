@@ -99,7 +99,7 @@ Not “forgotten placeholders” — intentional follow-ups:
 | ~~Responsive design polish~~ | B68-89 — mobile nav, editor stack, safe areas (PR #42) |
 | ~~Federation delivery error UX~~ | B68-95 / Phase 6 — stats, last_error, retry |
 | Deep integration / browser E2E | B68-97 / B68-98 (smoke + federation cover basics) |
-| API validation / error / session nits | B68-91–93 (partial; CSRF + rate limits done) |
+| ~~API validation / error / session~~ | B68-91–93 — sliding session, structured errors |
 
 ## Notes
 
