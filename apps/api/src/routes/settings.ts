@@ -21,6 +21,7 @@ const InstanceSettingsUpdateSchema = z.object({
   federation_enabled: z.boolean().optional(),
   following_enabled: z.boolean().optional(),
   use_profile_as_landing: z.boolean().optional(),
+  open_registrations: z.boolean().optional(),
   primary_user_id: z.string().uuid().optional().nullable(),
   theme_id: z
     .enum([
@@ -64,6 +65,7 @@ const InstanceSettingsResponseSchema = z.object({
   federation_enabled: z.boolean(),
   following_enabled: z.boolean(),
   use_profile_as_landing: z.boolean(),
+  open_registrations: z.boolean(),
   primary_user_id: z.string().nullable(),
   primary_username: z.string().nullable(),
   instance_mode: z.enum(["solo", "multi"]),
@@ -118,6 +120,7 @@ async function formatSettingsResponse(settings: any) {
     federation_enabled: settings.federation_enabled,
     following_enabled: settings.following_enabled,
     use_profile_as_landing: settings.use_profile_as_landing,
+    open_registrations: Boolean(settings.open_registrations),
     primary_user_id: settings.primary_user_id ?? primary?.id ?? null,
     primary_username: primary?.username ?? null,
     instance_mode: deriveInstanceMode(userCount),
@@ -295,6 +298,9 @@ settingsRoutes.patch(
     }
     if (data.use_profile_as_landing !== undefined) {
       updateData.use_profile_as_landing = data.use_profile_as_landing;
+    }
+    if (data.open_registrations !== undefined) {
+      updateData.open_registrations = data.open_registrations;
     }
     if (data.primary_user_id !== undefined && data.primary_user_id !== null) {
       try {

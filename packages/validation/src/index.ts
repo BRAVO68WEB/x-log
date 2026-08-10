@@ -126,6 +126,7 @@ export const InstanceSummaryResponseSchema = z.object({
   /** Derived: solo when ≤1 local user, multi otherwise */
   instance_mode: z.enum(["solo", "multi"]).optional(),
   local_user_count: z.number().int().min(0).optional(),
+  open_registrations: z.boolean().optional(),
   total_public_posts: z.number().int().min(0),
   primary_profile: z
     .object({

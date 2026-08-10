@@ -29,8 +29,19 @@ export interface UsersTable {
   role: UserRole;
   /** Soft-deactivate: login and write APIs blocked when false */
   is_active: ColumnType<boolean, boolean | undefined, boolean>;
+  /** Email ownership verified (optional; register with SMTP may set false) */
+  email_verified: ColumnType<boolean, boolean | undefined, boolean>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface EmailVerificationsTable {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  used_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface UserInvitesTable {
@@ -340,6 +351,7 @@ export interface LinkSnapshotsTable {
 export interface Database {
   users: UsersTable;
   user_invites: UserInvitesTable;
+  email_verifications: EmailVerificationsTable;
   user_profiles: UserProfilesTable;
   user_keys: UserKeysTable;
   posts: PostsTable;

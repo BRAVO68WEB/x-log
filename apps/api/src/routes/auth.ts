@@ -21,6 +21,13 @@ import {
 } from "../middleware/session";
 import { getOIDCClient } from "@xlog/libs";
 import { getEnv } from "@xlog/config";
+import { z } from "zod";
+import {
+  getRegistrationStatus,
+  registerPublicAuthor,
+  verifyEmailToken,
+} from "../lib/registration";
+import { checkRateLimit, clientKeyFromRequest } from "../lib/rate-limit";
 
 async function authenticateUser(username: string, password: string) {
   const db = getDb();
@@ -48,6 +55,86 @@ async function authenticateUser(username: string, password: string) {
 }
 
 export const authRoutes = new Hono().use("*", sessionMiddleware);
+
+const RegisterSchema = z.object({
+  username: z.string().min(3).max(32),
+  password: z.string().min(8).max(128),
+  email: z.string().email().optional().nullable(),
+  full_name: z.string().max(120).optional().nullable(),
+});
+
+authRoutes.get("/registration-status", async (c) => {
+  return c.json(await getRegistrationStatus());
+});
+
+authRoutes.post(
+  "/register",
+  validator("json", RegisterSchema),
+  async (c) => {
+    const ip = clientKeyFromRequest(c);
+    const rl = checkRateLimit(`register:${ip}`, { limit: 5, windowMs: 60 * 60 * 1000 });
+    if (!rl.ok) {
+      return c.json(
+        { error: `Too many registration attempts. Retry in ${rl.retryAfterSec}s` },
+        429
+      );
+    }
+
+    const body = c.req.valid("json");
+    try {
+      const user = await registerPublicAuthor({
+        username: body.username,
+        password: body.password,
+        email: body.email,
+        fullName: body.full_name,
+      });
+
+      const sessionToken = await createSession(user.id);
+      setSessionCookie(c, sessionToken);
+
+      return c.json(
+        {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          actor_url: user.actor_url,
+          message: "Account created",
+        },
+        201
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Registration failed";
+      const status = msg.includes("closed")
+        ? 403
+        : msg.includes("limit")
+          ? 403
+          : msg.includes("taken") || msg.includes("Username")
+            ? 400
+            : 400;
+      return c.json({ error: msg }, status);
+    }
+  }
+);
+
+authRoutes.post(
+  "/verify-email",
+  validator("json", z.object({ token: z.string().min(1) })),
+  async (c) => {
+    const ip = clientKeyFromRequest(c);
+    const rl = checkRateLimit(`verify-email:${ip}`, { limit: 20, windowMs: 60 * 60 * 1000 });
+    if (!rl.ok) {
+      return c.json({ error: "Too many attempts" }, 429);
+    }
+    const { token } = c.req.valid("json");
+    try {
+      const ok = await verifyEmailToken(token);
+      if (!ok) return c.json({ error: "Invalid or expired token" }, 400);
+      return c.json({ message: "Email verified" });
+    } catch {
+      return c.json({ error: "Verification failed" }, 400);
+    }
+  }
+);
 
 authRoutes.post(
   "/login",

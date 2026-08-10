@@ -3,6 +3,7 @@ import { z } from "zod";
 import { validator } from "hono-openapi";
 import { getInviteByToken, inviteStatus, acceptInvite } from "../lib/invites";
 import { createSession, setSessionCookie } from "../middleware/session";
+import { checkRateLimit, clientKeyFromRequest } from "../lib/rate-limit";
 
 // Public invite accept routes (no admin)
 export const invitesRoutes = new Hono();
@@ -32,6 +33,15 @@ const AcceptSchema = z.object({
 });
 
 invitesRoutes.post("/:token/accept", validator("json", AcceptSchema), async (c) => {
+  const ip = clientKeyFromRequest(c);
+  const rl = checkRateLimit(`invite-accept:${ip}`, { limit: 10, windowMs: 60 * 60 * 1000 });
+  if (!rl.ok) {
+    return c.json(
+      { error: `Too many attempts. Retry in ${rl.retryAfterSec}s` },
+      429
+    );
+  }
+
   const token = c.req.param("token");
   const body = c.req.valid("json");
 
