@@ -46,7 +46,8 @@ export function usePosts(options: UsePostsOptions = {}) {
     },
     {
       enabled: autoLoad,
-      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      getNextPageParam: (lastPage) =>
+        lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
     }
   );
 
@@ -54,7 +55,7 @@ export function usePosts(options: UsePostsOptions = {}) {
     .flatMap((p) => p.items)
     .filter((p, idx, arr) => arr.findIndex((x) => x.id === p.id) === idx);
 
-  const hasMore = Boolean(query.data?.pages.at(-1)?.hasMore);
+  const hasMore = Boolean(query.hasNextPage);
 
   useEffect(() => {
     if (autoLoad) {
@@ -65,12 +66,17 @@ export function usePosts(options: UsePostsOptions = {}) {
 
   return {
     posts,
-    loading: query.isLoading || query.isFetching,
+    /** True only while the first page is loading */
+    loading: query.isLoading,
+    /** True while fetching any page after the first */
+    loadingMore: query.isFetchingNextPage,
+    /** True for any fetch (initial or more) — prefer loading / loadingMore in UI */
+    fetching: query.isFetching,
     hasMore,
     error: query.error ? (query.error as Error).message : null,
     loadMore: () => {
-      if (!query.isFetching && hasMore) {
-        query.fetchNextPage();
+      if (!query.isFetchingNextPage && query.hasNextPage) {
+        void query.fetchNextPage();
       }
     },
     refetch: () => query.refetch(),

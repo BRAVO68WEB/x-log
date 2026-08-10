@@ -94,7 +94,7 @@ Not “forgotten placeholders” — intentional follow-ups:
 | ~~Media cleanup / serving polish~~ | Phase 13 (B68-94 / B68-85) |
 | ~~Development guide~~ | Phase 14 (B68-102) |
 | Editor/image polish | TipTap already integrated; residual UX in B68-83 / B68-90 |
-| Post list pagination polish | Partial; B68-88 |
+| ~~Post list pagination polish~~ | Keyset cursor + Load more UX (B68-88) |
 | Responsive design polish | B68-89 |
 | Deep integration / browser E2E | B68-97 / B68-98 (smoke + federation cover basics) |
 | Federation delivery error UX | Improved in Phase 6; B68-95 may still track extras |
