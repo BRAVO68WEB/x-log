@@ -66,7 +66,7 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 11b Broader rate-limit middleware | Done (PR #37) |
 | 12 Author depth — post version history | Done (PR #38) |
 | 13 Media ops cleanup | Done (PR #39) |
-| 14 Quality / docs + smoke | Done (PR pending) |
+| 14 Quality / docs + smoke | Done (PR #40) |
 
 ### Documentation
 
