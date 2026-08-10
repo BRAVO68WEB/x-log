@@ -15,7 +15,7 @@ import {
   createUndoActivity,
 } from "@xlog/ap";
 import { renderMarkdown } from "@xlog/markdown";
-import { sessionMiddleware, requireAuth } from "../middleware/session";
+import { sessionMiddleware, requireAuth, requireAuthor } from "../middleware/session";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
 import {
   createPost,
@@ -305,7 +305,7 @@ postsRoutes.post(
     },
   }),
   validator("json", PostCreateSchema),
-  requireAuth,
+  requireAuthor,
   async (c) => {
     const user = c.get("user")!;
     const data = c.req.valid("json");
@@ -365,7 +365,7 @@ postsRoutes.patch(
     })
   ),
   validator("json", PostUpdateSchema),
-  requireAuth,
+  requireAuthor,
   async (c) => {
     const user = c.get("user")!;
     const { id } = c.req.valid("param");
@@ -400,7 +400,7 @@ postsRoutes.delete(
       id: z.string(),
     })
   ),
-  requireAuth,
+  requireAuthor,
   async (c) => {
     const user = c.get("user")!;
     const { id } = c.req.valid("param");
@@ -610,7 +610,7 @@ postsRoutes.post(
       id: z.string(),
     })
   ),
-  requireAuth,
+  requireAuthor,
   async (c) => {
     const user = c.get("user")!;
     const { id } = c.req.valid("param");

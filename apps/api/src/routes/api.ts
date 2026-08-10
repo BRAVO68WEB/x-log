@@ -21,11 +21,13 @@ import { mastodonRoutes } from "./mastodon";
 import { publicRoutes } from "./public";
 import { feedRoutes } from "./feed";
 import { analyticsRoutes } from "./analytics";
+import { invitesRoutes } from "./invites";
 
 export const apiRoutes = new Hono()
   .route("/auth", authRoutes)
   .route("/auth", passwordResetRoutes)
   .route("/onboarding", onboardingRoutes)
+  .route("/invites", invitesRoutes)
   .route("/users", usersRoutes)
   .route("/profiles", profilesRoutes)
   .route("/posts", postsRoutes)

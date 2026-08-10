@@ -32,8 +32,10 @@ import {
   FaShareNodes,
   FaPuzzlePiece,
   FaRobot,
+  FaUsers,
 } from "react-icons/fa6";
 import FeaturesTab from "./FeaturesTab";
+import UsersTab from "./UsersTab";
 import AnalyticsDashboard from "../analytics/AnalyticsDashboard";
 
 export default function SettingsClient() {
@@ -368,6 +370,10 @@ export default function SettingsClient() {
             <TabsTrigger value="security" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaShieldHalved className="h-3.5 w-3.5" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaUsers className="h-3.5 w-3.5" />
+              Users
             </TabsTrigger>
             <TabsTrigger value="features" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaPuzzlePiece className="h-3.5 w-3.5" />
@@ -740,6 +746,10 @@ export default function SettingsClient() {
                   </BentoCardContent>
                 </BentoCard>
               </BentoGrid>
+            </TabsContent>
+
+            <TabsContent value="users">
+              <UsersTab />
             </TabsContent>
 
             <TabsContent value="features">

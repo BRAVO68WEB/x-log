@@ -506,6 +506,28 @@ export interface FeatureFlagItem {
   envValue: string | null;
 }
 
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string | null;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string | null;
+  role: string;
+  status: string;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  invited_by_username: string | null;
+  accepted_user_id: string | null;
+}
+
 export const adminApi = {
   getFeatures: async () => {
     return apiRequest<{ features: FeatureFlagItem[] }>("/api/admin/features");
@@ -530,6 +552,47 @@ export const adminApi = {
         activity_json: unknown | null;
       }[];
     }>("/api/admin/deliveries/failed");
+  },
+
+  listUsers: async () => {
+    return apiRequest<{
+      max_local_authors: number;
+      active_author_count: number;
+      users: AdminUser[];
+    }>("/api/admin/users");
+  },
+
+  updateUser: async (
+    id: string,
+    data: { is_active?: boolean; role?: "admin" | "author" }
+  ) => {
+    return apiRequest<AdminUser>(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  listInvites: async () => {
+    return apiRequest<{ invites: AdminInvite[] }>("/api/admin/invites");
+  },
+
+  createInvite: async (email?: string | null) => {
+    return apiRequest<{
+      id: string;
+      token: string;
+      expires_at: string;
+      invite_path: string;
+      email: string | null;
+    }>("/api/admin/invites", {
+      method: "POST",
+      body: JSON.stringify({ email: email || null }),
+    });
+  },
+
+  revokeInvite: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/admin/invites/${id}`, {
+      method: "DELETE",
+    });
   },
 };
 

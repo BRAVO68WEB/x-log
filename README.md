@@ -245,9 +245,15 @@ Set via **Settings → Federation → Primary author** (admin UI), or
 
 **Not a social network:** no local timeline of strangers; multi-user is for small teams / invite-only blogs.
 
-### Multi-user roadmap
+### Invite authors (multi-user M1)
 
-Invite-only multi-author is planned (Linear B68-107+). Schema already supports multiple `users`.
+1. Admin → **Settings → Users → Create invite**
+2. Share the one-time link (`/invite/<token>`, 7-day expiry)
+3. Invitee chooses username + password → becomes **author** with ActivityPub keys
+4. Cap: `MAX_LOCAL_AUTHORS` (default **10** active admin+author accounts)
+5. Soft-deactivate users from the same Users tab (blocks login)
+
+Authors cannot change instance domain / federation / primary author (settings remain admin-only). Post CRUD is scoped to `author_id` (admins may edit any).
 
 ## MCP server
 

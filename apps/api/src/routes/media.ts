@@ -127,13 +127,14 @@ mediaRoutes.get(
   }),
   requireAuth,
   async (c) => {
+    const user = c.get("user")!;
     const db = getDb();
     const settings = await getInstanceSettings();
     const isDev = process.env.NODE_ENV === "development";
     const protocol = isDev ? "http" : "https";
 
-    // Query DB for tracked media
-    const dbItems = await db
+    // Query DB for tracked media — authors only see own; admins see all
+    let mediaQuery = db
       .selectFrom("media")
       .leftJoin("posts", "media.post_id", "posts.id")
       .select([
@@ -147,8 +148,13 @@ mediaRoutes.get(
         "media.created_at",
         "posts.title as post_title",
       ])
-      .orderBy("media.created_at", "desc")
-      .execute();
+      .orderBy("media.created_at", "desc");
+
+    if (user.role !== "admin") {
+      mediaQuery = mediaQuery.where("media.user_id", "=", user.id);
+    }
+
+    const dbItems = await mediaQuery.execute();
 
     const trackedFilenames = new Set(dbItems.map((item) => item.filename));
 
@@ -172,37 +178,38 @@ mediaRoutes.get(
       post_title: item.post_title || null,
     }));
 
-    // Backwards compat: include filesystem-only files not in DB
-    const uploadDir = join(process.cwd(), "uploads");
-    if (existsSync(uploadDir)) {
-      const files = await readdir(uploadDir);
-      const mimeMap: Record<string, string> = {
-        jpg: "image/jpeg",
-        jpeg: "image/jpeg",
-        png: "image/png",
-        gif: "image/gif",
-        webp: "image/webp",
-      };
+    // Backwards compat: untracked filesystem files only for admins
+    if (user.role === "admin") {
+      const uploadDir = join(process.cwd(), "uploads");
+      if (existsSync(uploadDir)) {
+        const files = await readdir(uploadDir);
+        const mimeMap: Record<string, string> = {
+          jpg: "image/jpeg",
+          jpeg: "image/jpeg",
+          png: "image/png",
+          gif: "image/gif",
+          webp: "image/webp",
+        };
 
-      for (const filename of files) {
-        if (trackedFilenames.has(filename)) continue;
-        const filepath = join(uploadDir, filename);
-        const fileStat = await stat(filepath);
-        const ext = filename.split(".").pop()?.toLowerCase() || "";
-        items.push({
-          filename,
-          url: `${protocol}://${settings.instance_domain}/api/media/${filename}`,
-          size: fileStat.size,
-          uploaded_at: fileStat.mtime.toISOString(),
-          type: mimeMap[ext] || "application/octet-stream",
-          asset_type: null,
-          post_id: null,
-          post_title: null,
-        });
+        for (const filename of files) {
+          if (trackedFilenames.has(filename)) continue;
+          const filepath = join(uploadDir, filename);
+          const fileStat = await stat(filepath);
+          const ext = filename.split(".").pop()?.toLowerCase() || "";
+          items.push({
+            filename,
+            url: `${protocol}://${settings.instance_domain}/api/media/${filename}`,
+            size: fileStat.size,
+            uploaded_at: fileStat.mtime.toISOString(),
+            type: mimeMap[ext] || "application/octet-stream",
+            asset_type: null,
+            post_id: null,
+            post_title: null,
+          });
+        }
+
+        items.sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
       }
-
-      // Re-sort after merging
-      items.sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
     }
 
     return c.json({ items });
@@ -221,6 +228,7 @@ mediaRoutes.delete(
   }),
   requireAuth,
   async (c) => {
+    const user = c.get("user")!;
     const filename = c.req.param("filename");
 
     // Prevent path traversal
@@ -228,16 +236,32 @@ mediaRoutes.delete(
       return c.json({ error: "Invalid filename" }, 400);
     }
 
-    const filepath = join(process.cwd(), "uploads", filename);
-    if (!existsSync(filepath)) {
-      return c.json({ error: "File not found" }, 404);
+    const db = getDb();
+    const record = await db
+      .selectFrom("media")
+      .select(["id", "user_id", "filename"])
+      .where("filename", "=", filename)
+      .executeTakeFirst();
+
+    if (record) {
+      if (user.role !== "admin" && record.user_id !== user.id) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+    } else if (user.role !== "admin") {
+      // Untracked files: only admins may delete
+      return c.json({ error: "Forbidden" }, 403);
     }
 
-    await unlink(filepath);
+    const filepath = join(process.cwd(), "uploads", filename);
+    if (existsSync(filepath)) {
+      await unlink(filepath);
+    }
 
-    // Remove DB record if exists
-    const db = getDb();
-    await db.deleteFrom("media").where("filename", "=", filename).execute();
+    if (record) {
+      await db.deleteFrom("media").where("filename", "=", filename).execute();
+    } else if (!existsSync(filepath)) {
+      return c.json({ error: "File not found" }, 404);
+    }
 
     return c.json({ message: "File deleted" });
   }
