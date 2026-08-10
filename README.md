@@ -255,6 +255,15 @@ Under **Settings → Federation → Operator tools**:
 
 Blocked domains apply to both shared and per-user inboxes.
 
+### Media storage
+
+| Driver | Env | Notes |
+|--------|-----|--------|
+| `local` (default) | — | Files in `uploads/`, served at `/api/media/…` |
+| `s3` | `MEDIA_S3_*` | R2, AWS S3, or MinIO; set `MEDIA_S3_PUBLIC_URL` for CDN |
+
+See `deploy/DEPLOY.md` for full env list and migrate script.
+
 ### Multi-user authors
 
 **Default: invite-only.** Open registration is opt-in.
