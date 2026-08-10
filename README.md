@@ -245,6 +245,16 @@ Set via **Settings → Federation → Primary author** (admin UI), or
 
 **Not a social network:** no local timeline of strangers; multi-user is for small teams / invite-only blogs.
 
+### Federation operator tools
+
+Under **Settings → Federation → Operator tools**:
+
+- 24h delivery stats (sent / failed / pending)
+- Recent failures with **Retry** / **Retry all**
+- Domain **blocklist** (inbox 403 + skip outbound)
+
+Blocked domains apply to both shared and per-user inboxes.
+
 ### Multi-user authors
 
 **Default: invite-only.** Open registration is opt-in.
