@@ -116,7 +116,7 @@
 - [x] Post page beacon + IP hash / DNT / retention cleanup
 - [x] Optional OpenTelemetry bootstrap (`OTEL_ENABLED`)
 - [x] Optional PostHog client (`NEXT_PUBLIC_POSTHOG_*`)
-- [ ] Analytics dashboard UI
+- [x] Analytics dashboard UI (`/analytics` + Settings tab)
 - [x] Primary author (`primary_user_id`) + solo/multi derived mode (Phase 0)
 - [ ] Multi-user invite / registration productization
 

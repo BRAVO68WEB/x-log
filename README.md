@@ -171,10 +171,11 @@ x-log/
 
 Off by default. Enable the **`analytics`** feature flag (admin UI or `FEATURE_ANALYTICS=true`).
 
-- Beacon: post pages call `POST /api/analytics/collect` when enabled
+- Beacon: post pages and profiles (`/u/[username]`) call `POST /api/analytics/collect` when enabled
 - Stores path, post_id, referrer, UA, **hashed IP** (raw IP only if `ANALYTICS_STORE_RAW_IP=true`)
 - Respects DNT / Sec-GPC when `ANALYTICS_RESPECT_DNT=true` (default)
-- Summary: `GET /api/analytics/summary` (auth; admin = all posts, author = own)
+- Summary: `GET /api/analytics/summary` (auth; admin = all posts, author = own) includes post titles + privacy meta
+- Dashboard: **`/analytics`** (any signed-in user) and **Settings → Analytics** (admin)
 - Retention: worker purges rows older than `ANALYTICS_RETENTION_DAYS` (default 90)
 
 ### OpenTelemetry

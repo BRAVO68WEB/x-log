@@ -11,6 +11,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 import {
   FaBoxArchive,
+  FaChartSimple,
   FaGear,
   FaHouse,
   FaMagnifyingGlass,
@@ -50,6 +51,7 @@ export function Navbar() {
     { href: "/links", label: "Links", icon: FaLink },
     { href: "/bookmarks", label: "Bookmarks", icon: FaBookmark },
     { href: "/assets", label: "Assets", icon: FaBoxArchive },
+    { href: "/analytics", label: "Analytics", icon: FaChartSimple },
     { href: "/profile", label: "Profile", icon: FaUser },
     { href: "/settings", label: "Settings", icon: FaGear },
   ];
