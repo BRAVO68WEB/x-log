@@ -4,6 +4,8 @@
  * All requests are proxied through Next.js API routes
  */
 
+import { csrfHeaders, isMutatingMethod } from "./csrf";
+
 // Use relative URLs to proxy through Next.js API routes
 const API_BASE = "/api";
 
@@ -12,13 +14,17 @@ async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promi
   // Remove leading /api if present since we're already proxying through Next.js
   const cleanEndpoint = endpoint.startsWith("/api") ? endpoint.slice(4) : endpoint;
 
+  const method = (options.method || "GET").toUpperCase();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(isMutatingMethod(method) ? csrfHeaders() : {}),
+    ...(options.headers as Record<string, string> | undefined),
+  };
+
   const response = await fetch(`${API_BASE}${cleanEndpoint}`, {
     ...options,
     credentials: "include", // Include cookies for session
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
+    headers,
   });
 
   if (!response.ok) {
@@ -72,6 +78,15 @@ export const authApi = {
 };
 
 // Users API
+export interface McpKeyItem {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string;
+  last_used_at: string | null;
+  created_at: string;
+}
+
 export const usersApi = {
   getMe: async () => {
     return apiRequest("/api/users/me");
@@ -90,15 +105,33 @@ export const usersApi = {
       body: JSON.stringify(data),
     });
   },
+
+  listMcpKeys: async () => {
+    return apiRequest<{ keys: McpKeyItem[] }>("/api/users/me/mcp-keys");
+  },
+
+  createMcpKey: async (data?: { name?: string; scopes?: "read" | "write" | "read_write" }) => {
+    return apiRequest<McpKeyItem & { key: string }>("/api/users/me/mcp-keys", {
+      method: "POST",
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  revokeMcpKey: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/users/me/mcp-keys/${id}`, {
+      method: "DELETE",
+    });
+  },
 };
 
 // Posts API
 export const postsApi = {
-  list: async (params?: { limit?: number; cursor?: string; author?: string }) => {
+  list: async (params?: { limit?: number; cursor?: string; author?: string; mine?: boolean }) => {
     const searchParams = new URLSearchParams();
     if (params?.limit) searchParams.set("limit", params.limit.toString());
     if (params?.cursor) searchParams.set("cursor", params.cursor);
     if (params?.author) searchParams.set("author", params.author);
+    if (params?.mine) searchParams.set("mine", "true");
 
     const query = searchParams.toString();
     interface PostSummary {
@@ -106,11 +139,15 @@ export const postsApi = {
       title: string;
       summary?: string | null;
       banner_url?: string | null;
+      content_markdown: string;
       hashtags: string[];
       like_count: number;
       liked_by_me?: boolean;
       author: { username: string; full_name?: string | null; avatar_url?: string | null };
       published_at: string | null;
+      scheduled_at?: string | null;
+      updated_at: string;
+      visibility: "public" | "unlisted" | "private";
     }
     return apiRequest<{
       items: PostSummary[];
@@ -185,6 +222,78 @@ export const postsApi = {
     });
   },
 
+  schedule: async (id: string, scheduled_at: string) => {
+    return apiRequest<{ id: string; scheduled_at: string }>(`/api/posts/${id}/schedule`, {
+      method: "POST",
+      body: JSON.stringify({ scheduled_at }),
+    });
+  },
+
+  unschedule: async (id: string) => {
+    return apiRequest(`/api/posts/${id}/schedule`, {
+      method: "DELETE",
+    });
+  },
+
+  listVersions: async (id: string) => {
+    return apiRequest<{
+      current_version: number;
+      items: Array<{
+        version: number;
+        title: string;
+        changelog: string | null;
+        created_by: string | null;
+        created_at: string;
+        is_current: boolean;
+      }>;
+    }>(`/api/posts/${id}/versions`);
+  },
+
+  getVersion: async (id: string, version: number) => {
+    return apiRequest<{
+      version: number;
+      title: string;
+      content_markdown: string;
+      content_blocks_json: import("@tiptap/core").JSONContent | Record<string, unknown>;
+      summary: string | null;
+      banner_url: string | null;
+      hashtags: string[];
+      changelog: string | null;
+      created_at: string;
+      is_current: boolean;
+    }>(`/api/posts/${id}/versions/${version}`);
+  },
+
+  restoreVersion: async (id: string, version: number) => {
+    return apiRequest<{
+      id: string;
+      current_version: number;
+      restored_from: number;
+      message: string;
+    }>(`/api/posts/${id}/versions/${version}/restore`, {
+      method: "POST",
+    });
+  },
+
+  importMarkdown: async (
+    posts: Array<{
+      title: string;
+      content_markdown: string;
+      summary?: string | null;
+      hashtags?: string[];
+      visibility?: "public" | "unlisted" | "private";
+      published?: boolean;
+    }>
+  ) => {
+    return apiRequest<{
+      imported: number;
+      items: Array<{ id: string; title: string; published: boolean }>;
+    }>("/api/posts/import", {
+      method: "POST",
+      body: JSON.stringify({ posts }),
+    });
+  },
+
   like: async (id: string) => {
     return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/api/posts/${id}/like`, {
       method: "POST",
@@ -195,6 +304,42 @@ export const postsApi = {
     return apiRequest<{ liked_by_me: boolean; like_count: number }>(`/api/posts/${id}/like`, {
       method: "DELETE",
     });
+  },
+};
+
+// Post Meta API
+export const postMetaApi = {
+  get: async (postId: string) => {
+    return apiRequest<{ meta: Record<string, string> }>(
+      `/api/posts/${postId}/meta`
+    );
+  },
+
+  set: async (postId: string, key: string, value: string) => {
+    return apiRequest<{ key: string; value: string }>(
+      `/api/posts/${postId}/meta`,
+      {
+        method: "POST",
+        body: JSON.stringify({ key, value }),
+      }
+    );
+  },
+
+  bulkUpdate: async (postId: string, meta: Record<string, string>) => {
+    return apiRequest<{ meta: Record<string, string> }>(
+      `/api/posts/${postId}/meta`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ meta }),
+      }
+    );
+  },
+
+  delete: async (postId: string, key: string) => {
+    return apiRequest<{ deleted: string }>(
+      `/api/posts/${postId}/meta/${encodeURIComponent(key)}`,
+      { method: "DELETE" }
+    );
   },
 };
 
@@ -289,6 +434,9 @@ export const mediaApi = {
     const response = await fetch(`${API_BASE}/media/upload`, {
       method: "POST",
       credentials: "include",
+      headers: {
+        ...csrfHeaders(),
+      },
       body: formData,
     });
 
@@ -301,11 +449,65 @@ export const mediaApi = {
   },
 
   list: async () => {
-    return apiRequest<{ items: MediaItem[] }>("/api/media");
+    return apiRequest<{ items: MediaItem[]; driver?: string }>("/api/media");
+  },
+
+  stats: async () => {
+    return apiRequest<{
+      driver: "local" | "s3";
+      total_files: number;
+      total_bytes: number;
+      linked_files: number;
+      orphan_files: number;
+      orphan_bytes: number;
+      untracked_local: number;
+    }>("/api/media/stats");
+  },
+
+  listOrphans: async (params?: { older_than_days?: number; include_untracked?: boolean }) => {
+    const sp = new URLSearchParams();
+    if (params?.older_than_days != null) {
+      sp.set("older_than_days", String(params.older_than_days));
+    }
+    if (params?.include_untracked) sp.set("include_untracked", "true");
+    const q = sp.toString();
+    return apiRequest<{
+      items: Array<{
+        filename: string;
+        url: string;
+        size: number;
+        uploaded_at: string;
+        source: string;
+      }>;
+      count: number;
+    }>(`/api/media/orphans${q ? `?${q}` : ""}`);
+  },
+
+  cleanup: async (opts?: {
+    dry_run?: boolean;
+    older_than_days?: number;
+    include_untracked?: boolean;
+    limit?: number;
+  }) => {
+    return apiRequest<{
+      dry_run: boolean;
+      deleted: string[];
+      failed: Array<{ filename: string; error: string }>;
+      deleted_count: number;
+      failed_count: number;
+    }>("/api/media/cleanup", {
+      method: "POST",
+      body: JSON.stringify({
+        dry_run: opts?.dry_run ?? true,
+        older_than_days: opts?.older_than_days ?? 7,
+        include_untracked: opts?.include_untracked ?? false,
+        limit: opts?.limit ?? 100,
+      }),
+    });
   },
 
   delete: async (filename: string) => {
-    return apiRequest<{ message: string }>(`/api/media/${filename}`, {
+    return apiRequest<{ message: string }>(`/api/media/${encodeURIComponent(filename)}`, {
       method: "DELETE",
     });
   },
@@ -374,6 +576,19 @@ export const settingsApi = {
       admin_email: string | null;
       smtp_url: string | null;
       federation_enabled: boolean;
+      following_enabled: boolean;
+      use_profile_as_landing: boolean;
+      primary_user_id: string | null;
+      primary_username: string | null;
+      instance_mode: "solo" | "multi";
+      local_user_count: number;
+      local_users: Array<{ id: string; username: string; role: string }>;
+      theme_id: string;
+      ai_base_url: string | null;
+      ai_api_key: string | null;
+      ai_model: string | null;
+      ai_max_tokens: number | null;
+      ai_temperature: number | null;
       created_at: string;
       updated_at: string;
     }>("/api/settings");
@@ -387,6 +602,15 @@ export const settingsApi = {
     admin_email?: string | null;
     smtp_url?: string | null;
     federation_enabled?: boolean;
+    following_enabled?: boolean;
+    use_profile_as_landing?: boolean;
+    primary_user_id?: string | null;
+    theme_id?: string;
+    ai_base_url?: string | null;
+    ai_api_key?: string | null;
+    ai_model?: string | null;
+    ai_max_tokens?: number | null;
+    ai_temperature?: number | null;
   }) => {
     return apiRequest("/api/settings", {
       method: "PATCH",
@@ -403,6 +627,567 @@ export const settingsApi = {
     }>("/api/settings/following", {
       method: "POST",
       body: JSON.stringify({ remote }),
+    });
+  },
+};
+
+// Analytics API
+export interface AnalyticsSummary {
+  days: number;
+  total_views: number;
+  top_posts: Array<{
+    post_id: string | null;
+    title: string | null;
+    views: number;
+  }>;
+  top_referrers: Array<{ host: string | null; views: number }>;
+  daily: Array<{ day: string; views: number }>;
+  privacy: {
+    store_raw_ip: boolean;
+    respect_dnt: boolean;
+    retention_days: number;
+  };
+  scope: "all" | "own";
+}
+
+export const analyticsApi = {
+  getStatus: async () => {
+    return apiRequest<{ enabled: boolean }>("/api/analytics/status");
+  },
+
+  getSummary: async (days = 30) => {
+    return apiRequest<AnalyticsSummary>(`/api/analytics/summary?days=${days}`);
+  },
+};
+
+// Admin API
+export interface FeatureFlagItem {
+  feature: string;
+  enabled: boolean;
+  envOverride: boolean;
+  envValue: string | null;
+}
+
+export interface FederationDeliveryFailure {
+  id: string;
+  activity_id: string;
+  remote_inbox: string;
+  remote_host?: string | null;
+  status: string;
+  attempt_count: number;
+  last_error: string | null;
+  updated_at: string;
+  user_id?: string | null;
+  post_id?: string | null;
+  activity_json?: unknown | null;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string | null;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminInvite {
+  id: string;
+  email: string | null;
+  role: string;
+  status: string;
+  expires_at: string;
+  accepted_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+  invited_by_username: string | null;
+  accepted_user_id: string | null;
+}
+
+export const adminApi = {
+  getFeatures: async () => {
+    return apiRequest<{ features: FeatureFlagItem[] }>("/api/admin/features");
+  },
+
+  setFeature: async (feature: string, enabled: boolean) => {
+    return apiRequest<FeatureFlagItem>(`/api/admin/features/${feature}`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    });
+  },
+
+  getFailedDeliveries: async () => {
+    return apiRequest<{
+      items: FederationDeliveryFailure[];
+    }>("/api/admin/deliveries/failed");
+  },
+
+  getFederationStats: async () => {
+    return apiRequest<{
+      window_hours: number;
+      total: number;
+      by_status: {
+        pending: number;
+        sent: number;
+        failed: number;
+        retrying: number;
+      };
+      recent_failures: FederationDeliveryFailure[];
+    }>("/api/admin/federation/stats");
+  },
+
+  retryDelivery: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/admin/deliveries/${id}/retry`, {
+      method: "POST",
+    });
+  },
+
+  retryAllFailedDeliveries: async () => {
+    return apiRequest<{ message: string; enqueued: number }>(
+      "/api/admin/deliveries/retry-failed",
+      { method: "POST" }
+    );
+  },
+
+  listFederationBlocks: async () => {
+    return apiRequest<{
+      blocks: Array<{
+        id: string;
+        domain: string;
+        reason: string | null;
+        created_at: string;
+      }>;
+    }>("/api/admin/federation/blocks");
+  },
+
+  addFederationBlock: async (data: { domain: string; reason?: string | null }) => {
+    return apiRequest<{ id: string; domain: string }>("/api/admin/federation/blocks", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  removeFederationBlock: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/admin/federation/blocks/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  listUsers: async () => {
+    return apiRequest<{
+      max_local_authors: number;
+      active_author_count: number;
+      users: AdminUser[];
+    }>("/api/admin/users");
+  },
+
+  updateUser: async (
+    id: string,
+    data: { is_active?: boolean; role?: "admin" | "author" }
+  ) => {
+    return apiRequest<AdminUser>(`/api/admin/users/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  },
+
+  listInvites: async () => {
+    return apiRequest<{ invites: AdminInvite[] }>("/api/admin/invites");
+  },
+
+  createInvite: async (email?: string | null) => {
+    return apiRequest<{
+      id: string;
+      token: string;
+      expires_at: string;
+      invite_path: string;
+      email: string | null;
+    }>("/api/admin/invites", {
+      method: "POST",
+      body: JSON.stringify({ email: email || null }),
+    });
+  },
+
+  revokeInvite: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/admin/invites/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+// Password Reset API
+export const passwordResetApi = {
+  forgotPassword: async (email: string) => {
+    return apiRequest<{ message: string }>("/api/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  verifyToken: async (token: string) => {
+    return apiRequest<{ valid: boolean }>(
+      `/api/auth/verify-reset-token?token=${encodeURIComponent(token)}`
+    );
+  },
+
+  resetPassword: async (token: string, password: string) => {
+    return apiRequest<{ message: string }>("/api/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    });
+  },
+};
+
+// Bookmarks API
+export interface BookmarkItem {
+  id: string;
+  post_id: string | null;
+  url: string | null;
+  title: string;
+  banner_url: string | null;
+  summary: string | null;
+  published_at: string | null;
+  like_count: number;
+  hashtags: string[];
+  author: {
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  } | null;
+  created_at: string;
+}
+
+export const bookmarksApi = {
+  list: async (params?: { limit?: number; cursor?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.cursor) searchParams.set("cursor", params.cursor);
+    const query = searchParams.toString();
+    return apiRequest<{
+      items: BookmarkItem[];
+      nextCursor?: string;
+      hasMore: boolean;
+    }>(`/api/bookmarks${query ? `?${query}` : ""}`);
+  },
+
+  create: async (data: { postId?: string; url?: string; title?: string }) => {
+    return apiRequest<{ id: string; post_id: string | null; url: string | null }>(
+      "/api/bookmarks",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  delete: async (id: string) => {
+    return apiRequest<{ deleted: string }>(`/api/bookmarks/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  deleteByPost: async (postId: string) => {
+    return apiRequest<{ deleted: string }>(`/api/bookmarks/by-post/${postId}`, {
+      method: "DELETE",
+    });
+  },
+
+  check: async (postId: string) => {
+    return apiRequest<{ bookmarked: boolean; id: string | null }>(
+      `/api/bookmarks/check/${postId}`
+    );
+  },
+};
+
+// Snippets API
+export interface SnippetItem {
+  id: string;
+  title: string;
+  description: string | null;
+  language: string;
+  code: string;
+  visibility: string;
+  current_version: number;
+  fork_of: string | null;
+  tags: string[];
+  view_count: number;
+  user: {
+    id: string;
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SnippetVersion {
+  id: string;
+  version: number;
+  code: string;
+  changelog: string | null;
+  created_at: string;
+}
+
+export const snippetsApi = {
+  list: async (params?: {
+    limit?: number;
+    cursor?: string;
+    language?: string;
+    user_id?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.cursor) searchParams.set("cursor", params.cursor);
+    if (params?.language) searchParams.set("language", params.language);
+    if (params?.user_id) searchParams.set("user_id", params.user_id);
+    const query = searchParams.toString();
+    return apiRequest<{
+      items: SnippetItem[];
+      nextCursor?: string;
+      hasMore: boolean;
+    }>(`/api/snippets${query ? `?${query}` : ""}`);
+  },
+
+  get: async (id: string) => {
+    return apiRequest<{
+      snippet: SnippetItem;
+      versions: SnippetVersion[];
+    }>(`/api/snippets/${id}`);
+  },
+
+  create: async (data: {
+    title: string;
+    description?: string;
+    language: string;
+    code: string;
+    visibility?: string;
+    tags?: string[];
+  }) => {
+    return apiRequest<{ id: string }>("/api/snippets", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (
+    id: string,
+    data: {
+      title?: string;
+      description?: string;
+      language?: string;
+      code?: string;
+      visibility?: string;
+      tags?: string[];
+      changelog?: string;
+    }
+  ) => {
+    return apiRequest<{ id: string; current_version: number }>(
+      `/api/snippets/${id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  delete: async (id: string) => {
+    return apiRequest<{ deleted: string }>(`/api/snippets/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  fork: async (id: string) => {
+    return apiRequest<{ id: string }>(`/api/snippets/${id}/fork`, {
+      method: "POST",
+    });
+  },
+
+  getVersions: async (id: string) => {
+    return apiRequest<{ versions: SnippetVersion[] }>(
+      `/api/snippets/${id}/versions`
+    );
+  },
+};
+
+// Links API
+export interface LinkItem {
+  id: string;
+  url: string;
+  title: string | null;
+  description: string | null;
+  thumbnail: string | null;
+  og_image: string | null;
+  tags: string[];
+  view_count: number;
+  is_public: boolean;
+  archived_url: string | null;
+  user: {
+    id: string;
+    username: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
+  archived_at: string;
+}
+
+export const linksApi = {
+  list: async (params?: { limit?: number; cursor?: string; user_id?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set("limit", params.limit.toString());
+    if (params?.cursor) searchParams.set("cursor", params.cursor);
+    if (params?.user_id) searchParams.set("user_id", params.user_id);
+    const query = searchParams.toString();
+    return apiRequest<{
+      items: LinkItem[];
+      nextCursor?: string;
+      hasMore: boolean;
+    }>(`/api/links${query ? `?${query}` : ""}`);
+  },
+
+  get: async (id: string) => {
+    return apiRequest<LinkItem>(`/api/links/${id}`);
+  },
+
+  create: async (data: {
+    url: string;
+    title?: string;
+    description?: string;
+    tags?: string[];
+  }) => {
+    return apiRequest<{ id: string; url: string; title: string | null }>(
+      "/api/links",
+      { method: "POST", body: JSON.stringify(data) }
+    );
+  },
+
+  update: async (
+    id: string,
+    data: { title?: string; description?: string; tags?: string[]; is_public?: boolean }
+  ) => {
+    return apiRequest<{ id: string }>(`/api/links/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: string) => {
+    return apiRequest<{ deleted: string }>(`/api/links/${id}`, {
+      method: "DELETE",
+    });
+  },
+
+  archive: async (id: string) => {
+    return apiRequest<{ archived_url: string | null; success: boolean }>(
+      `/api/links/${id}/archive`,
+      { method: "POST" }
+    );
+  },
+};
+
+// AI Writer API
+export const aiApi = {
+  generateTitle: async (content: string) => {
+    return apiRequest<{ title: string }>("/api/ai/title", {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  generateOutline: async (topic: string) => {
+    return apiRequest<{ outline: string }>("/api/ai/outline", {
+      method: "POST",
+      body: JSON.stringify({ topic }),
+    });
+  },
+
+  enhance: async (content: string, action: "expand" | "condense" | "engaging" | "fix-grammar") => {
+    return apiRequest<{ content: string }>("/api/ai/enhance", {
+      method: "POST",
+      body: JSON.stringify({ content, action }),
+    });
+  },
+
+  generateMeta: async (content: string) => {
+    return apiRequest<{ title: string; description: string; tags: string[] }>("/api/ai/meta", {
+      method: "POST",
+      body: JSON.stringify({ content }),
+    });
+  },
+
+  translate: async (content: string, language: string) => {
+    return apiRequest<{ content: string; language: string }>("/api/ai/translate", {
+      method: "POST",
+      body: JSON.stringify({ content, language }),
+    });
+  },
+};
+
+// Reposts API
+export const repostsApi = {
+  repost: async (postId: string) => {
+    return apiRequest<{ id: string; repost_of: string }>(`/api/posts/${postId}/repost`, {
+      method: "POST",
+    });
+  },
+
+  unrepost: async (postId: string) => {
+    return apiRequest<{ deleted: string }>(`/api/posts/${postId}/repost`, {
+      method: "DELETE",
+    });
+  },
+
+  getReposts: async (postId: string) => {
+    return apiRequest<{
+      count: number;
+      items: {
+        id: string;
+        user: { id: string; username: string; full_name: string | null; avatar_url: string | null };
+        created_at: string;
+      }[];
+    }>(`/api/posts/${postId}/reposts`);
+  },
+};
+
+// Threads API
+export interface ThreadPost {
+  id: string;
+  title: string;
+  content_markdown: string;
+  like_count: number;
+  position: number;
+  published_at: string | null;
+}
+
+export interface ThreadItem {
+  id: string;
+  title: string | null;
+  user: { id: string; username: string; full_name: string | null; avatar_url: string | null };
+  created_at: string;
+}
+
+export const threadsApi = {
+  create: async (data: {
+    title?: string;
+    posts: { content_markdown: string; title?: string }[];
+  }) => {
+    return apiRequest<{ id: string; post_ids: string[] }>("/api/threads", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  get: async (id: string) => {
+    return apiRequest<{
+      thread: ThreadItem;
+      posts: ThreadPost[];
+    }>(`/api/threads/${id}`);
+  },
+
+  addPost: async (threadId: string, data: { content_markdown: string; title?: string }) => {
+    return apiRequest<{ id: string; position: number }>(`/api/threads/${threadId}/posts`, {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   },
 };

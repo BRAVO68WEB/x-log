@@ -10,7 +10,7 @@ interface PostListProps {
 }
 
 export function PostList({ author }: PostListProps) {
-  const { posts, loading, hasMore, loadMore, error } = usePosts({
+  const { posts, loading, loadingMore, hasMore, loadMore, error } = usePosts({
     author,
     limit: 12,
     autoLoad: true,
@@ -49,10 +49,13 @@ export function PostList({ author }: PostListProps) {
       </div>
       {hasMore && (
         <div className="flex justify-center py-6">
-          <Button variant="outline" onClick={loadMore} disabled={loading}>
-            {loading ? "Loading..." : "Load More"}
+          <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+            {loadingMore ? "Loading..." : "Load more"}
           </Button>
         </div>
+      )}
+      {!hasMore && posts.length > 0 && (
+        <p className="text-center text-sm text-muted-foreground py-4">End of posts</p>
       )}
     </>
   );

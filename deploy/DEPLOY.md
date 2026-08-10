@@ -1,0 +1,317 @@
+# x-log Deployment Guide
+
+## Quick Deploy
+
+### Option 1: Vercel + Supabase (Recommended for most users)
+
+Best for: Quick setup, managed infrastructure, automatic HTTPS.
+
+| Component | Provider | Cost |
+|-----------|----------|------|
+| Frontend (Next.js) | Vercel | Free tier available |
+| Database (PostgreSQL) | Supabase | Free tier (500MB) |
+| API + Worker | Railway / Render | ~$5-7/month |
+| Redis (optional) | Upstash | Free tier (10K cmds/day) |
+
+#### Step 1: Set up Supabase Database
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Go to **SQL Editor** and run the contents of `deploy/supabase/setup.sql`
+3. Copy your connection string from **Settings → Database → Connection string → URI**
+
+#### Step 2: Deploy API + Worker on Railway
+
+1. Go to [railway.app](https://railway.app) and create a new project
+2. Deploy from GitHub repo, set root directory to `apps/api`
+3. Add environment variables from `deploy/.env.production.example`
+4. Repeat for `apps/worker` as a separate service
+5. Copy the API service URL (e.g., `https://xlog-api.up.railway.app`)
+
+#### Step 3: Deploy Frontend on Vercel
+
+1. Fork this repo to your GitHub
+2. Click the deploy button below, or:
+   - Go to [vercel.com/new](https://vercel.com/new)
+   - Import your forked repo
+   - Set root directory to `apps/web`
+   - Add environment variables:
+     - `BACKEND_API_URL` = your Railway API URL
+     - `SESSION_SECRET` = generate with `openssl rand -base64 32`
+     - `INSTANCE_DOMAIN` = your Vercel domain (e.g., `myblog.vercel.app`)
+     - `OIDC_*` = your OIDC provider credentials
+
+#### Step 4: Configure Instance
+
+1. Visit your deployed site
+2. Complete the onboarding wizard
+3. Configure SMTP for password reset (optional)
+4. Toggle feature flags in Settings → Features
+
+---
+
+### Option 2: Docker Compose (Self-hosted)
+
+Best for: Full control, single-server deployment, existing infrastructure.
+
+```bash
+# Clone the repo
+git clone https://github.com/BRAVO68WEB/x-log.git
+cd x-log
+
+# Set up environment
+cp deploy/.env.production.example .env
+# Edit .env with your values
+
+# Start with Docker Compose
+cd infra/compose
+docker compose up -d
+
+# Run migrations
+docker compose exec api bun run migrate
+```
+
+**Services exposed:**
+- Web: port 3000 (public)
+- API: port 8080 (internal only)
+- PostgreSQL: port 5432 (internal only)
+- Redis: port 6379 (internal only)
+
+**Production tips:**
+- Use a reverse proxy (Nginx/Caddy) in front of port 3000
+- Set `INSTANCE_DOMAIN` to your actual domain
+- Configure SSL/TLS at the proxy level
+- Set `SESSION_SECRET` to a strong random value
+
+---
+
+### Option 3: Docker (Single Container)
+
+```bash
+# Build
+docker build -t xlog .
+
+# Run (requires external PostgreSQL and Redis)
+docker run -d \
+  -p 3000:3000 \
+  -p 8080:8080 \
+  -e DATABASE_URL="postgres://..." \
+  -e SESSION_SECRET="..." \
+  -e INSTANCE_DOMAIN="myblog.com" \
+  -e OIDC_CLIENT_ID="..." \
+  -e OIDC_CLIENT_SECRET="..." \
+  -e OIDC_REDIRECT_URI="..." \
+  -e OIDC_DISCOVERY_URL="..." \
+  ghcr.io/bravo68web/x-log:latest
+```
+
+---
+
+## Environment Variables
+
+### Required
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `DATABASE_URL` | PostgreSQL connection string | `postgres://user:pass@host:5432/db` |
+| `SESSION_SECRET` | JWT signing key (min 32 chars) | `openssl rand -base64 32` |
+| `INSTANCE_DOMAIN` | Your domain (no protocol) | `myblog.example.com` |
+| `OIDC_CLIENT_ID` | OIDC client ID | From your provider |
+| `OIDC_CLIENT_SECRET` | OIDC client secret | From your provider |
+| `OIDC_REDIRECT_URI` | OIDC callback URL | `https://domain/auth/oidc/callback` |
+| `OIDC_DISCOVERY_URL` | OIDC issuer discovery | `https://issuer/.well-known/openid-configuration` |
+
+### Optional
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_URL` | Redis for federation queue | `redis://localhost:6379` |
+| `SMTP_URL` | SMTP server for emails | (disabled) |
+| `ADMIN_EMAIL` | Admin contact email | (none) |
+| `INSTANCE_NAME` | Display name | `x-log` |
+| `OPEN_REGISTRATIONS` | Force public signup on (`/register`) | `false` |
+| `MAX_LOCAL_AUTHORS` | Cap active admin+author accounts | `10` |
+| `MEDIA_DRIVER` | `local` or `s3` (R2/S3/MinIO) | `local` |
+
+### Media storage (S3 / R2 / MinIO)
+
+Default is **local** disk (`uploads/`) for development.
+
+For production, use S3-compatible object storage:
+
+```bash
+MEDIA_DRIVER=s3
+# Cloudflare R2 example
+MEDIA_S3_ENDPOINT=https://<accountid>.r2.cloudflarestorage.com
+MEDIA_S3_REGION=auto
+MEDIA_S3_BUCKET=xlog-media
+MEDIA_S3_ACCESS_KEY_ID=...
+MEDIA_S3_SECRET_ACCESS_KEY=...
+# Public/CDN URL (recommended) — uploads return this URL
+MEDIA_S3_PUBLIC_URL=https://media.yourdomain.com
+# Optional key prefix
+# MEDIA_S3_PREFIX=xlog/
+# MinIO usually needs:
+# MEDIA_S3_FORCE_PATH_STYLE=true
+```
+
+**Behavior**
+- `local`: files under `uploads/`, served at `/api/media/:filename`
+- `s3` + `MEDIA_S3_PUBLIC_URL`: objects stored in bucket; clients get public URLs; GET `/api/media/:f` redirects to CDN
+- `s3` without public URL: objects still uploaded; API proxies GET via S3 GetObject
+
+**Migrate existing local files**
+
+```bash
+MEDIA_DRIVER=s3 MEDIA_S3_... DRY_RUN=true bun run apps/api/scripts/migrate-media-to-s3.ts
+MEDIA_DRIVER=s3 MEDIA_S3_... bun run apps/api/scripts/migrate-media-to-s3.ts
+```
+
+**Backup**
+- Database: standard Postgres dump
+- Media: with `local`, backup `uploads/`; with `s3`, use provider lifecycle/versioning + bucket backups
+| `FEDERATION_ENABLED` | Enable ActivityPub | `true` |
+| `BACKEND_API_URL` | Internal API URL | `http://localhost:8080` |
+
+### Observability (opt-in)
+
+All off by default. When disabled, no OTLP or PostHog traffic leaves the process.
+
+#### OpenTelemetry (traces)
+
+```bash
+# API service
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_SERVICE_NAME=x-log-api
+# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer xxx
+
+# Worker service (same endpoint, different service name)
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_SERVICE_NAME=x-log-worker
+```
+
+**Named spans** (when enabled):
+
+| Span | Where |
+|------|--------|
+| `federation.deliver` | Worker delivery job |
+| `ap.verify_signature` | Inbox HTTP Signature verify |
+| `ap.key_fetch` | Remote actor public key resolve |
+| `mcp.tool_call` | MCP tool execution |
+| `analytics.collect` | First-party page view collect |
+
+**Sample local collector (Docker):**
+
+```bash
+# Minimal OTLP HTTP receiver (Jaeger all-in-one example)
+docker run --rm -p 4318:4318 -p 16686:16686 jaegertracing/all-in-one:1.57
+# UI: http://localhost:16686
+# Point OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+Any OTLP-compatible backend works (Grafana Tempo, Honeycomb, Grafana Cloud, etc.).
+
+#### PostHog (server product events)
+
+Use **your** PostHog project — x-log does not phone home.
+
+```bash
+POSTHOG_SERVER_ENABLED=true
+POSTHOG_KEY=phc_...
+POSTHOG_HOST=https://us.i.posthog.com   # or your self-hosted host
+```
+
+Server events (distinct id = primary user or `instance:{domain}`):
+
+| Event | When |
+|-------|------|
+| `post_published` | Post published |
+| `follow_received` | New remote follower |
+| `mcp_tool_called` | MCP tool name only (no args) |
+| `federation_delivery_failed` | Worker delivery failure |
+
+First-party analytics IPs are **never** sent to PostHog.
+
+### Feature Flags (Optional)
+
+Set to `true` or `false` to override admin UI settings:
+
+```
+FEATURE_CODE_SNIPPETS=false
+FEATURE_LINK_ARCHIVE=false
+FEATURE_AI_WRITER=false
+FEATURE_PASSWORD_RESET=false
+FEATURE_CUSTOM_POST_META=false
+FEATURE_BOOKMARKS=false
+FEATURE_REPOSTS=false
+FEATURE_THREADS=false
+FEATURE_SHORT_POSTS=false
+FEATURE_SCHEDULED_POSTS=false
+FEATURE_TRENDING=false
+FEATURE_ANALYTICS=false
+FEATURE_DMS=false
+FEATURE_CUSTOM_THEMES=false
+```
+
+### AI Writer (Optional)
+
+```
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o
+```
+
+Supports any OpenAI-compatible endpoint (Ollama, Groq, etc.).
+
+---
+
+## Pre-deploy Validation
+
+Run the pre-flight check before deploying:
+
+```bash
+./deploy/deploy.sh
+```
+
+This verifies all required environment variables are set and valid.
+
+---
+
+## Updating
+
+### Vercel
+Automatic deployments on push to `main`.
+
+### Docker Compose
+```bash
+cd infra/compose
+docker compose pull
+docker compose up -d
+docker compose exec api bun run migrate
+```
+
+### Railway
+Automatic deployments on push to `main`. Migrations run on startup.
+
+---
+
+## Troubleshooting
+
+**Database connection errors:**
+- Verify `DATABASE_URL` format: `postgres://user:password@host:5432/dbname`
+- For Supabase, use the connection pooling URL with `?pgbouncer=true`
+
+**OIDC login fails:**
+- Check `OIDC_REDIRECT_URI` matches your actual domain
+- Ensure `OIDC_DISCOVERY_URL` is reachable from your server
+- Verify client ID and secret with your OIDC provider
+
+**Federation not working:**
+- Ensure `INSTANCE_DOMAIN` matches your actual public domain
+- Check that `/.well-known/webfinger` is accessible
+- Verify Redis is running (used for delivery queue)
+
+**Emails not sending:**
+- Configure `SMTP_URL` (format: `smtps://user:pass@host:port`)
+- Enable `FEATURE_PASSWORD_RESET=true`

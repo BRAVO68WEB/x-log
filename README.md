@@ -2,6 +2,12 @@
 
 A federated blog platform built on ActivityPub.
 
+## Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/BRAVO68WEB/x-log&root-directory=apps/web&env=DATABASE_URL,SESSION_SECRET,INSTANCE_DOMAIN,OIDC_CLIENT_ID,OIDC_CLIENT_SECRET,OIDC_REDIRECT_URI,OIDC_DISCOVERY_URL&envDescription=Required%20configuration&envLink=https://github.com/BRAVO68WEB/x-log/blob/main/deploy/.env.production.example)
+
+**Other options:** [Docker Compose](deploy/DEPLOY.md#option-2-docker-compose-self-hosted) · [Docker](deploy/DEPLOY.md#option-3-docker-single-container) · [Full deploy guide](deploy/DEPLOY.md)
+
 ## Overview
 
 x-log is an open-source, Bun + TypeScript powered blog platform that federates with the Fediverse using ActivityPub. Readers on Mastodon, Elk, Soapbox, and compatible clients can search, read, like, and follow x-log profiles and posts directly from their clients.
@@ -18,6 +24,19 @@ x-log is an open-source, Bun + TypeScript powered blog platform that federates w
 - **Queue**: Redis + Worker (Bun)
 - **Deployment**: Docker Compose
 
+## Documentation
+
+- **[Development guide](./docs/development.md)** — local setup, monorepo, tests, PRs
+- **[Contributing](./CONTRIBUTING.md)** — short checklist for contributors
+- **Operator guides** under [`docs/operators/`](./docs/operators/):
+  - [Federation](./docs/operators/federation.md)
+  - [Multi-user](./docs/operators/multi-user.md)
+  - [Analytics privacy](./docs/operators/analytics-privacy.md)
+  - [Security (CSRF, rate limits)](./docs/operators/security.md)
+  - [Media](./docs/operators/media.md)
+  - [Authoring](./docs/operators/authoring.md)
+- **[Deploy](./deploy/DEPLOY.md)** — production hosting
+
 ## Getting Started
 
 ### Prerequisites
@@ -29,55 +48,18 @@ x-log is an open-source, Bun + TypeScript powered blog platform that federates w
 
 ### Development
 
-1. Install dependencies:
+Full walkthrough: **[docs/development.md](./docs/development.md)**.
 
 ```bash
 bun install
+cp .env.example .env          # SESSION_SECRET, DATABASE_URL, REDIS_URL, OIDC placeholders
+make setup && make dev        # Compose + watch, or: bun run migrate && bun run dev
+cd apps/api && bun run init-local-user
 ```
 
-2. Set up environment variables:
-
 ```bash
-# For local development (outside Docker)
-cp .env.example .env
-# Edit .env with your settings
-
-# OR for Docker Compose
-cp infra/compose/.env.example infra/compose/.env
-# Edit infra/compose/.env with your settings
-```
-
-3. Set up environment file:
-
-```bash
-make setup
-# Or manually:
-cp infra/compose/.env.example infra/compose/.env
-# Edit infra/compose/.env with your settings
-```
-
-4. Start services with Docker Compose:
-
-For development with hot-reload/watch mode (recommended):
-
-```bash
-make dev
-# Or with Docker Compose watch (requires Docker Compose v2.22+):
-make dev-watch
-```
-
-For production-like setup:
-
-```bash
-make up
-```
-
-5. Run migrations:
-
-```bash
-make migrate
-# Or manually:
-cd apps/api && bun run migrate
+bun run type-check && bun run test
+./scripts/smoke-api.sh        # API must be running
 ```
 
 ### Available Make Commands
@@ -157,6 +139,204 @@ x-log/
 │   └── types/        # Shared TypeScript types
 └── infra/
     └── compose/       # Docker Compose configuration
+```
+
+## Analytics & observability (opt-in)
+
+### First-party page views
+
+Off by default. Enable the **`analytics`** feature flag (admin UI or `FEATURE_ANALYTICS=true`).
+
+- Beacon: post pages and profiles (`/u/[username]`) call `POST /api/analytics/collect` when enabled
+- Stores path, post_id, referrer, UA, **hashed IP** (raw IP only if `ANALYTICS_STORE_RAW_IP=true`)
+- Respects DNT / Sec-GPC when `ANALYTICS_RESPECT_DNT=true` (default)
+- Summary: `GET /api/analytics/summary` (auth; admin = all posts, author = own) includes post titles + privacy meta
+- Dashboard: **`/analytics`** (any signed-in user) and **Settings → Analytics** (admin)
+- Retention: worker purges rows older than `ANALYTICS_RETENTION_DAYS` (default 90)
+
+### OpenTelemetry
+
+```bash
+# API
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
+OTEL_SERVICE_NAME=x-log-api
+
+# Worker (same collector, different service name)
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
+OTEL_SERVICE_NAME=x-log-worker
+```
+
+Processes dynamically load OTEL only when enabled. Custom spans include `federation.deliver`, `ap.verify_signature`, `ap.key_fetch`, `mcp.tool_call`, `analytics.collect`. See `deploy/DEPLOY.md` for a sample Jaeger collector.
+
+### PostHog
+
+Use **your** PostHog project (not x-log SaaS telemetry):
+
+```bash
+# Web client
+NEXT_PUBLIC_POSTHOG_ENABLED=true
+NEXT_PUBLIC_POSTHOG_KEY=phc_...
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+
+# Optional server events (API + worker)
+POSTHOG_SERVER_ENABLED=true
+POSTHOG_KEY=phc_...
+POSTHOG_HOST=https://us.i.posthog.com
+```
+
+Server events: `post_published`, `follow_received`, `mcp_tool_called` (name only), `federation_delivery_failed`. Distinct id = primary author or `instance:{domain}`. No PostHog network calls when disabled; first-party visitor IPs are never forwarded.
+
+## Instance modes (solo vs multi)
+
+x-log is **solo-first**: one domain, one **primary author** (site owner).
+
+| Mode | When | Behavior |
+|------|------|----------|
+| **solo** | ≤1 local user (default) | Landing can use primary profile; MCP key acts as primary; registrations closed |
+| **multi** | 2+ local users | Multiple authors, each a separate ActivityPub actor; still one operator/admin |
+
+### Primary author
+
+Stored as `instance_settings.primary_user_id` (backfilled to oldest admin on migrate).
+
+Used for:
+- Profile-as-landing (`use_profile_as_landing`)
+- Instance “follow remote” as the site account
+- MCP write tools when `MCP_ACTOR_USERNAME` is unset
+- Public `/api/public/instance` → `primary_profile`
+- NodeInfo metadata contact account
+
+Set via **Settings → Federation → Primary author** (admin UI), or
+`PATCH /api/settings` with `{ "primary_user_id": "<uuid>" }`.
+
+### Roles (minimal)
+
+| Capability | admin | author |
+|------------|-------|--------|
+| Publish as self | ✓ | ✓ |
+| Instance settings / primary user | ✓ | |
+| Invite users (Phase 3+) | ✓ | |
+
+**Not a social network:** no local timeline of strangers; multi-user is for small teams / invite-only blogs.
+
+### Federation operator tools
+
+Under **Settings → Federation → Operator tools**:
+
+- 24h delivery stats (sent / failed / pending)
+- Recent failures with **Retry** / **Retry all**
+- Domain **blocklist** (inbox 403 + skip outbound)
+
+Blocked domains apply to both shared and per-user inboxes.
+
+### Media storage
+
+| Driver | Env | Notes |
+|--------|-----|--------|
+| `local` (default) | — | Files in `uploads/`, served at `/api/media/…` |
+| `s3` | `MEDIA_S3_*` | R2, AWS S3, or MinIO; set `MEDIA_S3_PUBLIC_URL` for CDN |
+
+See `deploy/DEPLOY.md` for full env list and migrate script.
+
+### Author tools
+
+| Feature | How |
+|---------|-----|
+| **Schedule posts** | Enable feature flag `scheduled_posts`. My Posts → clock icon → pick time. Worker publishes when due. |
+| **Import Markdown** | My Posts → **Import MD**. Paste one or more posts (`---` separated). Creates drafts. |
+| **Notifications** | Nav bell → follows & likes. Optional email when SMTP + user email set. |
+
+Flags: Settings → Features, or `FEATURE_SCHEDULED_POSTS=true`.
+
+### Multi-user authors
+
+**Default: invite-only.** Open registration is opt-in.
+
+| Mode | How |
+|------|-----|
+| Invite-only (default) | Admin → Settings → Users → Create invite → share `/invite/<token>` |
+| Open registration | Settings → Users → **Open public registration**, or `OPEN_REGISTRATIONS=true` → `/register` |
+
+- Signup always creates **author** (never admin)
+- Cap: `MAX_LOCAL_AUTHORS` (default **10** active admin+author accounts)
+- Soft-deactivate users from Users tab (blocks login)
+- Rate limits: register (5/hr/IP), invite accept (10/hr/IP)
+- Optional email verification when SMTP is configured
+
+Authors cannot change instance domain / federation / primary author. Post CRUD is scoped to `author_id` (admins may edit any).
+
+## MCP server
+
+x-log exposes a remote **Model Context Protocol** server so agents (Cursor, Claude, etc.) can read public content and create/publish posts as a configured local author.
+
+### Keys
+
+| Key type | Who it acts as | How |
+|----------|----------------|-----|
+| Instance `MCP_API_KEY` | Primary author (or `MCP_ACTOR_USERNAME`) | Env on the API |
+| Per-user key `xlog_mcp_…` | That user only | Profile → **MCP API keys** |
+
+Per-user keys cannot write as another author.
+
+### Enable
+
+```bash
+# Generate a dedicated key (do not reuse SESSION_SECRET in production)
+openssl rand -hex 32
+```
+
+Set in `.env`:
+
+```bash
+MCP_API_KEY=<your-key>
+# Optional: username write tools act as (default: primary admin)
+MCP_ACTOR_USERNAME=admin
+```
+
+Restart the API. `GET /health` reports `mcp.enabled` and paths.
+
+### Endpoints
+
+| URL | Protocol |
+|-----|----------|
+| `https://{INSTANCE_DOMAIN}/api/mcp` | **Streamable HTTP** (via Next proxy → API `/mcp`) — preferred for Cursor/Claude |
+| `https://{INSTANCE_DOMAIN}/mcp` | Streamable HTTP direct to API (if API is public) |
+| `https://{INSTANCE_DOMAIN}/api/mcp/jsonrpc` | Legacy JSON-RPC 2.0 POST |
+| `https://{INSTANCE_DOMAIN}/mcp/jsonrpc` | Legacy JSON-RPC direct |
+
+Auth: `Authorization: Bearer <MCP_API_KEY>`
+
+### Cursor / Claude remote config example
+
+```json
+{
+  "mcpServers": {
+    "x-log": {
+      "url": "https://YOUR_DOMAIN/api/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_MCP_API_KEY"
+      }
+    }
+  }
+}
+```
+
+### Tools
+
+**Read:** `get_posts`, `get_post`, `get_profile`, `search`, `get_instance_info`  
+**Write (as MCP actor):** `create_post`, `update_post`, `publish_post`, `delete_post`
+
+Write tools use `MCP_ACTOR_USERNAME` (or the primary admin). The Bearer key is equivalent to that author for posting — protect it.
+
+### Legacy JSON-RPC
+
+```bash
+curl -s https://YOUR_DOMAIN/api/mcp/jsonrpc \
+  -H "Authorization: Bearer $MCP_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
 
 ## License

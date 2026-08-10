@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "react-query";
+import { withCsrf } from "@/lib/csrf";
 
 interface User {
   id: string;
@@ -46,7 +47,10 @@ export function useAuth() {
 
   const logoutMutation = useMutation(
     async () => {
-      const res = await fetch(`/api/auth/logout`, { method: "POST", credentials: "include" });
+      const res = await fetch(
+        `/api/auth/logout`,
+        withCsrf({ method: "POST", credentials: "include" })
+      );
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Logout failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);

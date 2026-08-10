@@ -15,6 +15,7 @@ import { useQuery } from "react-query";
 import { useMutation } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { postsApi } from "@/lib/api";
+import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 
 interface Post {
   id: string;
@@ -38,6 +39,8 @@ export default function PostClient(props: { params: Promise<{ id: string }> }) {
   const { user } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // first-party analytics beacon (no-op if feature flag off)
 
   const query = useQuery<Post>(
     ["post", params.id],
@@ -125,6 +128,7 @@ export default function PostClient(props: { params: Promise<{ id: string }> }) {
 
   return (
     <main className="min-h-screen py-8 px-4">
+      <AnalyticsBeacon path={`/post/${post.id}`} postId={post.id} />
       <div className="max-w-6xl mx-auto flex gap-8">
         <Card className="flex-1 min-w-0">
           <CardContent className="p-8">

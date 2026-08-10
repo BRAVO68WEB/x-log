@@ -2,11 +2,22 @@ import { z } from "zod";
 
 // Post schemas
 export const PostCreateSchema = z.object({
-  title: z.string().min(1).max(200),
-  banner_url: z.string().url().optional(),
+  title: z
+    .string({ required_error: "Title is required" })
+    .min(1, "Title is required")
+    .max(200, "Title must be at most 200 characters"),
+  banner_url: z.string().url("Banner URL must be a valid URL").optional(),
   content_blocks: z.record(z.any()).optional(), // ProseMirror/TipTap document object
-  content_markdown: z.string().min(1),
-  hashtags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20),
+  content_markdown: z
+    .string({ required_error: "Content is required" })
+    .min(1, "Content is required"),
+  hashtags: z
+    .array(
+      z
+        .string()
+        .regex(/^[a-z0-9_]{1,64}$/i, "Hashtags must be 1–64 alphanumeric or underscore")
+    )
+    .max(20, "At most 20 hashtags"),
   visibility: z.enum(["public", "unlisted", "private"]).default("public"),
   summary: z.string().optional(),
 });
@@ -29,14 +40,15 @@ export const PostResponseSchema = z.object({
     avatar_url: z.string().url().optional().nullable(),
   }),
   published_at: z.string().nullable(),
+  scheduled_at: z.string().nullable().optional(),
   updated_at: z.string(),
   visibility: z.enum(["public", "unlisted", "private"]),
 });
 
 // Auth schemas
 export const LoginSchema = z.object({
-  username: z.string().min(1),
-  password: z.string().min(1),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 
 export const MobileAuthResponseSchema = z.object({
@@ -57,6 +69,9 @@ export const UserResponseSchema = z.object({
   email: z.string().nullable(),
   role: z.enum(["admin", "author", "reader"]),
   created_at: z.string(),
+  avatar_url: z.string().url().optional().nullable(),
+  auth_method: z.enum(["cookie", "bearer"]).optional().nullable(),
+  session_expires_at: z.string().optional().nullable(),
 });
 
 // Profile schemas
@@ -123,6 +138,10 @@ export const InstanceSummaryResponseSchema = z.object({
     "signal",
     "retro-classic",
   ]),
+  /** Derived: solo when ≤1 local user, multi otherwise */
+  instance_mode: z.enum(["solo", "multi"]).optional(),
+  local_user_count: z.number().int().min(0).optional(),
+  open_registrations: z.boolean().optional(),
   total_public_posts: z.number().int().min(0),
   primary_profile: z
     .object({
@@ -173,13 +192,23 @@ export const PaginationQuerySchema = z.object({
   cursor: z.string().optional(),
 });
 
-// Error response schema (RFC 7807)
+// Error response schema (RFC 7807-inspired; clients primarily use `error`)
 export const ProblemDetailSchema = z.object({
-  type: z.string().url(),
-  title: z.string(),
-  status: z.number().int(),
+  type: z.string().url().optional(),
+  title: z.string().optional(),
+  status: z.number().int().optional(),
   detail: z.string().optional(),
   instance: z.string().optional(),
+  error: z.string(),
+  code: z.string().optional(),
+  details: z
+    .array(
+      z.object({
+        path: z.string(),
+        message: z.string(),
+      })
+    )
+    .optional(),
 });
 
 // OIDC schemas
@@ -202,4 +231,125 @@ export const OIDCAccountResponseSchema = z.object({
   email: z.string().nullable(),
   name: z.string().nullable(),
   created_at: z.string(),
+});
+
+// Post Meta schemas
+export const PostMetaCreateSchema = z.object({
+  key: z.string().min(1).max(256),
+  value: z.string().max(4096),
+});
+
+export const PostMetaBulkUpdateSchema = z.object({
+  meta: z.record(z.string().max(256), z.string().max(4096)),
+});
+
+export const PostMetaResponseSchema = z.object({
+  meta: z.record(z.string(), z.string()),
+});
+
+// Snippet schemas
+export const SnippetCreateSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(1000).optional(),
+  language: z.string().min(1).max(50),
+  code: z.string().min(1),
+  visibility: z.enum(["public", "followers", "private"]).default("public"),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).default([]),
+});
+
+export const SnippetUpdateSchema = z.object({
+  title: z.string().min(1).max(200).optional(),
+  description: z.string().max(1000).optional(),
+  language: z.string().min(1).max(50).optional(),
+  code: z.string().min(1).optional(),
+  visibility: z.enum(["public", "followers", "private"]).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).optional(),
+  changelog: z.string().max(500).optional(),
+});
+
+export const SnippetResponseSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  language: z.string(),
+  code: z.string(),
+  visibility: z.string(),
+  current_version: z.number().int(),
+  fork_of: z.string().nullable(),
+  tags: z.array(z.string()),
+  view_count: z.number().int(),
+  user: z.object({
+    id: z.string(),
+    username: z.string(),
+    full_name: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+  }),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const SnippetVersionSchema = z.object({
+  id: z.string(),
+  version: z.number().int(),
+  code: z.string(),
+  changelog: z.string().nullable(),
+  created_at: z.string(),
+});
+
+// Link schemas
+export const LinkCreateSchema = z.object({
+  url: z.string().url(),
+  title: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).default([]),
+});
+
+export const LinkUpdateSchema = z.object({
+  title: z.string().max(500).optional(),
+  description: z.string().max(2000).optional(),
+  tags: z.array(z.string().regex(/^[a-z0-9_]{1,64}$/i)).max(20).optional(),
+  is_public: z.boolean().optional(),
+});
+
+export const LinkResponseSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  thumbnail: z.string().nullable(),
+  og_image: z.string().nullable(),
+  tags: z.array(z.string()),
+  view_count: z.number().int(),
+  is_public: z.boolean(),
+  archived_url: z.string().nullable(),
+  user: z.object({
+    id: z.string(),
+    username: z.string(),
+    full_name: z.string().nullable(),
+    avatar_url: z.string().nullable(),
+  }),
+  archived_at: z.string(),
+});
+
+// AI schemas
+export const AITitleRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+});
+
+export const AIOutlineRequestSchema = z.object({
+  topic: z.string().min(1).max(5000),
+});
+
+export const AIEnhanceRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+  action: z.enum(["expand", "condense", "engaging", "fix-grammar"]),
+});
+
+export const AIMetaRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+});
+
+export const AITranslateRequestSchema = z.object({
+  content: z.string().min(1).max(50000),
+  language: z.string().min(1).max(50),
 });

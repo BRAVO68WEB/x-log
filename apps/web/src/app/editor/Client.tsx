@@ -3,9 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NovelEditor from "@/components/NovelEditor";
+import PostMetaPanel from "@/components/PostMetaPanel";
+import PostVersionHistory from "@/components/PostVersionHistory";
 import toast, { Toaster } from "react-hot-toast";
 import { useMutation } from "react-query";
 import type { JSONContent } from "@tiptap/core";
+import { withCsrf } from "@/lib/csrf";
 
 interface EditorClientProps {
   postId?: string;
@@ -29,6 +32,12 @@ export default function EditorClient({
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [postId, setPostId] = useState<string | null>(initialPostId || null);
+  const [editorKey, setEditorKey] = useState(0);
+  const [content, setContent] = useState(initialContent);
+  const [title, setTitle] = useState(initialTitle);
+  const [summary, setSummary] = useState(initialSummary);
+  const [hashtags, setHashtags] = useState(initialHashtags);
+  const [bannerUrl, setBannerUrl] = useState(initialBannerUrl);
 
   const createMutation = useMutation(
     async (payload: {
@@ -40,12 +49,12 @@ export default function EditorClient({
       visibility: "public" | "unlisted" | "private";
       summary?: string;
     }) => {
-      const res = await fetch(`/api/posts`, {
+      const res = await fetch(`/api/posts`, withCsrf({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to create post" }));
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -70,12 +79,12 @@ export default function EditorClient({
         summary?: string;
       };
     }) => {
-      const res = await fetch(`/api/posts/${id}`, {
+      const res = await fetch(`/api/posts/${id}`, withCsrf({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to update post" }));
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -85,10 +94,10 @@ export default function EditorClient({
   );
 
   const publishMutation = useMutation(async (id: string) => {
-    const res = await fetch(`/api/posts/${id}/publish`, {
+    const res = await fetch(`/api/posts/${id}/publish`, withCsrf({
       method: "POST",
       credentials: "include",
-    });
+    }));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Failed to publish post" }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -190,15 +199,36 @@ export default function EditorClient({
   return (
     <>
       <NovelEditor
-        initialContent={initialContent}
-        initialTitle={initialTitle}
-        initialSummary={initialSummary}
-        initialHashtags={initialHashtags}
-        initialBannerUrl={initialBannerUrl}
+        key={editorKey}
+        initialContent={content}
+        initialTitle={title}
+        initialSummary={summary}
+        initialHashtags={hashtags}
+        initialBannerUrl={bannerUrl}
         onSave={handleSave}
         onPublish={handlePublish}
         saving={saving}
         publishLabel={isPublished ? "Update" : "Publish"}
+        sidebar={
+          postId ? (
+            <div className="space-y-4">
+              <PostVersionHistory
+                postId={postId}
+                onRestored={(snap) => {
+                  setTitle(snap.title);
+                  setSummary(snap.summary || undefined);
+                  setHashtags(snap.hashtags);
+                  setBannerUrl(snap.banner_url || undefined);
+                  setContent(
+                    (snap.content_blocks_json as JSONContent) || snap.content_markdown
+                  );
+                  setEditorKey((k) => k + 1);
+                }}
+              />
+              <PostMetaPanel postId={postId} />
+            </div>
+          ) : undefined
+        }
       />
       <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
     </>

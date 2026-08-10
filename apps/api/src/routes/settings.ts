@@ -1,9 +1,16 @@
 import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
-import { getDb, clearInstanceSettingsCache } from "@xlog/db";
+import {
+  getDb,
+  clearInstanceSettingsCache,
+  getPrimaryUser,
+  setPrimaryUserId,
+  countLocalUsers,
+  deriveInstanceMode,
+} from "@xlog/db";
 import { sessionMiddleware, requireAuth, requireAdmin } from "../middleware/session";
-import { followRemoteActor, getPrimaryProfileUser } from "../lib/activitypub";
+import { followRemoteActor } from "../lib/activitypub";
 
 const InstanceSettingsUpdateSchema = z.object({
   instance_name: z.string().min(1).optional(),
@@ -14,6 +21,8 @@ const InstanceSettingsUpdateSchema = z.object({
   federation_enabled: z.boolean().optional(),
   following_enabled: z.boolean().optional(),
   use_profile_as_landing: z.boolean().optional(),
+  open_registrations: z.boolean().optional(),
+  primary_user_id: z.string().uuid().optional().nullable(),
   theme_id: z
     .enum([
       "system",
@@ -33,6 +42,17 @@ const InstanceSettingsUpdateSchema = z.object({
       "retro-classic",
     ])
     .optional(),
+  ai_base_url: z.string().url().optional().nullable(),
+  ai_api_key: z.string().optional().nullable(),
+  ai_model: z.string().optional().nullable(),
+  ai_max_tokens: z.number().int().min(1).max(128000).optional().nullable(),
+  ai_temperature: z.number().min(0).max(2).optional().nullable(),
+});
+
+const LocalUserOptionSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string(),
+  role: z.string(),
 });
 
 const InstanceSettingsResponseSchema = z.object({
@@ -45,6 +65,12 @@ const InstanceSettingsResponseSchema = z.object({
   federation_enabled: z.boolean(),
   following_enabled: z.boolean(),
   use_profile_as_landing: z.boolean(),
+  open_registrations: z.boolean(),
+  primary_user_id: z.string().nullable(),
+  primary_username: z.string().nullable(),
+  instance_mode: z.enum(["solo", "multi"]),
+  local_user_count: z.number().int(),
+  local_users: z.array(LocalUserOptionSchema),
   theme_id: z.enum([
     "system",
     "xlog-default",
@@ -62,9 +88,54 @@ const InstanceSettingsResponseSchema = z.object({
     "signal",
     "retro-classic",
   ]),
+  ai_base_url: z.string().nullable(),
+  ai_api_key: z.string().nullable(),
+  ai_model: z.string().nullable(),
+  ai_max_tokens: z.number().nullable(),
+  ai_temperature: z.number().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 });
+
+async function listLocalUsers() {
+  const db = getDb();
+  return db
+    .selectFrom("users")
+    .select(["id", "username", "role"])
+    .orderBy("created_at", "asc")
+    .execute();
+}
+
+async function formatSettingsResponse(settings: any) {
+  const primary = await getPrimaryUser();
+  const userCount = await countLocalUsers();
+  const localUsers = await listLocalUsers();
+  return {
+    id: settings.id,
+    instance_name: settings.instance_name,
+    instance_description: settings.instance_description,
+    instance_domain: settings.instance_domain,
+    admin_email: settings.admin_email,
+    smtp_url: settings.smtp_url,
+    federation_enabled: settings.federation_enabled,
+    following_enabled: settings.following_enabled,
+    use_profile_as_landing: settings.use_profile_as_landing,
+    open_registrations: Boolean(settings.open_registrations),
+    primary_user_id: settings.primary_user_id ?? primary?.id ?? null,
+    primary_username: primary?.username ?? null,
+    instance_mode: deriveInstanceMode(userCount),
+    local_user_count: userCount,
+    local_users: localUsers,
+    theme_id: settings.theme_id,
+    ai_base_url: settings.ai_base_url ?? null,
+    ai_api_key: settings.ai_api_key ?? null,
+    ai_model: settings.ai_model ?? null,
+    ai_max_tokens: settings.ai_max_tokens ?? null,
+    ai_temperature: settings.ai_temperature ?? null,
+    created_at: settings.created_at.toISOString(),
+    updated_at: settings.updated_at.toISOString(),
+  };
+}
 
 export const settingsRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -106,7 +177,7 @@ settingsRoutes.post(
       return c.json({ error: "Following is currently disabled" }, 403);
     }
 
-    const primaryProfile = await getPrimaryProfileUser(db);
+    const primaryProfile = await getPrimaryUser();
     if (!primaryProfile) {
       return c.json({ error: "No primary profile found" }, 404);
     }
@@ -114,7 +185,7 @@ settingsRoutes.post(
     try {
       const result = await followRemoteActor({
         db,
-        localUser: primaryProfile,
+        localUser: { id: primaryProfile.id, username: primaryProfile.username },
         remote: c.req.valid("json").remote,
       });
       return c.json({ success: true, ...result }, 202);
@@ -158,20 +229,7 @@ settingsRoutes.get(
       return c.json({ error: "Settings not found" }, 404);
     }
 
-    return c.json({
-      id: settings.id,
-      instance_name: settings.instance_name,
-      instance_description: settings.instance_description,
-      instance_domain: settings.instance_domain,
-      admin_email: settings.admin_email,
-      smtp_url: settings.smtp_url,
-      federation_enabled: settings.federation_enabled,
-      following_enabled: settings.following_enabled,
-      use_profile_as_landing: settings.use_profile_as_landing,
-      theme_id: settings.theme_id,
-      created_at: settings.created_at.toISOString(),
-      updated_at: settings.updated_at.toISOString(),
-    });
+    return c.json(await formatSettingsResponse(settings));
   }
 );
 
@@ -241,8 +299,33 @@ settingsRoutes.patch(
     if (data.use_profile_as_landing !== undefined) {
       updateData.use_profile_as_landing = data.use_profile_as_landing;
     }
+    if (data.open_registrations !== undefined) {
+      updateData.open_registrations = data.open_registrations;
+    }
+    if (data.primary_user_id !== undefined && data.primary_user_id !== null) {
+      try {
+        await setPrimaryUserId(data.primary_user_id);
+      } catch {
+        return c.json({ error: "primary_user_id must be an existing local user" }, 400);
+      }
+    }
     if (data.theme_id !== undefined) {
       updateData.theme_id = data.theme_id;
+    }
+    if (data.ai_base_url !== undefined) {
+      updateData.ai_base_url = data.ai_base_url;
+    }
+    if (data.ai_api_key !== undefined) {
+      updateData.ai_api_key = data.ai_api_key;
+    }
+    if (data.ai_model !== undefined) {
+      updateData.ai_model = data.ai_model;
+    }
+    if (data.ai_max_tokens !== undefined) {
+      updateData.ai_max_tokens = data.ai_max_tokens;
+    }
+    if (data.ai_temperature !== undefined) {
+      updateData.ai_temperature = data.ai_temperature;
     }
 
     // Update settings
@@ -258,19 +341,6 @@ settingsRoutes.patch(
       .where("id", "=", 1)
       .executeTakeFirst();
 
-    return c.json({
-      id: updated!.id,
-      instance_name: updated!.instance_name,
-      instance_description: updated!.instance_description,
-      instance_domain: updated!.instance_domain,
-      admin_email: updated!.admin_email,
-      smtp_url: updated!.smtp_url,
-      federation_enabled: updated!.federation_enabled,
-      following_enabled: updated!.following_enabled,
-      use_profile_as_landing: updated!.use_profile_as_landing,
-      theme_id: updated!.theme_id,
-      created_at: updated!.created_at.toISOString(),
-      updated_at: updated!.updated_at.toISOString(),
-    });
+    return c.json(await formatSettingsResponse(updated!));
   }
 );

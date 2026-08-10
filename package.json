@@ -1,6 +1,6 @@
 {
   "name": "x-log",
-  "version": "0.6.1",
+  "version": "1.0",
   "private": true,
   "workspaces": [
     "apps/*",
@@ -16,6 +16,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,js,jsx}\"",
     "validate:themes": "bun run scripts/validate-themes.ts",
     "type-check": "turbo run type-check",
+    "test": "bun run --cwd packages/ap test && bun run --cwd packages/db test && bun run --cwd apps/api test",
+    "test:smoke": "bash ./scripts/smoke-api.sh",
+    "test:e2e-auth": "bash ./scripts/smoke-e2e-auth.sh",
+    "test:integration": "bun run --cwd apps/api test src/app.integration.test.ts",
     "migrate": "dotenv --override=false -- turbo run migrate",
     "start": "dotenv --override=false -- turbo run start"
   },
@@ -33,7 +37,8 @@
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.4",
-    "dotenv": "^17.2.3"
+    "dotenv": "^17.2.3",
+    "next": "^16.2.10"
   },
   "overrides": {
     "@types/react": "19.2.7",

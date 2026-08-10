@@ -24,12 +24,21 @@ import {
 import { useMutation, useQuery } from "react-query";
 import {
   FaBell,
+  FaChartSimple,
   FaEnvelope,
   FaGear,
   FaPalette,
   FaShieldHalved,
   FaShareNodes,
+  FaPuzzlePiece,
+  FaRobot,
+  FaUsers,
 } from "react-icons/fa6";
+import FeaturesTab from "./FeaturesTab";
+import UsersTab from "./UsersTab";
+import FederationOpsPanel from "./FederationOpsPanel";
+import AnalyticsDashboard from "../analytics/AnalyticsDashboard";
+import { withCsrf } from "@/lib/csrf";
 
 export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState("general");
@@ -54,7 +63,24 @@ export default function SettingsClient() {
     federation_enabled: true,
     following_enabled: false,
     use_profile_as_landing: false,
+    primary_user_id: "" as string,
     theme_id: "system" as InstanceThemeId,
+    ai_base_url: "",
+    ai_api_key: "",
+    ai_model: "",
+    ai_max_tokens: 2048,
+    ai_temperature: 0.7,
+  });
+  const [instanceMeta, setInstanceMeta] = useState<{
+    instance_mode: "solo" | "multi";
+    local_user_count: number;
+    local_users: Array<{ id: string; username: string; role: string }>;
+    primary_username: string | null;
+  }>({
+    instance_mode: "solo",
+    local_user_count: 0,
+    local_users: [],
+    primary_username: null,
   });
 
   const settingsQuery = useQuery(
@@ -74,7 +100,17 @@ export default function SettingsClient() {
         federation_enabled: boolean;
         following_enabled: boolean;
         use_profile_as_landing: boolean;
+        primary_user_id: string | null;
+        primary_username: string | null;
+        instance_mode: "solo" | "multi";
+        local_user_count: number;
+        local_users: Array<{ id: string; username: string; role: string }>;
         theme_id: InstanceThemeId;
+        ai_base_url: string | null;
+        ai_api_key: string | null;
+        ai_model: string | null;
+        ai_max_tokens: number | null;
+        ai_temperature: number | null;
       }>;
     },
     {
@@ -88,7 +124,19 @@ export default function SettingsClient() {
           federation_enabled: data.federation_enabled,
           following_enabled: data.following_enabled,
           use_profile_as_landing: data.use_profile_as_landing,
+          primary_user_id: data.primary_user_id || data.local_users[0]?.id || "",
           theme_id: normalizeThemeId(data.theme_id),
+          ai_base_url: data.ai_base_url || "",
+          ai_api_key: data.ai_api_key || "",
+          ai_model: data.ai_model || "",
+          ai_max_tokens: data.ai_max_tokens || 2048,
+          ai_temperature: data.ai_temperature ?? 0.7,
+        });
+        setInstanceMeta({
+          instance_mode: data.instance_mode,
+          local_user_count: data.local_user_count,
+          local_users: data.local_users || [],
+          primary_username: data.primary_username,
         });
       },
       onError: (err) => {
@@ -139,7 +187,7 @@ export default function SettingsClient() {
 
   const updateMutation = useMutation(
     async () => {
-      const res = await fetch(`/api/settings`, {
+      const res = await fetch(`/api/settings`, withCsrf({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -152,9 +200,15 @@ export default function SettingsClient() {
           federation_enabled: settings.federation_enabled,
           following_enabled: settings.following_enabled,
           use_profile_as_landing: settings.use_profile_as_landing,
+          primary_user_id: settings.primary_user_id || undefined,
           theme_id: settings.theme_id,
+          ai_base_url: settings.ai_base_url || null,
+          ai_api_key: settings.ai_api_key || null,
+          ai_model: settings.ai_model || null,
+          ai_max_tokens: settings.ai_max_tokens || null,
+          ai_temperature: settings.ai_temperature,
         }),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to save settings" }));
         throw new Error(err.error || `HTTP ${res.status}`);
@@ -263,11 +317,11 @@ export default function SettingsClient() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-4xl font-normal tracking-[-0.03em] font-heading">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-normal tracking-[-0.03em] font-heading">
             Instance Settings
           </h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
             Configure general, federation, and email settings for your instance.
           </p>
         </div>
@@ -288,7 +342,7 @@ export default function SettingsClient() {
           onValueChange={setActiveTab}
           className="grid gap-6 lg:grid-cols-[188px_minmax(0,920px)] lg:items-start"
         >
-          <TabsList className="flex h-auto max-w-full flex-row items-stretch justify-start overflow-x-auto rounded-lg border border-border bg-secondary/70 p-1.5 lg:sticky lg:top-24 lg:w-full lg:flex-col lg:overflow-visible">
+          <TabsList className="flex h-auto max-w-full flex-row items-stretch justify-start overflow-x-auto overscroll-x-contain snap-x snap-mandatory rounded-lg border border-border bg-secondary/70 p-1.5 scrollbar-none lg:sticky lg:top-24 lg:w-full lg:flex-col lg:overflow-visible lg:snap-none">
             <TabsTrigger value="general" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaGear className="h-3.5 w-3.5" />
               General
@@ -318,6 +372,22 @@ export default function SettingsClient() {
             <TabsTrigger value="security" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaShieldHalved className="h-3.5 w-3.5" />
               Security
+            </TabsTrigger>
+            <TabsTrigger value="users" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaUsers className="h-3.5 w-3.5" />
+              Users
+            </TabsTrigger>
+            <TabsTrigger value="features" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaPuzzlePiece className="h-3.5 w-3.5" />
+              Features
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaChartSimple className="h-3.5 w-3.5" />
+              Analytics
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaRobot className="h-3.5 w-3.5" />
+              AI
             </TabsTrigger>
           </TabsList>
 
@@ -367,6 +437,49 @@ export default function SettingsClient() {
                     <h2 className="text-xl font-semibold font-heading">Federation</h2>
                   </BentoCardHeader>
                   <BentoCardContent className="space-y-4">
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <Label className="font-medium">Primary author</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Site owner for landing, MCP write tools, and instance follows
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium capitalize">
+                          {instanceMeta.instance_mode} · {instanceMeta.local_user_count}{" "}
+                          {instanceMeta.local_user_count === 1 ? "user" : "users"}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="primary_user_id" className="text-sm">
+                          Local account
+                        </Label>
+                        <select
+                          id="primary_user_id"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          value={settings.primary_user_id}
+                          onChange={(e) =>
+                            setSettings({ ...settings, primary_user_id: e.target.value })
+                          }
+                          disabled={instanceMeta.local_users.length === 0}
+                        >
+                          {instanceMeta.local_users.length === 0 ? (
+                            <option value="">No local users</option>
+                          ) : (
+                            instanceMeta.local_users.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                @{u.username} ({u.role})
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        {instanceMeta.primary_username && (
+                          <p className="text-xs text-muted-foreground">
+                            Current primary: @{instanceMeta.primary_username}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center justify-between rounded-lg border p-4">
                       <div className="space-y-0.5">
                         <Label className="font-medium">Enable federation</Label>
@@ -409,6 +522,18 @@ export default function SettingsClient() {
                         }
                       />
                     </div>
+                  </BentoCardContent>
+                </BentoCard>
+
+                <BentoCard size="full" index={1}>
+                  <BentoCardHeader>
+                    <h2 className="text-xl font-semibold font-heading">Operator tools</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Delivery health, retries, and domain blocks
+                    </p>
+                  </BentoCardHeader>
+                  <BentoCardContent>
+                    <FederationOpsPanel />
                   </BentoCardContent>
                 </BentoCard>
               </BentoGrid>
@@ -631,6 +756,124 @@ export default function SettingsClient() {
                       >
                         {passwordMutation.isLoading ? "Changing..." : "Change Password"}
                       </Button>
+                    </div>
+                  </BentoCardContent>
+                </BentoCard>
+              </BentoGrid>
+            </TabsContent>
+
+            <TabsContent value="users">
+              <UsersTab />
+            </TabsContent>
+
+            <TabsContent value="features">
+              <FeaturesTab />
+            </TabsContent>
+
+            <TabsContent value="analytics">
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-semibold font-heading">Analytics</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    First-party views. Also available at{" "}
+                    <a href="/analytics" className="text-primary hover:underline">
+                      /analytics
+                    </a>
+                    .
+                  </p>
+                </div>
+                <AnalyticsDashboard embedded />
+              </div>
+            </TabsContent>
+
+            <TabsContent value="ai">
+              <BentoGrid columns={2}>
+                <BentoCard size="full" index={0} accent>
+                  <BentoCardHeader>
+                    <h2 className="text-xl font-semibold font-heading">AI Writer Settings</h2>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Configure the AI writing assistant. Works with any OpenAI-compatible API.
+                    </p>
+                  </BentoCardHeader>
+                  <BentoCardContent>
+                    <div className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Input
+                          label="Base URL"
+                          type="url"
+                          value={settings.ai_base_url}
+                          onChange={(e) => setSettings({ ...settings, ai_base_url: e.target.value })}
+                          placeholder="https://api.openai.com/v1"
+                        />
+                        <Input
+                          label="API Key"
+                          type="password"
+                          value={settings.ai_api_key}
+                          onChange={(e) => setSettings({ ...settings, ai_api_key: e.target.value })}
+                          placeholder="sk-..."
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Input
+                          label="Model"
+                          value={settings.ai_model}
+                          onChange={(e) => setSettings({ ...settings, ai_model: e.target.value })}
+                          placeholder="gpt-4o"
+                        />
+                        <div className="space-y-2">
+                          <Label htmlFor="ai_max_tokens">Max Tokens</Label>
+                          <Input
+                            id="ai_max_tokens"
+                            type="number"
+                            value={settings.ai_max_tokens}
+                            onChange={(e) =>
+                              setSettings({ ...settings, ai_max_tokens: parseInt(e.target.value) || 2048 })
+                            }
+                            min={1}
+                            max={128000}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="ai_temperature">Temperature ({settings.ai_temperature})</Label>
+                          <input
+                            id="ai_temperature"
+                            type="range"
+                            min="0"
+                            max="2"
+                            step="0.1"
+                            value={settings.ai_temperature}
+                            onChange={(e) =>
+                              setSettings({ ...settings, ai_temperature: parseFloat(e.target.value) })
+                            }
+                            className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer"
+                          />
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Precise (0)</span>
+                            <span>Creative (2)</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border bg-muted/50 p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          {settings.ai_api_key ? (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-green-500" />
+                              <span className="text-sm font-medium">Configured</span>
+                            </>
+                          ) : (
+                            <>
+                              <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                              <span className="text-sm font-medium">Not configured</span>
+                            </>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Supports OpenAI, Ollama, Groq, Fireworks, Together, or any OpenAI-compatible endpoint.
+                          Leave Base URL empty for OpenAI default. Set API Key to enable AI features.
+                        </p>
+                      </div>
                     </div>
                   </BentoCardContent>
                 </BentoCard>

@@ -29,6 +29,7 @@ import { useMutation, useQuery } from "react-query";
 import { schnorr } from "@noble/curves/secp256k1.js";
 import { bytesToHex } from "@noble/curves/utils.js";
 import { bech32 } from "@scure/base";
+import { withCsrf } from "@/lib/csrf";
 
 interface ProfileData {
   full_name?: string;
@@ -90,11 +91,11 @@ export function ProfileForm({ username }: { username: string }) {
   const uploadAvatarMutation = useMutation(async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`/api/media/upload`, {
+    const res = await fetch(`/api/media/upload`, withCsrf({
       method: "POST",
       credentials: "include",
       body: fd,
-    });
+    }));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -123,11 +124,11 @@ export function ProfileForm({ username }: { username: string }) {
   const uploadBannerMutation = useMutation(async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
-    const res = await fetch(`/api/media/upload`, {
+    const res = await fetch(`/api/media/upload`, withCsrf({
       method: "POST",
       credentials: "include",
       body: fd,
-    });
+    }));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -155,12 +156,12 @@ export function ProfileForm({ username }: { username: string }) {
 
   const updateMutation = useMutation(
     async (payload: ProfileData) => {
-      const res = await fetch(`/api/profiles/${username}`, {
+      const res = await fetch(`/api/profiles/${username}`, withCsrf({
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to update profile" }));
         const msg =

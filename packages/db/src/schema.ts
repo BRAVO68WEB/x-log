@@ -27,8 +27,49 @@ export interface UsersTable {
   email: string | null;
   password_hash: string | null;
   role: UserRole;
+  /** Soft-deactivate: login and write APIs blocked when false */
+  is_active: ColumnType<boolean, boolean | undefined, boolean>;
+  /** Email ownership verified (optional; register with SMTP may set false) */
+  email_verified: ColumnType<boolean, boolean | undefined, boolean>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface EmailVerificationsTable {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  expires_at: Date;
+  used_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+/** Per-user MCP API keys (instance MCP_API_KEY remains fallback) */
+export type McpKeyScope = "read" | "write" | "read_write";
+
+export interface McpApiKeysTable {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  key_hash: string;
+  scopes: McpKeyScope;
+  last_used_at: Date | null;
+  revoked_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface UserInvitesTable {
+  id: string; // uuid
+  token_hash: string;
+  email: string | null;
+  role: UserRole;
+  invited_by: string; // FK users.id
+  expires_at: Date;
+  accepted_at: Date | null;
+  accepted_user_id: string | null;
+  revoked_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface UserProfilesTable {
@@ -67,10 +108,56 @@ export interface PostsTable {
   summary: string | null;
   hashtags: string[]; // text[]
   like_count: number; // default 0
+  view_count: ColumnType<number, number | undefined, number>; // default 0
   published_at: Date | null;
+  /** When set and published_at is null, worker publishes at this time */
+  scheduled_at: Date | null;
   updated_at: ColumnType<Date, never, Date>;
   visibility: PostVisibility;
   ap_object_id: string; // unique
+  repost_of_id: string | null; // FK posts.id (for reposts/boosts)
+  post_type: ColumnType<string, string | undefined, string>; // 'article' | 'short', default 'article'
+  thread_id: string | null; // FK threads.id
+  thread_position: number | null;
+  /** Monotonic content revision (see post_versions) */
+  current_version: ColumnType<number, number | undefined, number>;
+}
+
+export interface PostVersionsTable {
+  id: string; // uuid
+  post_id: string;
+  version: number;
+  title: string;
+  content_markdown: string;
+  content_blocks_json: ColumnType<Record<string, unknown>, unknown, unknown>;
+  summary: string | null;
+  banner_url: string | null;
+  hashtags: string[];
+  changelog: string | null;
+  created_by: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+/** First-party page/post view events (analytics feature flag) */
+export interface PageViewsTable {
+  id: ColumnType<string, string | undefined, never>;
+  created_at: ColumnType<Date, Date | undefined, never>;
+  path: string;
+  post_id: string | null;
+  author_id: string | null;
+  referrer: string | null;
+  referrer_host: string | null;
+  user_agent: string | null;
+  ip_hash: string | null;
+  ip_raw: string | null;
+  session_id: string | null;
+}
+
+export interface ThreadsTable {
+  id: string; // snowflake PK
+  user_id: string; // FK users.id
+  title: string | null;
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface PostHashtagsTable {
@@ -102,6 +189,29 @@ export interface DeliveriesTable {
   activity_json: ColumnType<Record<string, unknown> | null, unknown, unknown>;
 }
 
+/** Domains blocked from federation (inbox + outbound) */
+export interface FederationDomainBlocksTable {
+  id: string;
+  domain: string;
+  reason: string | null;
+  created_by: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export type NotificationType = "follow" | "like";
+
+export interface NotificationsTable {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  actor_label: string;
+  actor_url: string | null;
+  post_id: string | null;
+  body: string | null;
+  read_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
 export interface FollowingTable {
   id: string; // uuid, PK
   local_user_id: string; // FK users.id
@@ -125,6 +235,14 @@ export interface OutboxActivitiesTable {
 export interface ReplayCacheTable {
   key: string; // signature + date composite
   created_at: ColumnType<Date, never, never>;
+}
+
+/** Cached remote actor public keys for HTTP Signature verification */
+export interface RemoteKeysTable {
+  key_id: string; // ActivityPub keyId URL
+  owner: string; // actor URL
+  public_key_pem: string;
+  fetched_at: ColumnType<Date, Date | undefined, Date>;
 }
 
 export interface InboxObjectsTable {
@@ -157,7 +275,14 @@ export interface InstanceSettingsTable {
   federation_enabled: boolean;
   following_enabled: boolean;
   use_profile_as_landing: boolean;
+  /** Site owner / default Fediverse actor for landing, MCP, instance follow */
+  primary_user_id: string | null;
   theme_id: ColumnType<InstanceThemeId, InstanceThemeId | undefined, InstanceThemeId>;
+  ai_base_url: string | null;
+  ai_api_key: string | null;
+  ai_model: string | null;
+  ai_max_tokens: number | null;
+  ai_temperature: number | null;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
 }
@@ -201,21 +326,117 @@ export interface MediaTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+export interface FeatureFlagsTable {
+  key: string; // primary key, e.g. 'code_snippets'
+  enabled: boolean;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface PasswordResetsTable {
+  id: string; // uuid, PK
+  user_id: string; // FK users.id
+  token_hash: string;
+  expires_at: Date;
+  used_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface PostMetaTable {
+  id: string; // uuid, PK
+  post_id: string; // FK posts.id
+  key: string;
+  value: string;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface BookmarksTable {
+  id: string; // uuid, PK
+  user_id: string; // FK users.id
+  post_id: string | null; // FK posts.id (nullable for URL bookmarks)
+  url: string | null;
+  post_title: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface SnippetsTable {
+  id: string; // snowflake PK
+  title: string;
+  description: string | null;
+  user_id: string; // FK users.id
+  language: string;
+  code: string;
+  visibility: string; // 'public' | 'followers' | 'private'
+  current_version: ColumnType<number, number | undefined, number>; // default 1
+  fork_of: string | null; // FK snippets.id
+  tags: string[];
+  view_count: ColumnType<number, number | undefined, number>; // default 0
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface SnippetVersionsTable {
+  id: string; // uuid, PK
+  snippet_id: string; // FK snippets.id
+  version: number;
+  code: string;
+  changelog: string | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
+export interface LinksTable {
+  id: string; // snowflake PK
+  url: string;
+  title: string | null;
+  description: string | null;
+  thumbnail: string | null;
+  og_image: string | null;
+  user_id: string; // FK users.id
+  tags: string[];
+  view_count: ColumnType<number, number | undefined, number>; // default 0
+  is_public: ColumnType<boolean, boolean | undefined, boolean>; // default true
+  archived_at: ColumnType<Date, never, never>;
+}
+
+export interface LinkSnapshotsTable {
+  id: string; // uuid, PK
+  link_id: string; // FK links.id
+  archived_url: string | null;
+  archived_at: ColumnType<Date, never, never>;
+}
+
 export interface Database {
   users: UsersTable;
+  user_invites: UserInvitesTable;
+  email_verifications: EmailVerificationsTable;
+  mcp_api_keys: McpApiKeysTable;
   user_profiles: UserProfilesTable;
   user_keys: UserKeysTable;
   posts: PostsTable;
+  post_versions: PostVersionsTable;
   post_hashtags: PostHashtagsTable;
+  threads: ThreadsTable;
   followers: FollowersTable;
   following: FollowingTable;
   outbox_activities: OutboxActivitiesTable;
   deliveries: DeliveriesTable;
+  federation_domain_blocks: FederationDomainBlocksTable;
+  notifications: NotificationsTable;
   inbox_objects: InboxObjectsTable;
   post_likes: PostLikesTable;
   instance_settings: InstanceSettingsTable;
   replay_cache: ReplayCacheTable;
+  remote_keys: RemoteKeysTable;
   oidc_accounts: OIDCAccountsTable;
   oidc_pending_links: OIDCPendingLinksTable;
   media: MediaTable;
+  feature_flags: FeatureFlagsTable;
+  password_resets: PasswordResetsTable;
+  post_meta: PostMetaTable;
+  bookmarks: BookmarksTable;
+  snippets: SnippetsTable;
+  snippet_versions: SnippetVersionsTable;
+  links: LinksTable;
+  link_snapshots: LinkSnapshotsTable;
+  page_views: PageViewsTable;
 }

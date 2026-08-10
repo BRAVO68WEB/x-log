@@ -1,137 +1,112 @@
 # x-log Project Status
 
-## ✅ Completed
+Living snapshot of what has shipped. Prefer this over scavenging old TODOs in
+chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 
-### Infrastructure
+## Shipped
 
-- [x] Monorepo structure with Turborepo
-- [x] TypeScript configuration
-- [x] Docker Compose setup
-- [x] Package structure
+### Infrastructure and packages
 
-### Packages
-
-- [x] `@xlog/config` - Environment configuration with Zod validation
-- [x] `@xlog/types` - Shared TypeScript types
-- [x] `@xlog/snowflake` - Snowflake ID generator
-- [x] `@xlog/db` - Kysely database client and schema
-- [x] `@xlog/validation` - Zod schemas for API validation
-- [x] `@xlog/ap` - ActivityPub helpers and formatters
-- [x] `@xlog/markdown` - Markdown rendering with rehype/remark pipeline
-- [x] `@xlog/ui` - Shared UI components (placeholder)
-
-### Database
-
-- [x] Complete schema definition
-- [x] Initial migration (001_initial)
-- [x] Migration runner
+- [x] Monorepo (Turborepo), TypeScript, Docker Compose
+- [x] `@xlog/config`, `@xlog/types`, `@xlog/snowflake`, `@xlog/db`, `@xlog/validation`
+- [x] `@xlog/ap` (ActivityPub helpers, HTTP Signatures, tests)
+- [x] `@xlog/markdown` (remark/rehype pipeline)
+- [x] Database schema + migrations runner
 
 ### API (Hono)
 
-- [x] OpenAPI integration
-- [x] Session management and authentication
-- [x] Auth routes (login/logout) with JWT sessions
-- [x] Onboarding routes
-- [x] User routes with auth
-- [x] Profile routes with auth
-- [x] Post routes (CRUD) with auth and markdown rendering
-- [x] Feed routes (RSS/Atom) with markdown rendering
-- [x] Search routes with full-text search
-- [x] Media upload routes
-- [x] ActivityPub endpoints (Actor, Inbox, Outbox, Followers, Following)
-- [x] HTTP Signature verification for ActivityPub inbox
-- [x] Well-known endpoints (WebFinger, NodeInfo, host-meta)
-- [x] Profile follow endpoint (`POST /api/profiles/:username/follow`) with WebFinger resolution
-  - Resolves `@user@domain` to actor URL and sends signed Follow
-  - Inserts outgoing follow into DB for persistence
-
-### Frontend (Next.js)
-
-- [x] Basic page structure
-- [x] TailwindCSS setup
-- [x] Homepage
-- [x] Post detail page with markdown rendering
-- [x] Profile pages
-- [x] TipTap/ProseMirror editor implementation
-- [x] Onboarding page (placeholder)
-- [x] Settings page (placeholder)
-- [x] Search page (placeholder)
-- [x] Feed redirect routes
-
-### Worker
-
-- [x] Worker structure
-- [x] Redis integration
-- [x] Federation delivery with HTTP Signatures
-- [x] Retry logic with exponential backoff
-
-## 🚧 In Progress / TODO
-
-### Core Features
-
-- [ ] Complete TipTap editor integration with API
-- [ ] Media file serving optimization
-- [ ] CSRF protection middleware
-- [ ] Rate limiting middleware
-
-### Frontend
-
-- [ ] Complete onboarding wizard UI
-- [ ] Post list with pagination
-- [x] Profile editing UI
-- [x] Settings UI
-- [x] Dark mode implementation
-- [ ] Responsive design polish
-- [ ] Image upload in editor
-
-### API
-
-- [ ] Complete session handling improvements
-- [ ] Error handling improvements
-- [ ] Input validation enhancements
-- [ ] Media file cleanup/management
+- [x] OpenAPI + Scalar `/docs`
+- [x] Session JWT cookies + Bearer (mobile) + role gates (admin/author)
+- [x] Auth: login/logout, OIDC, password reset, open registration, email verify
+- [x] Users, profiles, posts (CRUD, schedule, import, version history), feeds, search
+- [x] Media upload (`MEDIA_DRIVER=local|s3`) + serving ETag/304 + orphan cleanup
+- [x] Bookmarks, snippets, links, threads, reposts, AI helpers
+- [x] Settings + admin features + multi-user invites
+- [x] Analytics collect/status/summary (feature-flagged)
+- [x] In-app notifications (follow/like) + optional email
+- [x] MCP Streamable HTTP + legacy JSON-RPC + per-user MCP keys
+- [x] Rate limit helpers (registration / invite accept / login)
+- [x] **CSRF middleware** for cookie-session mutating `/api/*` (double-submit + Origin)
+- [x] **Rate-limit middleware** global API + sensitive paths (B68-86)
 
 ### ActivityPub
 
-- [ ] Better error handling for deliveries
+- [x] Actor, inbox, outbox, followers, following
+- [x] HTTP Signature verify + outbound signed GET (authorized-fetch)
+- [x] Federation delivery worker + retries
+- [x] Operator UX: delivery stats/retry + domain blocklist
+- [x] Well-known: WebFinger, NodeInfo, host-meta
 
-### Testing
+### Frontend (Next.js)
 
-- [ ] Unit tests
-- [ ] Integration tests
-- [ ] E2E tests
+- [x] Homepage / landing, post detail, profiles, search, feeds
+- [x] TipTap/Novel editor + drafts + schedule
+- [x] Settings (general, users/invites, features, federation ops, analytics)
+- [x] Onboarding wizard, login/register/invite/OIDC, notifications
+- [x] Dark mode / themes, analytics beacon, author directory
+- [x] CSRF headers on credentialed mutating client requests
+
+### Product phases (roadmap B68-103)
+
+| Phase | Status |
+|-------|--------|
+| 0 Primary author + solo/multi docs | Done |
+| 1 Analytics dashboard UI | Done |
+| 2 OTEL spans + PostHog server | Done |
+| 3 Multi-user M1 invite + authz | Done |
+| 4 Multi-user M2 registration modes | Done |
+| 5 Multi-user M3 polish + MCP keys | Done |
+| 6 Federation operator UX | Done |
+| 7 S3/R2 media path | Done |
+| 8a/8b Schedule + Markdown import | Done |
+| 8c In-app notifications | Done |
+| 9 Quality/docs (tests, operator guides, OpenAPI tags) | Done |
+| 10 Hygiene (status + Linear cleanup) | Done |
+| 11a CSRF | Done (PR #36) |
+| 11b Broader rate-limit middleware | Done (PR #37) |
+| 12 Author depth — post version history | Done (PR #38) |
+| 13 Media ops cleanup | Done (PR #39) |
+| 14 Quality / docs + smoke | Done (PR #40) |
 
 ### Documentation
 
-- [ ] API documentation
-- [ ] Federation guide
-- [ ] Deployment guide
-- [ ] Development guide
+- [x] Operator: federation, multi-user, analytics privacy, security, media, authoring
+- [x] Deploy guide (`deploy/DEPLOY.md`)
+- [x] API Scalar + OpenAPI tags
+- [x] **Development guide** (`docs/development.md`, B68-102)
+- [x] CONTRIBUTING.md linked to development guide
 
-## 📝 Notes
+### Testing
 
-- Session management is implemented using JWT tokens stored in HTTP-only cookies
-- Markdown rendering uses unified/remark/rehype pipeline with syntax highlighting
-- TipTap editor is implemented with basic block support
-- HTTP Signature verification works for local and remote users; remote actor key fetching implemented
-- Inbox verification includes Digest matching, Date skew checks, and replay protection
-- Federation delivery includes retry logic with exponential backoff
-- Media uploads are stored locally; consider S3 integration for production
+- [x] Unit: HTTP Signatures (`packages/ap`)
+- [x] Unit: analytics, invites, rate-limit, blocks, media-storage, CSRF, media-cleanup, post-versions (`apps/api`)
+- [x] Smoke: `scripts/smoke-api.sh`, `scripts/smoke-mcp.sh`, `scripts/smoke-e2e-auth.sh`
+- [x] In-process integration: `apps/api/src/app.integration.test.ts` (`createApp` + `app.request`)
+- [x] Federation script: `scripts/test-federation.sh`
+- [ ] Full browser automation suite (Playwright/Cypress) — optional future
 
-## 🚀 Getting Started
+## Still open (honest backlog)
 
-1. Install dependencies: `bun install`
-2. Set up environment: Copy `infra/compose/.env.example` to `infra/compose/.env`
-3. Start services: `docker-compose -f infra/compose/docker-compose.yml up -d`
-4. Run migrations: `cd apps/api && bun run migrate`
-5. Start development: `bun run dev`
+Not “forgotten placeholders” — intentional follow-ups:
 
-### ActivityPub & Federation
+| Item | Notes |
+|------|--------|
+| ~~Global rate-limit middleware~~ | Done (B68-86) — Redis-backed multi-replica still optional |
+| ~~Media cleanup / serving polish~~ | Phase 13 (B68-94 / B68-85) |
+| ~~Development guide~~ | Phase 14 (B68-102) |
+| ~~TipTap + editor image upload~~ | B68-83 / B68-90 — shipped |
+| ~~Onboarding wizard~~ | B68-87 — shipped |
+| ~~Post list pagination polish~~ | Keyset cursor + Load more UX (B68-88, PR #41) |
+| ~~Responsive design polish~~ | B68-89 — mobile nav, editor stack, safe areas (PR #42) |
+| ~~Federation delivery error UX~~ | B68-95 / Phase 6 — stats, last_error, retry |
+| ~~API validation / error / session~~ | B68-91–93 — sliding session, structured errors |
+| ~~Integration + auth E2E smoke~~ | B68-97 / B68-98 — createApp tests + smoke scripts |
+| Full browser E2E (Playwright) | Optional; not blocking |
 
-- [x] Remote actor key fetching for signature verification (fetch actor, verify `publicKeyPem`)
-- [x] Accept activity generation and sending on inbound Follow
-- [x] Undo activity support (Follow, Like)
-- [x] Outbox renders markdown to HTML for `Article.content`
-- [x] Following persistence: DB migration `002_following` and real data at `GET /ap/users/:username/following`
-- [x] Digest header validation and Date header freshness checks
-- [x] Signature replay protection with short-lived cache
+## Notes
+
+- Default product posture is **solo-first**; multi-user is opt-in via invites /
+  open registration caps (`MAX_LOCAL_AUTHORS`).
+- Analytics, OTEL, and PostHog are **off by default**.
+- Session CSRF: see `docs/operators/security.md`.
+- Media: local disk by default; set `MEDIA_DRIVER=s3` + S3 env for R2/S3/MinIO.

@@ -1,6 +1,6 @@
 {
   "name": "@xlog/api",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,32 +9,45 @@
     "migrate": "bun run ../../packages/db/src/migrate.ts",
     "init-local-user": "bun run scripts/init-local-user.ts",
     "type-check": "tsc --noEmit",
+    "test": "bun test src",
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1106.0",
     "@hono/node-server": "^1.19.6",
     "@hono/standard-validator": "^0.2.0",
     "@hono/zod-validator": "^0.4.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
+    "@opentelemetry/resources": "^2.10.0",
+    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "@scalar/hono-api-reference": "^0.9.25",
     "@xlog/ap": "workspace:*",
     "@xlog/config": "workspace:*",
     "@xlog/db": "workspace:*",
+    "@xlog/libs": "workspace:*",
     "@xlog/markdown": "workspace:*",
     "@xlog/snowflake": "workspace:*",
     "@xlog/types": "workspace:*",
     "@xlog/validation": "workspace:*",
-    "@xlog/libs": "workspace:*",
     "bcryptjs": "^3.0.3",
-    "ioredis": "^5.4.1",
     "hono": "^4.0.0",
     "hono-openapi": "^1.1.1",
+    "ioredis": "^5.4.1",
     "kysely": "^0.28.8",
+    "nodemailer": "^8.0.10",
+    "openai": "^6.42.0",
+    "posthog-node": "^5.48.1",
     "zod": "^3.22.4",
     "zod-openapi": "4"
   },
   "devDependencies": {
     "@types/bun": "^1.3.3",
     "@types/node": "^20.10.0",
+    "@types/nodemailer": "^8.0.0",
     "typescript": "^5.3.3"
   }
 }

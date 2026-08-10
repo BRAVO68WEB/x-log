@@ -11,6 +11,10 @@ import {
   getFollowersUrl,
 } from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
+import { startOtelIfEnabled, withSpan } from "./otel";
+import { captureServerEvent } from "./posthog";
+
+await startOtelIfEnabled();
 
 const env = getEnv();
 const redis = new Redis(env.REDIS_URL);
@@ -25,10 +29,6 @@ interface DeliveryJob {
   inboxUrl: string;
   activityType?: "Create" | "Update" | "Delete" | "Like" | "Undo";
   activityJson?: string;
-}
-
-function computeDigest(body: string): string {
-  return `SHA-256=${crypto.createHash("sha256").update(body).digest("base64")}`;
 }
 
 // Process federation delivery jobs
@@ -48,6 +48,13 @@ async function processDeliveryJobs() {
 }
 
 async function deliverActivity(delivery: DeliveryJob) {
+  return withSpan(
+    "federation.deliver",
+    {
+      "xlog.activity_id": delivery.activityId?.slice(0, 200),
+      "xlog.activity_type": delivery.activityType || "Create",
+    },
+    async () => {
   try {
     const existing = await db
       .selectFrom("deliveries")
@@ -151,8 +158,12 @@ async function deliverActivity(delivery: DeliveryJob) {
       body = JSON.stringify(activity);
     }
 
-    const signature = await signRequest("POST", inboxUrl, body, userId);
-    const digest = computeDigest(body);
+    const signed = await signRequest({
+      method: "POST",
+      url: inboxUrl,
+      body,
+      userId,
+    });
 
     await db
       .updateTable("deliveries")
@@ -160,16 +171,10 @@ async function deliverActivity(delivery: DeliveryJob) {
       .where("activity_id", "=", delivery.activityId)
       .execute();
 
-    const response = await fetch(inboxUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/activity+json",
-        Signature: signature,
-        Digest: digest,
-        Date: new Date().toUTCString(),
-        Host: new URL(inboxUrl).host,
-      },
-      body,
+    const response = await fetch(signed.url, {
+      method: signed.method,
+      headers: signed.headers,
+      body: signed.body,
     });
 
     if (response.ok) {
@@ -197,7 +202,23 @@ async function deliverActivity(delivery: DeliveryJob) {
       }))
       .where("activity_id", "=", delivery.activityId)
       .execute();
+
+    void captureServerEvent("federation_delivery_failed", {
+      activity_id: delivery.activityId,
+      activity_type: delivery.activityType || "Create",
+      // host only — never full inbox path secrets
+      remote_host: (() => {
+        try {
+          return new URL(delivery.inboxUrl || "").hostname;
+        } catch {
+          return "unknown";
+        }
+      })(),
+      error: String(error).slice(0, 200),
+    });
   }
+    }
+  );
 }
 
 // Process retry jobs
@@ -245,7 +266,104 @@ async function cleanupReplayCache() {
   }
 }
 
+// Drop remote public keys older than 7 days (verify path also TTL-refreshes at 24h)
+async function cleanupRemoteKeys() {
+  while (true) {
+    try {
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      await db.deleteFrom("remote_keys").where("fetched_at", "<", cutoff).execute();
+    } catch (err) {
+      console.error("Remote keys cleanup error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 3600_000)); // Hourly
+  }
+}
+
+// Purge first-party analytics events past retention
+async function cleanupPageViews() {
+  while (true) {
+    try {
+      const days = Number(process.env.ANALYTICS_RETENTION_DAYS || 90);
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      await db.deleteFrom("page_views").where("created_at", "<", cutoff).execute();
+    } catch (err) {
+      console.error("Page views cleanup error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 3600_000));
+  }
+}
+
+// Publish posts whose scheduled_at is due
+async function processScheduledPosts() {
+  while (true) {
+    try {
+      const now = new Date();
+      let due: Array<{ id: string; author_id: string; visibility: string }> = [];
+      try {
+        due = await db
+          .selectFrom("posts")
+          .select(["id", "author_id", "visibility"])
+          .where("published_at", "is", null)
+          .where("scheduled_at", "is not", null)
+          .where("scheduled_at", "<=", now)
+          .limit(50)
+          .execute();
+      } catch {
+        // migration not applied yet
+        await new Promise((r) => setTimeout(r, 60_000));
+        continue;
+      }
+
+      for (const row of due) {
+        try {
+          await db
+            .updateTable("posts")
+            .set({
+              published_at: now,
+              scheduled_at: null,
+              updated_at: now,
+            })
+            .where("id", "=", row.id)
+            .execute();
+
+          console.log(`[schedule] published post ${row.id}`);
+
+          if (row.visibility !== "private") {
+            const followers = await db
+              .selectFrom("followers")
+              .select(["inbox_url"])
+              .where("local_user_id", "=", row.author_id)
+              .where("approved", "=", true)
+              .execute();
+            const uniqueInboxes = [...new Set(followers.map((f) => f.inbox_url))];
+            const domain = env.INSTANCE_DOMAIN;
+            const activityId = `https://${domain}/ap/activities/${crypto.randomUUID()}`;
+            for (const inboxUrl of uniqueInboxes) {
+              const job: DeliveryJob = {
+                activityId,
+                userId: row.author_id,
+                postId: row.id,
+                inboxUrl,
+                activityType: "Create",
+              };
+              await redis.lpush("federation:deliveries", JSON.stringify(job));
+            }
+          }
+        } catch (err) {
+          console.error(`[schedule] failed post ${row.id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[schedule] loop error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 30_000));
+  }
+}
+
 // Start workers
 processDeliveryJobs();
 processRetryJobs();
 cleanupReplayCache();
+cleanupRemoteKeys();
+cleanupPageViews();
+processScheduledPosts();

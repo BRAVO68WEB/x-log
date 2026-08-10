@@ -1,4 +1,4 @@
-.PHONY: help dev dev-watch dev-stop build up down logs migrate clean install
+.PHONY: help dev dev-watch dev-stop build up down logs migrate clean install test smoke smoke-auth
 
 # Default target
 help:
@@ -14,6 +14,9 @@ help:
 	@echo "  make migrate      - Run database migrations"
 	@echo "  make clean        - Remove containers, volumes, and images"
 	@echo "  make install      - Install dependencies"
+	@echo "  make test         - Run unit tests (bun)"
+	@echo "  make smoke        - API smoke script (API must be up)"
+	@echo "  make smoke-auth   - Optional auth E2E (E2E_USERNAME/PASSWORD)"
 	@echo ""
 
 # Development with watch mode (Bun --watch)
@@ -65,6 +68,21 @@ clean:
 install:
 	@echo "Installing dependencies..."
 	bun install
+
+# Unit tests
+test:
+	@echo "Running unit tests..."
+	bun run test
+
+# Lightweight API smoke (requires API on API_URL or localhost:8080)
+smoke:
+	@echo "Running API smoke checks..."
+	bash ./scripts/smoke-api.sh
+
+# Optional authenticated E2E (E2E_USERNAME + E2E_PASSWORD)
+smoke-auth:
+	@echo "Running auth E2E smoke..."
+	bash ./scripts/smoke-e2e-auth.sh
 
 # Setup: create .env file if it doesn't exist
 setup:

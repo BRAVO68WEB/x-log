@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getDb, getInstanceSettings } from "@xlog/db";
+import { getDb, getInstanceSettings, getPrimaryUser } from "@xlog/db";
 import { getActorUrlSync } from "@xlog/ap";
 
 export const wellKnownRoutes = new Hono();
@@ -24,22 +24,30 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
   }
 
   const db = getDb();
+  // Usernames are stored lowercase; only active authors/admins
   const user = await db
     .selectFrom("users")
-    .select("username")
-    .where("username", "=", username)
+    .select(["username", "role", "is_active"])
+    .where("username", "=", username.toLowerCase())
     .executeTakeFirst();
 
-  if (!user) {
+  if (!user || user.is_active === false) {
+    return c.json({ error: "User not found" }, 404);
+  }
+  if (user.role !== "admin" && user.role !== "author") {
     return c.json({ error: "User not found" }, 404);
   }
 
-  const actorId = getActorUrlSync(username, settings.instance_domain);
-  const profileUrl = `https://${settings.instance_domain}/u/${username}`;
+  // Canonical username for actor URLs
+  const canonicalUsername = user.username;
+
+  const actorId = getActorUrlSync(canonicalUsername, settings.instance_domain);
+  const profileUrl = `https://${settings.instance_domain}/u/${canonicalUsername}`;
+  const subject = `acct:${canonicalUsername}@${settings.instance_domain}`;
 
   const jrd = {
-    subject: resource,
-    aliases: [profileUrl, actorId],
+    subject,
+    aliases: [profileUrl, actorId, resource],
     links: [
       {
         rel: "http://webfinger.net/rel/profile-page",
@@ -50,6 +58,16 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
         rel: "self",
         type: "application/activity+json",
         href: actorId,
+      },
+      {
+        rel: "alternate",
+        type: "application/rss+xml",
+        href: `https://${settings.instance_domain}/api/feeds/${canonicalUsername}/rss`,
+      },
+      {
+        rel: "alternate",
+        type: "application/atom+xml",
+        href: `https://${settings.instance_domain}/api/feeds/${canonicalUsername}/atom`,
       },
       {
         rel: "http://ostatus.org/schema/1.0/subscribe",
@@ -112,7 +130,7 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
     version: "2.1",
     software: {
       name: "x-log",
-      version: "0.3.0",
+      version: "1.0.0",
       repository: "https://github.com/BRAVO68WEB/x-log",
       homepage: "https://github.com/BRAVO68WEB/x-log",
     },
@@ -131,8 +149,20 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
     metadata: {
       nodeName: settings?.instance_name || "x-log",
       nodeDescription: settings?.instance_description || null,
+      ...(settings?.admin_email
+        ? { maintainer: [{ email: settings.admin_email }] }
+        : {}),
     },
   };
+
+  // Prefer primary author as contact account when available
+  const primary = await getPrimaryUser();
+  if (primary && settings?.instance_domain) {
+    (nodeInfo.metadata as any).nodeAccount = {
+      username: primary.username,
+      account: `${primary.username}@${settings.instance_domain}`,
+    };
+  }
 
   return c.json(nodeInfo, 200, {
     "Content-Type": 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
@@ -165,7 +195,7 @@ wellKnownRoutes.get("/nodeinfo/2.0", async (c) => {
     version: "2.0",
     software: {
       name: "x-log",
-      version: "0.3.0",
+      version: "1.0.0",
     },
     protocols: ["activitypub"],
     services: {
@@ -243,7 +273,7 @@ wellKnownRoutes.get("/.well-known/x-nodeinfo2", async (c) => {
         baseUrl: `https://${settings.instance_domain}`,
         name: settings.instance_name,
         software: "x-log",
-        version: "0.3.0",
+        version: "1.0.0",
       },
       openRegistrations: false,
       protocols: ["activitypub"],

@@ -7,7 +7,8 @@ This document is the functional and technical specification for the project name
 ## 1) Goals and Non-Goals
 
 - Goals
-  - Self-hostable instance with onboarding journey (single or multi-user)
+  - Self-hostable instance with onboarding journey (**solo-first**; multi-user opt-in later)
+  - Explicit **primary author** (site owner) for landing, MCP, and instance-level Fediverse actions
   - ActivityPub compatible: profiles discoverable via WebFinger; posts delivered via outbox; inbox for follows/likes
   - First-class blog UX with a Notion-like editor; Markdown-based renderer for published posts
   - RSS and Atom feeds for each author

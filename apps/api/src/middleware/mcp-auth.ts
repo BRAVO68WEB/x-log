@@ -1,8 +1,14 @@
 import { Context, Next } from "hono";
-import { getEnv } from "@xlog/config";
+import {
+  getMcpApiKey,
+  isMcpEnabled,
+  resolveMcpActor,
+  type McpActor,
+} from "../mcp/context";
 
 export interface MCPAuthContext {
   apiKey: string;
+  actor: McpActor;
 }
 
 declare module "hono" {
@@ -11,98 +17,104 @@ declare module "hono" {
   }
 }
 
+function unauthorized(c: Context, data: string) {
+  return c.json(
+    {
+      jsonrpc: "2.0",
+      error: {
+        code: -32001,
+        message: "Unauthorized",
+        data,
+      },
+      id: null,
+    },
+    401
+  );
+}
+
 /**
  * MCP Authentication Middleware
- * Supports API key authentication via Authorization header or query parameter
+ * Accepts Authorization: Bearer <key> where key is either:
+ * - instance MCP_API_KEY (acts as primary / MCP_ACTOR_USERNAME)
+ * - per-user key (xlog_mcp_…) acting as that user only
+ * Legacy: Authorization: mcp-key <key>, or ?api_key= (deprecated).
  */
 export async function mcpAuthMiddleware(c: Context, next: Next) {
-  // Get API key from Authorization header or query parameter
+  if (!isMcpEnabled()) {
+    return unauthorized(c, "MCP server is disabled");
+  }
+
   const authHeader = c.req.header("Authorization");
   let apiKey: string | undefined;
 
   if (authHeader?.startsWith("Bearer ")) {
-    apiKey = authHeader.slice(7);
+    apiKey = authHeader.slice(7).trim();
   } else if (authHeader?.startsWith("mcp-key ")) {
-    apiKey = authHeader.slice(8);
+    apiKey = authHeader.slice(8).trim();
   } else {
-    // Try query parameter
-    apiKey = c.req.query("api_key");
+    apiKey = c.req.query("api_key") || undefined;
+    if (apiKey) {
+      console.warn("[MCP Auth] api_key query param is deprecated; use Authorization: Bearer");
+    }
   }
 
   if (!apiKey) {
-    return c.json(
-      {
-        jsonrpc: "2.0",
-        error: {
-          code: -32001,
-          message: "Unauthorized",
-          data: "API key required. Provide via Authorization header (Bearer <key> or mcp-key <key>) or api_key query parameter.",
-        },
-        id: null,
-      },
-      401
+    return unauthorized(
+      c,
+      "API key required. Provide Authorization: Bearer <key> (instance MCP_API_KEY or user MCP key)"
     );
   }
 
-  // Validate API key
-  // For now, we'll use a simple API key stored in environment variable
-  // In production, you might want to store API keys in the database
-  const env = getEnv();
-  // Use getEnv() to get MCP_API_KEY, fallback to SESSION_SECRET
-  const validApiKey = env.MCP_API_KEY || env.SESSION_SECRET;
+  const instanceKey = getMcpApiKey();
 
-  if (apiKey !== validApiKey) {
-    // Log for debugging (remove in production)
-    if (process.env.NODE_ENV === "development") {
-      console.log("[MCP Auth] API key validation failed:", {
-        provided: apiKey ? `${apiKey.substring(0, 4)}...` : "none",
-        expected: validApiKey ? `${validApiKey.substring(0, 4)}...` : "none",
-      });
+  // 1) Instance key → primary / MCP_ACTOR_USERNAME
+  if (instanceKey && apiKey === instanceKey) {
+    const actor = await resolveMcpActor();
+    if (!actor) {
+      return c.json(
+        {
+          jsonrpc: "2.0",
+          error: {
+            code: -32002,
+            message: "Misconfigured",
+            data: "No MCP actor user found. Set MCP_ACTOR_USERNAME or create an admin user.",
+          },
+          id: null,
+        },
+        503
+      );
     }
-    // For now, only use environment variable API key
-    // In the future, you could add an api_key column to users table
-    // and check database for user-specific API keys here
-
-    return c.json(
-      {
-        jsonrpc: "2.0",
-        error: {
-          code: -32001,
-          message: "Unauthorized",
-          data: "Invalid API key",
-        },
-        id: null,
-      },
-      401
-    );
+    c.set("mcpAuth", { apiKey, actor });
+    await next();
+    return;
   }
 
-  // Valid API key
-  c.set("mcpAuth", {
-    apiKey,
-  });
+  // 2) Per-user MCP key → that user only
+  try {
+    const { resolveActorFromUserKey } = await import("../lib/mcp-keys");
+    const resolved = await resolveActorFromUserKey(apiKey);
+    if (resolved) {
+      c.set("mcpAuth", { apiKey, actor: resolved.actor });
+      await next();
+      return;
+    }
+  } catch (err) {
+    console.warn("[MCP Auth] user key lookup failed:", err);
+  }
 
-  await next();
+  return unauthorized(c, "Invalid API key");
 }
 
-/**
- * Require MCP authentication
- */
 export async function requireMCPAuth(c: Context, next: Next) {
   const auth = c.get("mcpAuth");
   if (!auth) {
-    return c.json(
-      {
-        jsonrpc: "2.0",
-        error: {
-          code: -32001,
-          message: "Unauthorized",
-          data: "MCP authentication required",
-        },
-        id: null,
-      },
-      401
-    );
+    return unauthorized(c, "MCP authentication required");
   }
   await next();
+}
+
+/** Extract Bearer token without full middleware (for streamable checks). */
+export function extractBearerToken(authHeader: string | undefined): string | null {
+  if (!authHeader?.startsWith("Bearer ")) return null;
+  return authHeader.slice(7).trim() || null;
 }

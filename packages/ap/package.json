@@ -1,12 +1,14 @@
 {
   "name": "@xlog/ap",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "test": "bun test src"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@xlog/config": "workspace:*",
     "@xlog/db": "workspace:*"
   },

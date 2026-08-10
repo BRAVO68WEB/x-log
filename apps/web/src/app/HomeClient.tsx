@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BentoGrid, BentoCard, BentoCardContent } from "@/components/ui/bento-grid";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { AuthorDirectory } from "@/components/AuthorDirectory";
 import { usePosts } from "@/hooks/usePosts";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
@@ -14,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 export default function HomeClient() {
   const { isAuthenticated } = useAuth();
-  const { posts, loading, hasMore, loadMore, error } = usePosts({
+  const { posts, loading, loadingMore, hasMore, loadMore, error } = usePosts({
     limit: 12,
     autoLoad: true,
   });
@@ -53,7 +54,8 @@ export default function HomeClient() {
 
   return (
     <main className="min-h-screen py-10 sm:py-16 px-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <AuthorDirectory />
         <BentoGrid columns={3}>
           {/* Quick action card — only for authenticated users */}
           {isAuthenticated && (
@@ -100,7 +102,7 @@ export default function HomeClient() {
                 className={cn("p-6 flex flex-col", !featured.banner_url && "flex-1 justify-center")}
               >
                 <Link href={`/post/${featured.id}`}>
-                  <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
+                  <h2 className="text-xl sm:text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading break-words">
                     {featured.title}
                   </h2>
                 </Link>
@@ -173,10 +175,17 @@ export default function HomeClient() {
           {/* Load more */}
           {hasMore && (
             <BentoCard size="full" index={posts.length + (isAuthenticated ? 2 : 1)}>
-              <BentoCardContent className="p-6 flex justify-center">
-                <Button variant="outline" onClick={loadMore} disabled={loading}>
-                  {loading ? "Loading..." : "Load More"}
+              <BentoCardContent className="p-6 flex flex-col items-center gap-2">
+                <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading..." : "Load more"}
                 </Button>
+              </BentoCardContent>
+            </BentoCard>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <BentoCard size="full" index={posts.length + (isAuthenticated ? 3 : 2)}>
+              <BentoCardContent className="p-4 text-center text-sm text-muted-foreground">
+                End of posts
               </BentoCardContent>
             </BentoCard>
           )}

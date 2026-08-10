@@ -52,6 +52,16 @@ export async function enqueueDeliveriesToFollowers(
   const uniqueInboxes = [...new Set(followers.map((f) => f.inbox_url))];
 
   for (const inboxUrl of uniqueInboxes) {
+    try {
+      const { isDomainBlocked } = await import("./federation-blocks");
+      if (await isDomainBlocked(inboxUrl)) {
+        console.warn(`[federation] skip delivery to blocked domain inbox=${inboxUrl}`);
+        continue;
+      }
+    } catch {
+      /* ignore blocklist errors */
+    }
+
     await enqueueDelivery({
       activityId,
       userId,

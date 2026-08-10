@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useMutation, useQuery, useQueryClient } from "react-query";
+import { withCsrf } from "@/lib/csrf";
 
 interface OIDCAccount {
   id: string;
@@ -42,10 +43,10 @@ export function OIDCAccountsSection() {
 
   const unlinkMutation = useMutation(
     async (accountId: string) => {
-      const res = await fetch(`/api/auth/oidc/accounts/${accountId}`, {
+      const res = await fetch(`/api/auth/oidc/accounts/${accountId}`, withCsrf({
         method: "DELETE",
         credentials: "include",
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Failed to unlink account" }));
         throw new Error(err.error || `HTTP ${res.status}`);

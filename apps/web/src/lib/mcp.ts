@@ -3,7 +3,8 @@
  * Provides a client interface for interacting with the MCP server
  */
 
-const MCP_BASE = "/api/mcp";
+/** Legacy JSON-RPC endpoint (Streamable HTTP is at /api/mcp for remote clients). */
+const MCP_BASE = "/api/mcp/jsonrpc";
 
 type JSONPrimitive = string | number | boolean | null;
 type JSONValue = JSONPrimitive | { [key: string]: JSONValue } | JSONValue[];

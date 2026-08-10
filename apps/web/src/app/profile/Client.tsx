@@ -3,6 +3,7 @@
 import { ProfileForm } from "@/components/ProfileForm";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { OIDCAccountsSection } from "@/components/OIDCAccountsSection";
+import { McpKeysSection } from "@/components/McpKeysSection";
 import { Card, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -48,6 +49,8 @@ export default function ProfileClient() {
         </Card>
 
         <OIDCAccountsSection />
+
+        <McpKeysSection />
       </div>
     </main>
   );
