@@ -73,6 +73,14 @@ publicRoutes.get(
       }
     }
 
+    let openRegistrations = false;
+    try {
+      const { isOpenRegistrationsEnabled } = await import("../lib/registration");
+      openRegistrations = await isOpenRegistrationsEnabled();
+    } catch {
+      /* ignore */
+    }
+
     return c.json({
       instance_name: settings.instance_name,
       instance_description: settings.instance_description,
@@ -81,6 +89,7 @@ publicRoutes.get(
       theme_id: settings.theme_id,
       instance_mode: deriveInstanceMode(userCount),
       local_user_count: userCount,
+      open_registrations: openRegistrations,
       total_public_posts: Number(totalPostsRow?.count || 0),
       primary_profile: primaryProfile,
     });

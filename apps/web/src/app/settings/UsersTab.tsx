@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import {
   BentoGrid,
@@ -20,9 +21,17 @@ export default function UsersTab() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [lastInviteUrl, setLastInviteUrl] = useState<string | null>(null);
+  const [openReg, setOpenReg] = useState(false);
 
   const usersQuery = useQuery(["admin-users"], () => adminApi.listUsers());
   const invitesQuery = useQuery(["admin-invites"], () => adminApi.listInvites());
+  const settingsQuery = useQuery(["settings-open-reg"], async () => {
+    const res = await fetch("/api/settings", { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to load settings");
+    return res.json() as Promise<{ open_registrations: boolean }>;
+  }, {
+    onSuccess: (data) => setOpenReg(Boolean(data.open_registrations)),
+  });
 
   const inviteMutation = useMutation(
     async () => adminApi.createInvite(email.trim() || null),
@@ -79,6 +88,35 @@ export default function UsersTab() {
     }
   );
 
+  const openRegMutation = useMutation(
+    async (enabled: boolean) => {
+      const res = await fetch("/api/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ open_registrations: enabled }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      return data as { open_registrations: boolean };
+    },
+    {
+      onSuccess: (data) => {
+        setOpenReg(Boolean(data.open_registrations));
+        setSuccess(
+          data.open_registrations
+            ? "Public registration enabled"
+            : "Public registration closed (invite-only)"
+        );
+        setTimeout(() => setSuccess(null), 2500);
+        settingsQuery.refetch();
+      },
+      onError: (err) => {
+        setError(err instanceof Error ? err.message : "Failed to update registration mode");
+      },
+    }
+  );
+
   if (usersQuery.isLoading) {
     return (
       <div className="py-12 flex justify-center">
@@ -114,7 +152,32 @@ export default function UsersTab() {
       )}
 
       <BentoGrid columns={2}>
-        <BentoCard size="full" index={0} accent>
+        <BentoCard size="full" index={0}>
+          <BentoCardHeader>
+            <h2 className="text-xl font-semibold font-heading">Registration mode</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Default is invite-only. Open registration creates authors only (never admins).
+              Env <code className="text-xs">OPEN_REGISTRATIONS=true</code> forces open.
+            </p>
+          </BentoCardHeader>
+          <BentoCardContent>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5 pr-4">
+                <Label className="font-medium">Open public registration</Label>
+                <p className="text-xs text-muted-foreground">
+                  Allows /register for new authors up to MAX_LOCAL_AUTHORS
+                </p>
+              </div>
+              <Switch
+                checked={openReg}
+                disabled={openRegMutation.isLoading || settingsQuery.isLoading}
+                onCheckedChange={(checked) => openRegMutation.mutate(checked)}
+              />
+            </div>
+          </BentoCardContent>
+        </BentoCard>
+
+        <BentoCard size="full" index={1} accent>
           <BentoCardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -186,7 +249,7 @@ export default function UsersTab() {
           </BentoCardContent>
         </BentoCard>
 
-        <BentoCard size="full" index={1}>
+        <BentoCard size="full" index={2}>
           <BentoCardHeader>
             <h2 className="text-xl font-semibold font-heading">Invite author</h2>
             <p className="text-sm text-muted-foreground mt-1">
@@ -233,7 +296,7 @@ export default function UsersTab() {
           </BentoCardContent>
         </BentoCard>
 
-        <BentoCard size="full" index={2}>
+        <BentoCard size="full" index={3}>
           <BentoCardHeader>
             <h2 className="text-lg font-semibold font-heading">Recent invites</h2>
           </BentoCardHeader>

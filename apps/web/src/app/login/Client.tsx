@@ -184,6 +184,13 @@ export default function LoginClient() {
                 >
                   Sign in with OIDC
                 </Button>
+                <p className="text-center text-sm text-muted-foreground">
+                  Need an account?{" "}
+                  <Link href="/register" className="text-primary hover:underline">
+                    Create one
+                  </Link>{" "}
+                  (if open registration is enabled)
+                </p>
               </div>
             </BentoCardContent>
           </BentoCard>

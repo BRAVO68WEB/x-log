@@ -120,6 +120,7 @@
 - [x] OTEL named spans (API + worker) + PostHog server events (Phase 2)
 - [x] Primary author (`primary_user_id`) + solo/multi derived mode (Phase 0)
 - [x] Multi-user invite + authz (Phase 3 M1)
+- [x] Open registration modes + rate limits (Phase 4 M2)
 
 ### Documentation
 

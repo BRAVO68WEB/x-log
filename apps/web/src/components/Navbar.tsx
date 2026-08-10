@@ -30,7 +30,13 @@ export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  if (pathname === "/onboarding" || pathname === "/login") {
+  if (
+    pathname === "/onboarding" ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/verify-email" ||
+    pathname.startsWith("/invite/")
+  ) {
     return null;
   }
 

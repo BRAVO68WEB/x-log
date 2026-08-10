@@ -128,7 +128,8 @@ docker run -d \
 | `SMTP_URL` | SMTP server for emails | (disabled) |
 | `ADMIN_EMAIL` | Admin contact email | (none) |
 | `INSTANCE_NAME` | Display name | `x-log` |
-| `OPEN_REGISTRATIONS` | Allow sign-ups | `false` |
+| `OPEN_REGISTRATIONS` | Force public signup on (`/register`) | `false` |
+| `MAX_LOCAL_AUTHORS` | Cap active admin+author accounts | `10` |
 | `FEDERATION_ENABLED` | Enable ActivityPub | `true` |
 | `BACKEND_API_URL` | Internal API URL | `http://localhost:8080` |
 
