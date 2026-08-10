@@ -127,6 +127,7 @@
 - [x] S3/R2 media driver (`MEDIA_DRIVER=local|s3`) (Phase 7)
 - [x] Scheduled posts + Markdown import (Phase 8a/8b)
 - [x] Quality: unit tests + operator docs + OpenAPI tags (Phase 9)
+- [x] In-app notifications (follow/like) + optional email (8c)
 
 ### Documentation
 

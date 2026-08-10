@@ -22,12 +22,14 @@ import { publicRoutes } from "./public";
 import { feedRoutes } from "./feed";
 import { analyticsRoutes } from "./analytics";
 import { invitesRoutes } from "./invites";
+import { notificationsRoutes } from "./notifications";
 
 export const apiRoutes = new Hono()
   .route("/auth", authRoutes)
   .route("/auth", passwordResetRoutes)
   .route("/onboarding", onboardingRoutes)
   .route("/invites", invitesRoutes)
+  .route("/notifications", notificationsRoutes)
   .route("/users", usersRoutes)
   .route("/profiles", profilesRoutes)
   .route("/posts", postsRoutes)

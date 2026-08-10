@@ -10,6 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "./ThemeToggle";
 import { cn } from "@/lib/utils";
 import {
+  FaBell,
   FaBoxArchive,
   FaChartSimple,
   FaGear,
@@ -24,11 +25,29 @@ import {
   FaFileLines,
 } from "react-icons/fa6";
 import type { IconType } from "react-icons";
+import { useQuery } from "react-query";
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, isAuthenticated, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const unreadQuery = useQuery(
+    ["notifications-unread"],
+    async () => {
+      const res = await fetch("/api/notifications/unread-count", {
+        credentials: "include",
+      });
+      if (!res.ok) return { count: 0 };
+      return res.json() as Promise<{ count: number }>;
+    },
+    {
+      enabled: isAuthenticated,
+      refetchInterval: 60_000,
+      staleTime: 30_000,
+    }
+  );
+  const unread = unreadQuery.data?.count || 0;
 
   if (
     pathname === "/onboarding" ||
@@ -53,6 +72,7 @@ export function Navbar() {
     { href: "/following", label: "Following", icon: FaNewspaper },
     { href: "/editor", label: "Write", icon: FaPen },
     { href: "/drafts", label: "My Posts", icon: FaFileLines },
+    { href: "/notifications", label: "Notifications", icon: FaBell },
     { href: "/snippets", label: "Snippets", icon: FaCode },
     { href: "/links", label: "Links", icon: FaLink },
     { href: "/bookmarks", label: "Bookmarks", icon: FaBookmark },
@@ -80,17 +100,25 @@ export function Navbar() {
               {allNavItems.map((item) => {
                 const Icon = item.icon;
                 const active = pathname === item.href;
+                const showBadge = item.href === "/notifications" && unread > 0;
                 return (
-                  <Link key={item.href} href={item.href}>
+                  <Link key={item.href} href={item.href} className="relative">
                     <Button
                       variant={active ? "secondary" : "ghost"}
                       size="icon"
                       className={cn("h-9 w-9 shrink-0", active && "text-foreground")}
-                      aria-label={item.label}
+                      aria-label={
+                        showBadge ? `${item.label} (${unread} unread)` : item.label
+                      }
                       title={item.label}
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </Button>
+                    {showBadge && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-medium text-primary-foreground">
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
