@@ -19,7 +19,7 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 - [x] Session JWT cookies + Bearer (mobile) + role gates (admin/author)
 - [x] Auth: login/logout, OIDC, password reset, open registration, email verify
 - [x] Users, profiles, posts (CRUD, schedule, import, version history), feeds, search
-- [x] Media upload (`MEDIA_DRIVER=local|s3`)
+- [x] Media upload (`MEDIA_DRIVER=local|s3`) + serving ETag/304 + orphan cleanup
 - [x] Bookmarks, snippets, links, threads, reposts, AI helpers
 - [x] Settings + admin features + multi-user invites
 - [x] Analytics collect/status/summary (feature-flagged)
@@ -65,7 +65,7 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 11a CSRF | Done (PR #36) |
 | 11b Broader rate-limit middleware | Done (PR #37) |
 | 12 Author depth — post version history | Done (PR #38) |
-| 13 Media ops cleanup | Planned |
+| 13 Media ops cleanup | Done (PR pending) |
 | 14 Quality / E2E depth | Planned |
 
 ### Documentation
@@ -89,7 +89,7 @@ Not “forgotten placeholders” — intentional follow-ups:
 | Item | Notes |
 |------|--------|
 | ~~Global rate-limit middleware~~ | Done (B68-86) — Redis-backed multi-replica still optional |
-| Media cleanup / serving polish | B68-94 / B68-85 under Phase 13 |
+| ~~Media cleanup / serving polish~~ | Phase 13 (B68-94 / B68-85) |
 | Editor/image polish | TipTap already integrated; residual UX in B68-83 / B68-90 |
 | Post list pagination polish | Partial; B68-88 |
 | Responsive design polish | B68-89 |
