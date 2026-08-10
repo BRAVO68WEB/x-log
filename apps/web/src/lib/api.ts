@@ -235,6 +235,46 @@ export const postsApi = {
     });
   },
 
+  listVersions: async (id: string) => {
+    return apiRequest<{
+      current_version: number;
+      items: Array<{
+        version: number;
+        title: string;
+        changelog: string | null;
+        created_by: string | null;
+        created_at: string;
+        is_current: boolean;
+      }>;
+    }>(`/api/posts/${id}/versions`);
+  },
+
+  getVersion: async (id: string, version: number) => {
+    return apiRequest<{
+      version: number;
+      title: string;
+      content_markdown: string;
+      content_blocks_json: import("@tiptap/core").JSONContent | Record<string, unknown>;
+      summary: string | null;
+      banner_url: string | null;
+      hashtags: string[];
+      changelog: string | null;
+      created_at: string;
+      is_current: boolean;
+    }>(`/api/posts/${id}/versions/${version}`);
+  },
+
+  restoreVersion: async (id: string, version: number) => {
+    return apiRequest<{
+      id: string;
+      current_version: number;
+      restored_from: number;
+      message: string;
+    }>(`/api/posts/${id}/versions/${version}/restore`, {
+      method: "POST",
+    });
+  },
+
   importMarkdown: async (
     posts: Array<{
       title: string;

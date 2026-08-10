@@ -6,6 +6,11 @@ import {
   createDeleteActivity,
 } from "@xlog/ap";
 import { enqueueDeliveriesToFollowers } from "../lib/redis";
+import {
+  insertPostVersion,
+  shouldCreatePostVersion,
+  type PostVersionSnapshot,
+} from "./post-versions";
 
 const EMPTY_CONTENT_BLOCKS = {
   type: "doc",
@@ -102,7 +107,7 @@ export async function linkMediaToPost(
   }
 }
 
-function assertCanEdit(
+export function assertCanEditPost(
   postAuthorId: string,
   actor: PostActor
 ): void {
@@ -119,6 +124,11 @@ export async function createPost(actor: PostActor, data: CreatePostInput) {
   const hashtags = data.hashtags ?? [];
   const visibility = data.visibility ?? "public";
 
+  const blocks = (data.content_blocks || EMPTY_CONTENT_BLOCKS) as Record<
+    string,
+    unknown
+  >;
+
   await db
     .insertInto("posts")
     .values({
@@ -127,14 +137,29 @@ export async function createPost(actor: PostActor, data: CreatePostInput) {
       title: data.title,
       banner_url: data.banner_url || null,
       content_markdown: data.content_markdown,
-      content_blocks_json: (data.content_blocks || EMPTY_CONTENT_BLOCKS) as any,
+      content_blocks_json: blocks as any,
       summary: data.summary || null,
       hashtags,
       visibility,
       ap_object_id: apObjectId,
       like_count: 0,
+      current_version: 1,
     })
     .execute();
+
+  await insertPostVersion(
+    postId,
+    1,
+    {
+      title: data.title,
+      content_markdown: data.content_markdown,
+      content_blocks_json: blocks,
+      summary: data.summary || null,
+      banner_url: data.banner_url || null,
+      hashtags,
+    },
+    { changelog: "Initial version", createdBy: actor.id }
+  );
 
   await linkMediaToPost(
     db,
@@ -177,12 +202,51 @@ export async function updatePost(
   const db = getDb();
   const post = await db
     .selectFrom("posts")
-    .select(["author_id", "published_at", "visibility"])
+    .select([
+      "author_id",
+      "published_at",
+      "visibility",
+      "title",
+      "content_markdown",
+      "content_blocks_json",
+      "summary",
+      "banner_url",
+      "hashtags",
+      "current_version",
+    ])
     .where("id", "=", id)
     .executeTakeFirst();
 
   if (!post) throw new PostServiceError("Post not found", 404);
-  assertCanEdit(post.author_id, actor);
+  assertCanEditPost(post.author_id, actor);
+
+  const previous: PostVersionSnapshot = {
+    title: post.title,
+    content_markdown: post.content_markdown,
+    content_blocks_json: (post.content_blocks_json || EMPTY_CONTENT_BLOCKS) as Record<
+      string,
+      unknown
+    >,
+    summary: post.summary,
+    banner_url: post.banner_url,
+    hashtags: post.hashtags || [],
+  };
+
+  const nextPartial: Partial<PostVersionSnapshot> = {};
+  if (data.title !== undefined) nextPartial.title = data.title;
+  if (data.content_markdown !== undefined) {
+    nextPartial.content_markdown = data.content_markdown;
+  }
+  if (data.content_blocks !== undefined) {
+    nextPartial.content_blocks_json = (data.content_blocks ||
+      EMPTY_CONTENT_BLOCKS) as Record<string, unknown>;
+  }
+  if (data.summary !== undefined) nextPartial.summary = data.summary ?? null;
+  if (data.banner_url !== undefined) nextPartial.banner_url = data.banner_url ?? null;
+  if (data.hashtags !== undefined) nextPartial.hashtags = data.hashtags;
+
+  const bumpVersion = shouldCreatePostVersion(previous, nextPartial);
+  const newVersion = bumpVersion ? post.current_version + 1 : post.current_version;
 
   const { content_blocks, ...rest } = data;
   await db
@@ -193,9 +257,30 @@ export async function updatePost(
         content_blocks !== undefined
           ? ((content_blocks || EMPTY_CONTENT_BLOCKS) as any)
           : undefined,
+      ...(bumpVersion ? { current_version: newVersion } : {}),
+      updated_at: new Date(),
     })
     .where("id", "=", id)
     .execute();
+
+  if (bumpVersion) {
+    const snapshot: PostVersionSnapshot = {
+      title: data.title ?? previous.title,
+      content_markdown: data.content_markdown ?? previous.content_markdown,
+      content_blocks_json:
+        content_blocks !== undefined
+          ? ((content_blocks || EMPTY_CONTENT_BLOCKS) as Record<string, unknown>)
+          : previous.content_blocks_json,
+      summary: data.summary !== undefined ? data.summary ?? null : previous.summary,
+      banner_url:
+        data.banner_url !== undefined ? data.banner_url ?? null : previous.banner_url,
+      hashtags: data.hashtags ?? previous.hashtags,
+    };
+    await insertPostVersion(id, newVersion, snapshot, {
+      changelog: null,
+      createdBy: actor.id,
+    });
+  }
 
   await linkMediaToPost(db, id, data.banner_url, content_blocks, data.content_markdown);
 
@@ -217,7 +302,7 @@ export async function updatePost(
     }
   }
 
-  return { id, message: "Post updated" };
+  return { id, message: "Post updated", current_version: newVersion };
 }
 
 export async function publishPost(actor: PostActor, id: string) {
@@ -229,7 +314,7 @@ export async function publishPost(actor: PostActor, id: string) {
     .executeTakeFirst();
 
   if (!post) throw new PostServiceError("Post not found", 404);
-  assertCanEdit(post.author_id, actor);
+  assertCanEditPost(post.author_id, actor);
 
   if (post.published_at) {
     return { id, message: "Post already published", published_at: post.published_at };
@@ -295,7 +380,7 @@ export async function schedulePost(
     .executeTakeFirst();
 
   if (!post) throw new PostServiceError("Post not found", 404);
-  assertCanEdit(post.author_id, actor);
+  assertCanEditPost(post.author_id, actor);
 
   if (post.published_at) {
     throw new PostServiceError("Cannot schedule an already published post", 400);
@@ -323,7 +408,7 @@ export async function unschedulePost(actor: PostActor, id: string) {
     .executeTakeFirst();
 
   if (!post) throw new PostServiceError("Post not found", 404);
-  assertCanEdit(post.author_id, actor);
+  assertCanEditPost(post.author_id, actor);
 
   await db
     .updateTable("posts")
@@ -384,7 +469,7 @@ export async function deletePost(actor: PostActor, id: string) {
     .executeTakeFirst();
 
   if (!post) throw new PostServiceError("Post not found", 404);
-  assertCanEdit(post.author_id, actor);
+  assertCanEditPost(post.author_id, actor);
 
   if (post.published_at && post.visibility !== "private" && post.ap_object_id) {
     try {

@@ -18,7 +18,7 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 - [x] OpenAPI + Scalar `/docs`
 - [x] Session JWT cookies + Bearer (mobile) + role gates (admin/author)
 - [x] Auth: login/logout, OIDC, password reset, open registration, email verify
-- [x] Users, profiles, posts (CRUD, schedule, import), feeds, search
+- [x] Users, profiles, posts (CRUD, schedule, import, version history), feeds, search
 - [x] Media upload (`MEDIA_DRIVER=local|s3`)
 - [x] Bookmarks, snippets, links, threads, reposts, AI helpers
 - [x] Settings + admin features + multi-user invites
@@ -61,10 +61,10 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 8a/8b Schedule + Markdown import | Done |
 | 8c In-app notifications | Done |
 | 9 Quality/docs (tests, operator guides, OpenAPI tags) | Done |
-| 10 Hygiene (status + Linear cleanup) | In progress |
+| 10 Hygiene (status + Linear cleanup) | Done |
 | 11a CSRF | Done (PR #36) |
 | 11b Broader rate-limit middleware | Done (PR #37) |
-| 12 Author depth | Planned |
+| 12 Author depth — post version history | In progress |
 | 13 Media ops cleanup | Planned |
 | 14 Quality / E2E depth | Planned |
 

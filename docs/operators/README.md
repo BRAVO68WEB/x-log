@@ -8,6 +8,7 @@ Docs for running and operating an x-log instance after onboarding.
 | [Multi-user](./multi-user.md) | Invite, open registration, roles, MCP keys |
 | [Analytics privacy](./analytics-privacy.md) | First-party views, flags, DNT, retention |
 | [Security](./security.md) | Session cookies, CSRF, rate limits |
+| [Authoring](./authoring.md) | Schedule, import, post version history |
 
 Also see:
 
