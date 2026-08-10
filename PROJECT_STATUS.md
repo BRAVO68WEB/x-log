@@ -63,7 +63,7 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 9 Quality/docs (tests, operator guides, OpenAPI tags) | Done |
 | 10 Hygiene (status + Linear cleanup) | In progress |
 | 11a CSRF | Done (PR #36) |
-| 11b Broader rate-limit middleware | In progress |
+| 11b Broader rate-limit middleware | Done (PR #37) |
 | 12 Author depth | Planned |
 | 13 Media ops cleanup | Planned |
 | 14 Quality / E2E depth | Planned |
