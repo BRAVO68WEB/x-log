@@ -16,7 +16,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,js,jsx}\"",
     "validate:themes": "bun run scripts/validate-themes.ts",
     "type-check": "turbo run type-check",
-    "test": "bun run --cwd packages/ap test",
+    "test": "bun run --cwd packages/ap test && bun run --cwd packages/db test",
     "migrate": "dotenv --override=false -- turbo run migrate",
     "start": "dotenv --override=false -- turbo run start"
   },

@@ -225,7 +225,8 @@ Used for:
 - Public `/api/public/instance` → `primary_profile`
 - NodeInfo metadata contact account
 
-Set via admin `PATCH /api/settings` with `{ "primary_user_id": "<uuid>" }`.
+Set via **Settings → Federation → Primary author** (admin UI), or
+`PATCH /api/settings` with `{ "primary_user_id": "<uuid>" }`.
 
 ### Roles (minimal)
 

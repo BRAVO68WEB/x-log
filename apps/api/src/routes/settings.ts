@@ -48,6 +48,12 @@ const InstanceSettingsUpdateSchema = z.object({
   ai_temperature: z.number().min(0).max(2).optional().nullable(),
 });
 
+const LocalUserOptionSchema = z.object({
+  id: z.string().uuid(),
+  username: z.string(),
+  role: z.string(),
+});
+
 const InstanceSettingsResponseSchema = z.object({
   id: z.number(),
   instance_name: z.string(),
@@ -62,6 +68,7 @@ const InstanceSettingsResponseSchema = z.object({
   primary_username: z.string().nullable(),
   instance_mode: z.enum(["solo", "multi"]),
   local_user_count: z.number().int(),
+  local_users: z.array(LocalUserOptionSchema),
   theme_id: z.enum([
     "system",
     "xlog-default",
@@ -88,9 +95,19 @@ const InstanceSettingsResponseSchema = z.object({
   updated_at: z.string(),
 });
 
+async function listLocalUsers() {
+  const db = getDb();
+  return db
+    .selectFrom("users")
+    .select(["id", "username", "role"])
+    .orderBy("created_at", "asc")
+    .execute();
+}
+
 async function formatSettingsResponse(settings: any) {
   const primary = await getPrimaryUser();
   const userCount = await countLocalUsers();
+  const localUsers = await listLocalUsers();
   return {
     id: settings.id,
     instance_name: settings.instance_name,
@@ -105,6 +122,7 @@ async function formatSettingsResponse(settings: any) {
     primary_username: primary?.username ?? null,
     instance_mode: deriveInstanceMode(userCount),
     local_user_count: userCount,
+    local_users: localUsers,
     theme_id: settings.theme_id,
     ai_base_url: settings.ai_base_url ?? null,
     ai_api_key: settings.ai_api_key ?? null,

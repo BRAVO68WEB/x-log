@@ -57,12 +57,24 @@ export default function SettingsClient() {
     federation_enabled: true,
     following_enabled: false,
     use_profile_as_landing: false,
+    primary_user_id: "" as string,
     theme_id: "system" as InstanceThemeId,
     ai_base_url: "",
     ai_api_key: "",
     ai_model: "",
     ai_max_tokens: 2048,
     ai_temperature: 0.7,
+  });
+  const [instanceMeta, setInstanceMeta] = useState<{
+    instance_mode: "solo" | "multi";
+    local_user_count: number;
+    local_users: Array<{ id: string; username: string; role: string }>;
+    primary_username: string | null;
+  }>({
+    instance_mode: "solo",
+    local_user_count: 0,
+    local_users: [],
+    primary_username: null,
   });
 
   const settingsQuery = useQuery(
@@ -82,6 +94,11 @@ export default function SettingsClient() {
         federation_enabled: boolean;
         following_enabled: boolean;
         use_profile_as_landing: boolean;
+        primary_user_id: string | null;
+        primary_username: string | null;
+        instance_mode: "solo" | "multi";
+        local_user_count: number;
+        local_users: Array<{ id: string; username: string; role: string }>;
         theme_id: InstanceThemeId;
         ai_base_url: string | null;
         ai_api_key: string | null;
@@ -101,12 +118,19 @@ export default function SettingsClient() {
           federation_enabled: data.federation_enabled,
           following_enabled: data.following_enabled,
           use_profile_as_landing: data.use_profile_as_landing,
+          primary_user_id: data.primary_user_id || data.local_users[0]?.id || "",
           theme_id: normalizeThemeId(data.theme_id),
           ai_base_url: data.ai_base_url || "",
           ai_api_key: data.ai_api_key || "",
           ai_model: data.ai_model || "",
           ai_max_tokens: data.ai_max_tokens || 2048,
           ai_temperature: data.ai_temperature ?? 0.7,
+        });
+        setInstanceMeta({
+          instance_mode: data.instance_mode,
+          local_user_count: data.local_user_count,
+          local_users: data.local_users || [],
+          primary_username: data.primary_username,
         });
       },
       onError: (err) => {
@@ -170,6 +194,7 @@ export default function SettingsClient() {
           federation_enabled: settings.federation_enabled,
           following_enabled: settings.following_enabled,
           use_profile_as_landing: settings.use_profile_as_landing,
+          primary_user_id: settings.primary_user_id || undefined,
           theme_id: settings.theme_id,
           ai_base_url: settings.ai_base_url || null,
           ai_api_key: settings.ai_api_key || null,
@@ -398,6 +423,49 @@ export default function SettingsClient() {
                     <h2 className="text-xl font-semibold font-heading">Federation</h2>
                   </BentoCardHeader>
                   <BentoCardContent className="space-y-4">
+                    <div className="rounded-lg border p-4 space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <Label className="font-medium">Primary author</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Site owner for landing, MCP write tools, and instance follows
+                          </p>
+                        </div>
+                        <span className="rounded-full border border-border px-2.5 py-0.5 text-xs font-medium capitalize">
+                          {instanceMeta.instance_mode} · {instanceMeta.local_user_count}{" "}
+                          {instanceMeta.local_user_count === 1 ? "user" : "users"}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="primary_user_id" className="text-sm">
+                          Local account
+                        </Label>
+                        <select
+                          id="primary_user_id"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          value={settings.primary_user_id}
+                          onChange={(e) =>
+                            setSettings({ ...settings, primary_user_id: e.target.value })
+                          }
+                          disabled={instanceMeta.local_users.length === 0}
+                        >
+                          {instanceMeta.local_users.length === 0 ? (
+                            <option value="">No local users</option>
+                          ) : (
+                            instanceMeta.local_users.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                @{u.username} ({u.role})
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        {instanceMeta.primary_username && (
+                          <p className="text-xs text-muted-foreground">
+                            Current primary: @{instanceMeta.primary_username}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                     <div className="flex items-center justify-between rounded-lg border p-4">
                       <div className="space-y-0.5">
                         <Label className="font-medium">Enable federation</Label>

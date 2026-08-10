@@ -416,6 +416,11 @@ export const settingsApi = {
       federation_enabled: boolean;
       following_enabled: boolean;
       use_profile_as_landing: boolean;
+      primary_user_id: string | null;
+      primary_username: string | null;
+      instance_mode: "solo" | "multi";
+      local_user_count: number;
+      local_users: Array<{ id: string; username: string; role: string }>;
       theme_id: string;
       ai_base_url: string | null;
       ai_api_key: string | null;
@@ -437,6 +442,7 @@ export const settingsApi = {
     federation_enabled?: boolean;
     following_enabled?: boolean;
     use_profile_as_landing?: boolean;
+    primary_user_id?: string | null;
     theme_id?: string;
     ai_base_url?: string | null;
     ai_api_key?: string | null;
