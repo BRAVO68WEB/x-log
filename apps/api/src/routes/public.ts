@@ -1,7 +1,13 @@
 import { Hono } from "hono";
 import { describeRoute, resolver } from "hono-openapi";
 import { InstanceSummaryResponseSchema } from "@xlog/validation";
-import { getDb, getInstanceSettings } from "@xlog/db";
+import {
+  getDb,
+  getInstanceSettings,
+  getPrimaryUser,
+  countLocalUsers,
+  deriveInstanceMode,
+} from "@xlog/db";
 
 export const publicRoutes = new Hono();
 
@@ -24,6 +30,8 @@ publicRoutes.get(
   async (c) => {
     const db = getDb();
     const settings = await getInstanceSettings();
+    const primary = await getPrimaryUser();
+    const userCount = await countLocalUsers();
 
     const totalPostsRow = await db
       .selectFrom("posts")
@@ -32,40 +40,38 @@ publicRoutes.get(
       .where("published_at", "is not", null)
       .executeTakeFirst();
 
-    const adminPrimaryProfile = await db
-      .selectFrom("users")
-      .innerJoin("user_profiles", "user_profiles.user_id", "users.id")
-      .select([
-        "users.username",
-        "users.role",
-        "users.created_at",
-        "user_profiles.full_name",
-        "user_profiles.avatar_url",
-        "user_profiles.banner_url",
-        "user_profiles.bio",
-      ])
-      .where("users.role", "=", "admin")
-      .orderBy("users.created_at", "asc")
-      .executeTakeFirst();
+    let primaryProfile: {
+      username: string;
+      full_name: string | null;
+      avatar_url: string | null;
+      banner_url: string | null;
+      bio: string | null;
+    } | null = null;
 
-    const fallbackPrimaryProfile = adminPrimaryProfile
-      ? null
-      : await db
-          .selectFrom("users")
-          .innerJoin("user_profiles", "user_profiles.user_id", "users.id")
-          .select([
-            "users.username",
-            "users.role",
-            "users.created_at",
-            "user_profiles.full_name",
-            "user_profiles.avatar_url",
-            "user_profiles.banner_url",
-            "user_profiles.bio",
-          ])
-          .orderBy("users.created_at", "asc")
-          .executeTakeFirst();
+    if (primary) {
+      const profile = await db
+        .selectFrom("users")
+        .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+        .select([
+          "users.username",
+          "user_profiles.full_name",
+          "user_profiles.avatar_url",
+          "user_profiles.banner_url",
+          "user_profiles.bio",
+        ])
+        .where("users.id", "=", primary.id)
+        .executeTakeFirst();
 
-    const primaryProfile = adminPrimaryProfile ?? fallbackPrimaryProfile;
+      if (profile) {
+        primaryProfile = {
+          username: profile.username,
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+          banner_url: profile.banner_url,
+          bio: profile.bio,
+        };
+      }
+    }
 
     return c.json({
       instance_name: settings.instance_name,
@@ -73,16 +79,10 @@ publicRoutes.get(
       instance_domain: settings.instance_domain,
       use_profile_as_landing: settings.use_profile_as_landing,
       theme_id: settings.theme_id,
+      instance_mode: deriveInstanceMode(userCount),
+      local_user_count: userCount,
       total_public_posts: Number(totalPostsRow?.count || 0),
-      primary_profile: primaryProfile
-        ? {
-            username: primaryProfile.username,
-            full_name: primaryProfile.full_name,
-            avatar_url: primaryProfile.avatar_url,
-            banner_url: primaryProfile.banner_url,
-            bio: primaryProfile.bio,
-          }
-        : null,
+      primary_profile: primaryProfile,
     });
   }
 );

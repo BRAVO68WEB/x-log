@@ -117,6 +117,7 @@
 - [x] Optional OpenTelemetry bootstrap (`OTEL_ENABLED`)
 - [x] Optional PostHog client (`NEXT_PUBLIC_POSTHOG_*`)
 - [ ] Analytics dashboard UI
+- [x] Primary author (`primary_user_id`) + solo/multi derived mode (Phase 0)
 - [ ] Multi-user invite / registration productization
 
 ### Documentation

@@ -1,27 +1,15 @@
 import crypto from "crypto";
 import type { getDb } from "@xlog/db";
-import { getInstanceSettings } from "@xlog/db";
+import { getInstanceSettings, getPrimaryUser } from "@xlog/db";
 import { getActorUrlSync, signRequest, fetchRemoteActorInbox } from "@xlog/ap";
 
+/** @deprecated Prefer getPrimaryUser() from @xlog/db */
 export async function getPrimaryProfileUser(
-  db: ReturnType<typeof getDb>
+  _db?: ReturnType<typeof getDb>
 ): Promise<{ id: string; username: string } | null> {
-  const admin = await db
-    .selectFrom("users")
-    .select(["id", "username"])
-    .where("role", "=", "admin")
-    .orderBy("created_at", "asc")
-    .executeTakeFirst();
-
-  if (admin) return admin;
-
-  return (
-    (await db
-      .selectFrom("users")
-      .select(["id", "username"])
-      .orderBy("created_at", "asc")
-      .executeTakeFirst()) ?? null
-  );
+  const user = await getPrimaryUser();
+  if (!user) return null;
+  return { id: user.id, username: user.username };
 }
 
 export async function resolveActorUrl(input: string): Promise<string> {

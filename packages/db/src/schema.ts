@@ -192,6 +192,8 @@ export interface InstanceSettingsTable {
   federation_enabled: boolean;
   following_enabled: boolean;
   use_profile_as_landing: boolean;
+  /** Site owner / default Fediverse actor for landing, MCP, instance follow */
+  primary_user_id: string | null;
   theme_id: ColumnType<InstanceThemeId, InstanceThemeId | undefined, InstanceThemeId>;
   ai_base_url: string | null;
   ai_api_key: string | null;

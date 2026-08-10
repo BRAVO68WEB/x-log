@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { getDb, getInstanceSettings } from "@xlog/db";
+import { getDb, getInstanceSettings, getPrimaryUser } from "@xlog/db";
 import { getActorUrlSync } from "@xlog/ap";
 
 export const wellKnownRoutes = new Hono();
@@ -131,8 +131,20 @@ wellKnownRoutes.get("/nodeinfo/2.1", async (c) => {
     metadata: {
       nodeName: settings?.instance_name || "x-log",
       nodeDescription: settings?.instance_description || null,
+      ...(settings?.admin_email
+        ? { maintainer: [{ email: settings.admin_email }] }
+        : {}),
     },
   };
+
+  // Prefer primary author as contact account when available
+  const primary = await getPrimaryUser();
+  if (primary && settings?.instance_domain) {
+    (nodeInfo.metadata as any).nodeAccount = {
+      username: primary.username,
+      account: `${primary.username}@${settings.instance_domain}`,
+    };
+  }
 
   return c.json(nodeInfo, 200, {
     "Content-Type": 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',

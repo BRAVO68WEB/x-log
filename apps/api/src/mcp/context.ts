@@ -1,6 +1,5 @@
 import { getEnv } from "@xlog/config";
-import { getDb } from "@xlog/db";
-import { getPrimaryProfileUser } from "../lib/activitypub";
+import { getDb, getPrimaryUser } from "@xlog/db";
 
 export type McpActor = {
   id: string;
@@ -59,15 +58,7 @@ export async function resolveMcpActor(): Promise<McpActor | null> {
     );
   }
 
-  const primary = await getPrimaryProfileUser(db);
+  const primary = await getPrimaryUser();
   if (!primary) return null;
-
-  const row = await db
-    .selectFrom("users")
-    .select(["id", "username", "role"])
-    .where("id", "=", primary.id)
-    .executeTakeFirst();
-
-  if (!row) return null;
-  return { id: row.id, username: row.username, role: row.role };
+  return { id: primary.id, username: primary.username, role: primary.role };
 }
