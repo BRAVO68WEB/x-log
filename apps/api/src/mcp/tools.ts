@@ -519,10 +519,19 @@ export async function callMcpTool(
   if (!tool) {
     return errorResult(`Unknown tool: ${name}`);
   }
-  try {
-    return await tool.handler(args ?? {}, ctx);
-  } catch (err) {
-    console.error(`[MCP] tool ${name} error:`, err);
-    return errorResult(err instanceof Error ? err.message : "Tool execution failed");
-  }
+
+  const { withSpan } = await import("../lib/tracing");
+  const { captureServerEvent } = await import("../lib/posthog");
+
+  return withSpan("mcp.tool_call", { "mcp.tool": name }, async () => {
+    // Product analytics: tool name only (no args / content)
+    void captureServerEvent("mcp_tool_called", { tool: name });
+
+    try {
+      return await tool.handler(args ?? {}, ctx);
+    } catch (err) {
+      console.error(`[MCP] tool ${name} error:`, err);
+      return errorResult(err instanceof Error ? err.message : "Tool execution failed");
+    }
+  });
 }

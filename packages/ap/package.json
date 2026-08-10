@@ -8,6 +8,7 @@
     "test": "bun test src"
   },
   "dependencies": {
+    "@opentelemetry/api": "^1.9.1",
     "@xlog/config": "workspace:*",
     "@xlog/db": "workspace:*"
   },

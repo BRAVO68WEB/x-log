@@ -132,6 +132,67 @@ docker run -d \
 | `FEDERATION_ENABLED` | Enable ActivityPub | `true` |
 | `BACKEND_API_URL` | Internal API URL | `http://localhost:8080` |
 
+### Observability (opt-in)
+
+All off by default. When disabled, no OTLP or PostHog traffic leaves the process.
+
+#### OpenTelemetry (traces)
+
+```bash
+# API service
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_SERVICE_NAME=x-log-api
+# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer xxx
+
+# Worker service (same endpoint, different service name)
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_SERVICE_NAME=x-log-worker
+```
+
+**Named spans** (when enabled):
+
+| Span | Where |
+|------|--------|
+| `federation.deliver` | Worker delivery job |
+| `ap.verify_signature` | Inbox HTTP Signature verify |
+| `ap.key_fetch` | Remote actor public key resolve |
+| `mcp.tool_call` | MCP tool execution |
+| `analytics.collect` | First-party page view collect |
+
+**Sample local collector (Docker):**
+
+```bash
+# Minimal OTLP HTTP receiver (Jaeger all-in-one example)
+docker run --rm -p 4318:4318 -p 16686:16686 jaegertracing/all-in-one:1.57
+# UI: http://localhost:16686
+# Point OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
+```
+
+Any OTLP-compatible backend works (Grafana Tempo, Honeycomb, Grafana Cloud, etc.).
+
+#### PostHog (server product events)
+
+Use **your** PostHog project — x-log does not phone home.
+
+```bash
+POSTHOG_SERVER_ENABLED=true
+POSTHOG_KEY=phc_...
+POSTHOG_HOST=https://us.i.posthog.com   # or your self-hosted host
+```
+
+Server events (distinct id = primary user or `instance:{domain}`):
+
+| Event | When |
+|-------|------|
+| `post_published` | Post published |
+| `follow_received` | New remote follower |
+| `mcp_tool_called` | MCP tool name only (no args) |
+| `federation_delivery_failed` | Worker delivery failure |
+
+First-party analytics IPs are **never** sent to PostHog.
+
 ### Feature Flags (Optional)
 
 Set to `true` or `false` to override admin UI settings:

@@ -646,66 +646,76 @@ async function resolveRemotePublicKey(
   signerUserId?: string | null,
   opts?: { bypassCache?: boolean }
 ): Promise<string | null> {
-  if (!opts?.bypassCache) {
-    const cached = await getCachedRemoteKey(keyId);
-    if (cached) {
-      if (!actorUrlsEquivalent(cached.owner, actorUrl)) {
-        console.warn(
-          `Remote key cache owner mismatch for ${keyId}; invalidating`
-        );
-        await invalidateRemoteKey(keyId);
-      } else {
-        return cached.public_key_pem;
+  const { withSpan } = await import("./tracing");
+  return withSpan(
+    "ap.key_fetch",
+    {
+      "ap.key_id": keyId.slice(0, 200),
+      "ap.bypass_cache": Boolean(opts?.bypassCache),
+    },
+    async () => {
+      if (!opts?.bypassCache) {
+        const cached = await getCachedRemoteKey(keyId);
+        if (cached) {
+          if (!actorUrlsEquivalent(cached.owner, actorUrl)) {
+            console.warn(
+              `Remote key cache owner mismatch for ${keyId}; invalidating`
+            );
+            await invalidateRemoteKey(keyId);
+          } else {
+            return cached.public_key_pem;
+          }
+        }
       }
+
+      const remoteActor = await fetchRemoteActorDocument(actorUrl, {
+        signerUserId: signerUserId || undefined,
+      });
+      if (!remoteActor) {
+        // Actor often returns 410 after deletion while remotes still deliver signed
+        // Delete activities. Use a previously cached key even if past TTL.
+        const stale = await getCachedRemoteKey(keyId, { allowStale: true });
+        if (stale && actorUrlsEquivalent(stale.owner, actorUrl)) {
+          console.warn(
+            `resolveRemotePublicKey: using stale cached key for ${keyId} (actor fetch failed)`
+          );
+          return stale.public_key_pem;
+        }
+        return null;
+      }
+
+      const { actor, actorUrl: resolvedActorUrl } = remoteActor;
+      const publicKeyPem = actor.publicKey?.publicKeyPem;
+      const publicKeyOwner = actor.publicKey?.owner;
+      const publicKeyId = actor.publicKey?.id;
+
+      if (!publicKeyPem) {
+        console.warn("Sig verify failed: no publicKeyPem in actor");
+        return null;
+      }
+      if (publicKeyOwner && !actorUrlsEquivalent(publicKeyOwner, actorUrl)) {
+        console.warn(
+          `Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl}, resolved=${resolvedActorUrl})`
+        );
+        return null;
+      }
+      if (publicKeyId && !keyIdsEquivalent(publicKeyId, keyId)) {
+        console.warn(
+          `Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`
+        );
+        return null;
+      }
+
+      const owner = publicKeyOwner || actorUrl;
+      try {
+        await cacheRemoteKey(keyId, owner, publicKeyPem);
+      } catch (err) {
+        console.warn("Failed to cache remote key:", err);
+      }
+
+      return publicKeyPem;
     }
-  }
-
-  const remoteActor = await fetchRemoteActorDocument(actorUrl, {
-    signerUserId: signerUserId || undefined,
-  });
-  if (!remoteActor) {
-    // Actor often returns 410 after deletion while remotes still deliver signed
-    // Delete activities. Use a previously cached key even if past TTL.
-    const stale = await getCachedRemoteKey(keyId, { allowStale: true });
-    if (stale && actorUrlsEquivalent(stale.owner, actorUrl)) {
-      console.warn(
-        `resolveRemotePublicKey: using stale cached key for ${keyId} (actor fetch failed)`
-      );
-      return stale.public_key_pem;
-    }
-    return null;
-  }
-
-  const { actor, actorUrl: resolvedActorUrl } = remoteActor;
-  const publicKeyPem = actor.publicKey?.publicKeyPem;
-  const publicKeyOwner = actor.publicKey?.owner;
-  const publicKeyId = actor.publicKey?.id;
-
-  if (!publicKeyPem) {
-    console.warn("Sig verify failed: no publicKeyPem in actor");
-    return null;
-  }
-  if (publicKeyOwner && !actorUrlsEquivalent(publicKeyOwner, actorUrl)) {
-    console.warn(
-      `Sig verify failed: publicKey.owner mismatch (owner=${publicKeyOwner}, expected=${actorUrl}, resolved=${resolvedActorUrl})`
-    );
-    return null;
-  }
-  if (publicKeyId && !keyIdsEquivalent(publicKeyId, keyId)) {
-    console.warn(
-      `Sig verify failed: publicKey.id mismatch (id=${publicKeyId}, expected=${keyId})`
-    );
-    return null;
-  }
-
-  const owner = publicKeyOwner || actorUrl;
-  try {
-    await cacheRemoteKey(keyId, owner, publicKeyPem);
-  } catch (err) {
-    console.warn("Failed to cache remote key:", err);
-  }
-
-  return publicKeyPem;
+  );
 }
 
 export async function verifySignature(
@@ -716,6 +726,11 @@ export async function verifySignature(
   body: string,
   options?: VerifySignatureOptions
 ): Promise<boolean> {
+  const { withSpan } = await import("./tracing");
+  return withSpan(
+    "ap.verify_signature",
+    { "http.method": method, "http.route": path.slice(0, 200) },
+    async () => {
   try {
     // Behind a reverse proxy or tunnel, the Host header often gets
     // rewritten to the upstream address (e.g. localhost:8080). Use the
@@ -843,6 +858,8 @@ export async function verifySignature(
     console.error("Signature verification error:", error);
     return false;
   }
+    }
+  );
 }
 
 function verifySignatureWithKey(

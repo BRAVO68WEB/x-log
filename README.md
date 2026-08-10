@@ -181,12 +181,18 @@ Off by default. Enable the **`analytics`** feature flag (admin UI or `FEATURE_AN
 ### OpenTelemetry
 
 ```bash
+# API
 OTEL_ENABLED=true
 OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
 OTEL_SERVICE_NAME=x-log-api
+
+# Worker (same collector, different service name)
+OTEL_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-collector:4318
+OTEL_SERVICE_NAME=x-log-worker
 ```
 
-API process dynamically loads OTEL only when enabled. Point at your own OTLP collector (Grafana Tempo, Jaeger, etc.).
+Processes dynamically load OTEL only when enabled. Custom spans include `federation.deliver`, `ap.verify_signature`, `ap.key_fetch`, `mcp.tool_call`, `analytics.collect`. See `deploy/DEPLOY.md` for a sample Jaeger collector.
 
 ### PostHog
 
@@ -198,13 +204,13 @@ NEXT_PUBLIC_POSTHOG_ENABLED=true
 NEXT_PUBLIC_POSTHOG_KEY=phc_...
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 
-# Optional server events
+# Optional server events (API + worker)
 POSTHOG_SERVER_ENABLED=true
 POSTHOG_KEY=phc_...
 POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-No PostHog network calls when disabled.
+Server events: `post_published`, `follow_received`, `mcp_tool_called` (name only), `federation_delivery_failed`. Distinct id = primary author or `instance:{domain}`. No PostHog network calls when disabled; first-party visitor IPs are never forwarded.
 
 ## Instance modes (solo vs multi)
 

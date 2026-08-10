@@ -11,6 +11,10 @@ import {
   getFollowersUrl,
 } from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
+import { startOtelIfEnabled, withSpan } from "./otel";
+import { captureServerEvent } from "./posthog";
+
+await startOtelIfEnabled();
 
 const env = getEnv();
 const redis = new Redis(env.REDIS_URL);
@@ -44,6 +48,13 @@ async function processDeliveryJobs() {
 }
 
 async function deliverActivity(delivery: DeliveryJob) {
+  return withSpan(
+    "federation.deliver",
+    {
+      "xlog.activity_id": delivery.activityId?.slice(0, 200),
+      "xlog.activity_type": delivery.activityType || "Create",
+    },
+    async () => {
   try {
     const existing = await db
       .selectFrom("deliveries")
@@ -191,7 +202,23 @@ async function deliverActivity(delivery: DeliveryJob) {
       }))
       .where("activity_id", "=", delivery.activityId)
       .execute();
+
+    void captureServerEvent("federation_delivery_failed", {
+      activity_id: delivery.activityId,
+      activity_type: delivery.activityType || "Create",
+      // host only — never full inbox path secrets
+      remote_host: (() => {
+        try {
+          return new URL(delivery.inboxUrl || "").hostname;
+        } catch {
+          return "unknown";
+        }
+      })(),
+      error: String(error).slice(0, 200),
+    });
   }
+    }
+  );
 }
 
 // Process retry jobs
