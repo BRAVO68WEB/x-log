@@ -25,8 +25,9 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 - [x] Analytics collect/status/summary (feature-flagged)
 - [x] In-app notifications (follow/like) + optional email
 - [x] MCP Streamable HTTP + legacy JSON-RPC + per-user MCP keys
-- [x] Rate limit helpers (registration / invite accept)
+- [x] Rate limit helpers (registration / invite accept / login)
 - [x] **CSRF middleware** for cookie-session mutating `/api/*` (double-submit + Origin)
+- [x] **Rate-limit middleware** global API + sensitive paths (B68-86)
 
 ### ActivityPub
 
@@ -61,8 +62,8 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 8c In-app notifications | Done |
 | 9 Quality/docs (tests, operator guides, OpenAPI tags) | Done |
 | 10 Hygiene (status + Linear cleanup) | In progress |
-| 11a CSRF | In progress (this branch) |
-| 11b Broader rate-limit middleware | Planned |
+| 11a CSRF | Done (PR #36) |
+| 11b Broader rate-limit middleware | Done (PR #37) |
 | 12 Author depth | Planned |
 | 13 Media ops cleanup | Planned |
 | 14 Quality / E2E depth | Planned |
@@ -87,7 +88,7 @@ Not “forgotten placeholders” — intentional follow-ups:
 
 | Item | Notes |
 |------|--------|
-| Global rate-limit middleware | B68-86; per-route limits exist for reg/invite |
+| ~~Global rate-limit middleware~~ | Done (B68-86) — Redis-backed multi-replica still optional |
 | Media cleanup / serving polish | B68-94 / B68-85 under Phase 13 |
 | Editor/image polish | TipTap already integrated; residual UX in B68-83 / B68-90 |
 | Post list pagination polish | Partial; B68-88 |
