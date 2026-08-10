@@ -1,30 +1,52 @@
 # Contributing to x-log
 
-Thank you for your interest in contributing to x-log!
+Thanks for helping improve x-log.
 
-## Development Setup
+## Full guide
 
-1. Clone the repository
-2. Install dependencies: `bun install`
-3. Copy `.env.example` to `.env` and configure
-4. Start services: `docker-compose -f infra/compose/docker-compose.yml up -d`
-5. Run migrations: `cd apps/api && bun run migrate`
-6. Start development: `bun run dev`
+For setup, monorepo layout, migrations, CSRF, tests, and smoke scripts, read:
 
-## Code Style
+**[docs/development.md](./docs/development.md)**
 
-- Use TypeScript
-- Follow existing code patterns
-- Run `bun run lint` before committing
-- Write meaningful commit messages
+## Quick start
 
-## Pull Requests
+```bash
+bun install
+cp .env.example .env   # set SESSION_SECRET, DATABASE_URL, REDIS_URL, OIDC_* placeholders
+make setup && make dev # or: bun run migrate && bun run dev
+```
 
-1. Create a feature branch
-2. Make your changes
-3. Ensure tests pass (when tests are added)
-4. Submit a pull request with a clear description
+- Web: http://localhost:3000  
+- API: http://localhost:8080/docs  
+
+Create a local admin: `cd apps/api && bun run init-local-user`
+
+## Before you open a PR
+
+1. Branch from **`dev`**.
+2. Keep the change focused (one concern).
+3. Run:
+
+```bash
+bun run type-check
+bun run test
+```
+
+4. Optional smoke (API running):
+
+```bash
+./scripts/smoke-api.sh
+```
+
+5. Target the PR at **`dev`**, with a short summary and test plan.
+
+## Code style
+
+- TypeScript; follow patterns in neighboring files.
+- Meaningful commit messages (what + why).
+- No secrets in the tree.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the AGPL-3.0 license.
+By contributing, you agree your contributions are licensed under the AGPL-3.0
+license (see `LICENSE`).

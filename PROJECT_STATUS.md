@@ -66,21 +66,23 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 11b Broader rate-limit middleware | Done (PR #37) |
 | 12 Author depth — post version history | Done (PR #38) |
 | 13 Media ops cleanup | Done (PR #39) |
-| 14 Quality / E2E depth | Planned |
+| 14 Quality / docs + smoke | Done (PR #40) |
 
 ### Documentation
 
-- [x] Operator: federation, multi-user, analytics privacy, **security (CSRF)**
+- [x] Operator: federation, multi-user, analytics privacy, security, media, authoring
 - [x] Deploy guide (`deploy/DEPLOY.md`)
 - [x] API Scalar + OpenAPI tags
-- [ ] Dedicated development guide (B68-102)
+- [x] **Development guide** (`docs/development.md`, B68-102)
+- [x] CONTRIBUTING.md linked to development guide
 
 ### Testing
 
 - [x] Unit: HTTP Signatures (`packages/ap`)
-- [x] Unit: analytics, invites, rate-limit, blocks, media-storage, CSRF helpers (`apps/api`)
-- [ ] Broader integration tests
-- [ ] E2E beyond `scripts/test-federation.sh`
+- [x] Unit: analytics, invites, rate-limit, blocks, media-storage, CSRF, media-cleanup, post-versions (`apps/api`)
+- [x] Smoke: `scripts/smoke-api.sh`, `scripts/smoke-mcp.sh`
+- [x] Federation script: `scripts/test-federation.sh`
+- [ ] Full browser E2E suite (still optional; B68-98)
 
 ## Still open (honest backlog)
 
@@ -90,11 +92,11 @@ Not “forgotten placeholders” — intentional follow-ups:
 |------|--------|
 | ~~Global rate-limit middleware~~ | Done (B68-86) — Redis-backed multi-replica still optional |
 | ~~Media cleanup / serving polish~~ | Phase 13 (B68-94 / B68-85) |
+| ~~Development guide~~ | Phase 14 (B68-102) |
 | Editor/image polish | TipTap already integrated; residual UX in B68-83 / B68-90 |
 | Post list pagination polish | Partial; B68-88 |
 | Responsive design polish | B68-89 |
-| Integration + E2E tests | B68-97 / B68-98 |
-| Development guide | B68-102 |
+| Deep integration / browser E2E | B68-97 / B68-98 (smoke + federation cover basics) |
 | Federation delivery error UX | Improved in Phase 6; B68-95 may still track extras |
 
 ## Notes

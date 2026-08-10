@@ -14,5 +14,6 @@ Docs for running and operating an x-log instance after onboarding.
 Also see:
 
 - Root [README.md](../../README.md) — product overview
+- [Development guide](../development.md) — local setup, tests, monorepo
 - [deploy/DEPLOY.md](../../deploy/DEPLOY.md) — hosting, env, media S3, OTEL
 - API reference: `/docs` (Scalar) and `/api/openapi.json` when the API is running

@@ -24,13 +24,18 @@ x-log is an open-source, Bun + TypeScript powered blog platform that federates w
 - **Queue**: Redis + Worker (Bun)
 - **Deployment**: Docker Compose
 
-## Operator documentation
+## Documentation
 
-Guides for production ops live under [`docs/operators/`](./docs/operators/):
-
-- [Federation](./docs/operators/federation.md)
-- [Multi-user](./docs/operators/multi-user.md)
-- [Analytics privacy](./docs/operators/analytics-privacy.md)
+- **[Development guide](./docs/development.md)** — local setup, monorepo, tests, PRs
+- **[Contributing](./CONTRIBUTING.md)** — short checklist for contributors
+- **Operator guides** under [`docs/operators/`](./docs/operators/):
+  - [Federation](./docs/operators/federation.md)
+  - [Multi-user](./docs/operators/multi-user.md)
+  - [Analytics privacy](./docs/operators/analytics-privacy.md)
+  - [Security (CSRF, rate limits)](./docs/operators/security.md)
+  - [Media](./docs/operators/media.md)
+  - [Authoring](./docs/operators/authoring.md)
+- **[Deploy](./deploy/DEPLOY.md)** — production hosting
 
 ## Getting Started
 
@@ -43,55 +48,18 @@ Guides for production ops live under [`docs/operators/`](./docs/operators/):
 
 ### Development
 
-1. Install dependencies:
+Full walkthrough: **[docs/development.md](./docs/development.md)**.
 
 ```bash
 bun install
+cp .env.example .env          # SESSION_SECRET, DATABASE_URL, REDIS_URL, OIDC placeholders
+make setup && make dev        # Compose + watch, or: bun run migrate && bun run dev
+cd apps/api && bun run init-local-user
 ```
 
-2. Set up environment variables:
-
 ```bash
-# For local development (outside Docker)
-cp .env.example .env
-# Edit .env with your settings
-
-# OR for Docker Compose
-cp infra/compose/.env.example infra/compose/.env
-# Edit infra/compose/.env with your settings
-```
-
-3. Set up environment file:
-
-```bash
-make setup
-# Or manually:
-cp infra/compose/.env.example infra/compose/.env
-# Edit infra/compose/.env with your settings
-```
-
-4. Start services with Docker Compose:
-
-For development with hot-reload/watch mode (recommended):
-
-```bash
-make dev
-# Or with Docker Compose watch (requires Docker Compose v2.22+):
-make dev-watch
-```
-
-For production-like setup:
-
-```bash
-make up
-```
-
-5. Run migrations:
-
-```bash
-make migrate
-# Or manually:
-cd apps/api && bun run migrate
+bun run type-check && bun run test
+./scripts/smoke-api.sh        # API must be running
 ```
 
 ### Available Make Commands
