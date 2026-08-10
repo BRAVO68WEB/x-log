@@ -17,19 +17,47 @@ export type CollectViewInput = {
   gpc?: boolean;
 };
 
-function hashIp(ip: string): string {
-  const env = getEnv();
-  const salt = env.ANALYTICS_SALT || env.SESSION_SECRET;
-  return crypto.createHmac("sha256", salt).update(ip).digest("hex").slice(0, 32);
+/** Exported for unit tests */
+export function isBotUserAgent(ua: string | null | undefined): boolean {
+  if (!ua) return true;
+  return BOT_UA.test(ua);
 }
 
-function parseReferrerHost(referrer: string | null | undefined): string | null {
+/** Exported for unit tests */
+export function parseReferrerHost(referrer: string | null | undefined): string | null {
   if (!referrer) return null;
   try {
     return new URL(referrer).hostname || null;
   } catch {
     return null;
   }
+}
+
+/** Whether collect should skip before DB (feature-agnostic). */
+export function shouldSkipCollectInput(input: {
+  path?: string;
+  userAgent?: string | null;
+  dnt?: boolean;
+  gpc?: boolean;
+  respectDnt?: boolean;
+}): string | null {
+  if (input.respectDnt !== false && (input.dnt || input.gpc)) {
+    return "dnt";
+  }
+  if (isBotUserAgent(input.userAgent)) {
+    return "bot";
+  }
+  const path = input.path || "";
+  if (!path.startsWith("/")) {
+    return "path";
+  }
+  return null;
+}
+
+function hashIp(ip: string): string {
+  const env = getEnv();
+  const salt = env.ANALYTICS_SALT || env.SESSION_SECRET;
+  return crypto.createHmac("sha256", salt).update(ip).digest("hex").slice(0, 32);
 }
 
 export function clientIpFromHeaders(headers: {
@@ -64,19 +92,17 @@ export async function collectPageView(input: CollectViewInput): Promise<boolean>
       if (!(await isAnalyticsEnabled())) return false;
 
       const env = getEnv();
-      if (env.ANALYTICS_RESPECT_DNT && (input.dnt || input.gpc)) {
-        return false;
-      }
+      const skip = shouldSkipCollectInput({
+        path: input.path,
+        userAgent: input.userAgent,
+        dnt: input.dnt,
+        gpc: input.gpc,
+        respectDnt: env.ANALYTICS_RESPECT_DNT,
+      });
+      if (skip) return false;
 
       const ua = input.userAgent || "";
-      if (!ua || BOT_UA.test(ua)) {
-        return false;
-      }
-
       const path = (input.path || "").slice(0, 2048);
-      if (!path.startsWith("/")) {
-        return false;
-      }
 
       const db = getDb();
       let authorId: string | null = null;

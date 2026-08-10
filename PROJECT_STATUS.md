@@ -98,6 +98,7 @@
 ### Testing
 
 - [x] Unit tests for HTTP Signatures (`packages/ap` — `bun test`)
+- [x] Unit tests for analytics/invites/rate-limit/blocks (`apps/api` — `bun test`)
 - [ ] Integration tests
 - [ ] E2E tests (partial: `scripts/test-federation.sh` public endpoints)
 
@@ -125,12 +126,14 @@
 - [x] Federation operator UX: delivery stats/retry + domain blocklist (Phase 6)
 - [x] S3/R2 media driver (`MEDIA_DRIVER=local|s3`) (Phase 7)
 - [x] Scheduled posts + Markdown import (Phase 8a/8b)
+- [x] Quality: unit tests + operator docs + OpenAPI tags (Phase 9)
 
 ### Documentation
 
-- [ ] API documentation
-- [ ] Federation guide
-- [ ] Deployment guide
+- [x] API documentation (Scalar `/docs` + OpenAPI tags for analytics/invites)
+- [x] Federation guide (`docs/operators/federation.md`)
+- [x] Deployment guide (`deploy/DEPLOY.md`)
+- [x] Multi-user + analytics privacy operator docs (`docs/operators/`)
 - [ ] Development guide
 
 ## 📝 Notes

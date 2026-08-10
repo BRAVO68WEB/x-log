@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { describeRoute, resolver } from "hono-openapi";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import {
   clientIpFromHeaders,
@@ -21,7 +22,17 @@ const CollectSchema = z.object({
  * Public collect endpoint — no auth.
  * POST /api/analytics/collect
  */
-analyticsRoutes.post("/collect", async (c) => {
+analyticsRoutes.post(
+  "/collect",
+  describeRoute({
+    description: "Record a first-party page view (no-op when analytics flag off)",
+    tags: ["analytics"],
+    responses: {
+      200: { description: "Skipped or disabled" },
+      201: { description: "View recorded" },
+    },
+  }),
+  async (c) => {
   if (!(await isAnalyticsEnabled())) {
     return c.json({ ok: true, recorded: false }, 200);
   }
@@ -54,16 +65,34 @@ analyticsRoutes.post("/collect", async (c) => {
   });
 
   return c.json({ ok: true, recorded }, recorded ? 201 : 200);
-});
+  }
+);
 
 /**
  * Public: whether first-party analytics beacons should fire.
  * GET /api/analytics/status
  */
-analyticsRoutes.get("/status", async (c) => {
+analyticsRoutes.get(
+  "/status",
+  describeRoute({
+    description: "Whether first-party analytics collection is enabled",
+    tags: ["analytics"],
+    responses: {
+      200: {
+        description: "Status",
+        content: {
+          "application/json": {
+            schema: resolver(z.object({ enabled: z.boolean() })),
+          },
+        },
+      },
+    },
+  }),
+  async (c) => {
   const enabled = await isAnalyticsEnabled();
   return c.json({ enabled });
-});
+  }
+);
 
 /**
  * Operator / author summary (authenticated).
@@ -73,6 +102,16 @@ analyticsRoutes.get("/status", async (c) => {
  */
 analyticsRoutes.get(
   "/summary",
+  describeRoute({
+    description:
+      "Analytics summary (auth). Admin: all posts; author: own only. 404 if flag off.",
+    tags: ["analytics"],
+    responses: {
+      200: { description: "Summary with privacy meta" },
+      401: { description: "Unauthorized" },
+      404: { description: "Analytics disabled" },
+    },
+  }),
   sessionMiddleware,
   requireAuth,
   async (c) => {

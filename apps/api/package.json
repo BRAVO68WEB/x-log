@@ -9,6 +9,7 @@
     "migrate": "bun run ../../packages/db/src/migrate.ts",
     "init-local-user": "bun run scripts/init-local-user.ts",
     "type-check": "tsc --noEmit",
+    "test": "bun test src",
     "build": "bun build src/index.ts --outdir dist --target bun"
   },
   "dependencies": {
