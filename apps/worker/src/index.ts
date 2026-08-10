@@ -293,9 +293,77 @@ async function cleanupPageViews() {
   }
 }
 
+// Publish posts whose scheduled_at is due
+async function processScheduledPosts() {
+  while (true) {
+    try {
+      const now = new Date();
+      let due: Array<{ id: string; author_id: string; visibility: string }> = [];
+      try {
+        due = await db
+          .selectFrom("posts")
+          .select(["id", "author_id", "visibility"])
+          .where("published_at", "is", null)
+          .where("scheduled_at", "is not", null)
+          .where("scheduled_at", "<=", now)
+          .limit(50)
+          .execute();
+      } catch {
+        // migration not applied yet
+        await new Promise((r) => setTimeout(r, 60_000));
+        continue;
+      }
+
+      for (const row of due) {
+        try {
+          await db
+            .updateTable("posts")
+            .set({
+              published_at: now,
+              scheduled_at: null,
+              updated_at: now,
+            })
+            .where("id", "=", row.id)
+            .execute();
+
+          console.log(`[schedule] published post ${row.id}`);
+
+          if (row.visibility !== "private") {
+            const followers = await db
+              .selectFrom("followers")
+              .select(["inbox_url"])
+              .where("local_user_id", "=", row.author_id)
+              .where("approved", "=", true)
+              .execute();
+            const uniqueInboxes = [...new Set(followers.map((f) => f.inbox_url))];
+            const domain = env.INSTANCE_DOMAIN;
+            const activityId = `https://${domain}/ap/activities/${crypto.randomUUID()}`;
+            for (const inboxUrl of uniqueInboxes) {
+              const job: DeliveryJob = {
+                activityId,
+                userId: row.author_id,
+                postId: row.id,
+                inboxUrl,
+                activityType: "Create",
+              };
+              await redis.lpush("federation:deliveries", JSON.stringify(job));
+            }
+          }
+        } catch (err) {
+          console.error(`[schedule] failed post ${row.id}:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[schedule] loop error:", err);
+    }
+    await new Promise((r) => setTimeout(r, 30_000));
+  }
+}
+
 // Start workers
 processDeliveryJobs();
 processRetryJobs();
 cleanupReplayCache();
 cleanupRemoteKeys();
 cleanupPageViews();
+processScheduledPosts();

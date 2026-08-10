@@ -21,9 +21,12 @@ import {
   createPost,
   updatePost,
   publishPost,
+  schedulePost,
+  unschedulePost,
   deletePost,
   PostServiceError,
 } from "../services/posts";
+import { isFeatureEnabled } from "../lib/features";
 
 async function getLikedPostIds(
   postIds: string[],
@@ -117,6 +120,7 @@ postsRoutes.get(
         "posts.hashtags",
         "posts.like_count",
         "posts.published_at",
+        "posts.scheduled_at",
         "posts.updated_at",
         "posts.visibility",
         "posts.author_id",
@@ -173,6 +177,9 @@ postsRoutes.get(
           avatar_url: post.avatar_url || null,
         },
         published_at: post.published_at?.toISOString() || null,
+        scheduled_at: (post as { scheduled_at?: Date | null }).scheduled_at
+          ? new Date((post as { scheduled_at: Date }).scheduled_at).toISOString()
+          : null,
         updated_at: post.updated_at.toISOString(),
         visibility: post.visibility,
       }))
@@ -624,5 +631,125 @@ postsRoutes.post(
       }
       throw err;
     }
+  }
+);
+
+postsRoutes.post(
+  "/:id/schedule",
+  requireAuthor,
+  validator("param", z.object({ id: z.string() })),
+  validator(
+    "json",
+    z.object({
+      scheduled_at: z.string().datetime({ offset: true }).or(z.string().min(1)),
+    })
+  ),
+  async (c) => {
+    if (!(await isFeatureEnabled("scheduled_posts"))) {
+      return c.json({ error: "Scheduled posts feature is disabled" }, 404);
+    }
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    const body = c.req.valid("json");
+    const when = new Date(body.scheduled_at);
+    if (Number.isNaN(when.getTime())) {
+      return c.json({ error: "Invalid scheduled_at" }, 400);
+    }
+    try {
+      const result = await schedulePost(
+        { id: user.id, username: user.username, role: user.role },
+        id,
+        when
+      );
+      return c.json(result);
+    } catch (err) {
+      if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
+    }
+  }
+);
+
+postsRoutes.delete(
+  "/:id/schedule",
+  requireAuthor,
+  validator("param", z.object({ id: z.string() })),
+  async (c) => {
+    const user = c.get("user")!;
+    const { id } = c.req.valid("param");
+    try {
+      const result = await unschedulePost(
+        { id: user.id, username: user.username, role: user.role },
+        id
+      );
+      return c.json(result);
+    } catch (err) {
+      if (err instanceof PostServiceError) {
+        return c.json({ error: err.message }, err.status);
+      }
+      throw err;
+    }
+  }
+);
+
+postsRoutes.post(
+  "/import",
+  requireAuthor,
+  validator(
+    "json",
+    z.object({
+      posts: z
+        .array(
+          z.object({
+            title: z.string().min(1).max(200),
+            content_markdown: z.string().min(1),
+            summary: z.string().optional().nullable(),
+            hashtags: z.array(z.string()).max(20).optional(),
+            visibility: z.enum(["public", "unlisted", "private"]).optional(),
+            published: z.boolean().optional(),
+          })
+        )
+        .min(1)
+        .max(50),
+    })
+  ),
+  async (c) => {
+    const user = c.get("user")!;
+    const body = c.req.valid("json");
+    const actor = { id: user.id, username: user.username, role: user.role };
+    const created: Array<{ id: string; title: string; published: boolean }> = [];
+
+    for (const item of body.posts) {
+      try {
+        const post = await createPost(actor, {
+          title: item.title,
+          content_markdown: item.content_markdown,
+          summary: item.summary || null,
+          hashtags: (item.hashtags || [])
+            .map((t) => t.replace(/^#/, "").toLowerCase())
+            .filter((t) => /^[a-z0-9_]{1,64}$/i.test(t)),
+          visibility: item.visibility || "public",
+        });
+        if (item.published) {
+          await publishPost(actor, post.id);
+        }
+        created.push({
+          id: post.id,
+          title: item.title,
+          published: Boolean(item.published),
+        });
+      } catch (err) {
+        console.error("[import] failed for", item.title, err);
+      }
+    }
+
+    return c.json(
+      {
+        imported: created.length,
+        items: created,
+      },
+      201
+    );
   }
 );

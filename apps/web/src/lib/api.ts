@@ -139,6 +139,7 @@ export const postsApi = {
       liked_by_me?: boolean;
       author: { username: string; full_name?: string | null; avatar_url?: string | null };
       published_at: string | null;
+      scheduled_at?: string | null;
       updated_at: string;
       visibility: "public" | "unlisted" | "private";
     }
@@ -212,6 +213,38 @@ export const postsApi = {
   publish: async (id: string) => {
     return apiRequest(`/api/posts/${id}/publish`, {
       method: "POST",
+    });
+  },
+
+  schedule: async (id: string, scheduled_at: string) => {
+    return apiRequest<{ id: string; scheduled_at: string }>(`/api/posts/${id}/schedule`, {
+      method: "POST",
+      body: JSON.stringify({ scheduled_at }),
+    });
+  },
+
+  unschedule: async (id: string) => {
+    return apiRequest(`/api/posts/${id}/schedule`, {
+      method: "DELETE",
+    });
+  },
+
+  importMarkdown: async (
+    posts: Array<{
+      title: string;
+      content_markdown: string;
+      summary?: string | null;
+      hashtags?: string[];
+      visibility?: "public" | "unlisted" | "private";
+      published?: boolean;
+    }>
+  ) => {
+    return apiRequest<{
+      imported: number;
+      items: Array<{ id: string; title: string; published: boolean }>;
+    }>("/api/posts/import", {
+      method: "POST",
+      body: JSON.stringify({ posts }),
     });
   },
 

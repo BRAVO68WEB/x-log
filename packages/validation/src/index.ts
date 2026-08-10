@@ -29,6 +29,7 @@ export const PostResponseSchema = z.object({
     avatar_url: z.string().url().optional().nullable(),
   }),
   published_at: z.string().nullable(),
+  scheduled_at: z.string().nullable().optional(),
   updated_at: z.string(),
   visibility: z.enum(["public", "unlisted", "private"]),
 });

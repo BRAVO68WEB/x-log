@@ -124,6 +124,7 @@
 - [x] Multi-author directory + MCP per-user keys (Phase 5 M3)
 - [x] Federation operator UX: delivery stats/retry + domain blocklist (Phase 6)
 - [x] S3/R2 media driver (`MEDIA_DRIVER=local|s3`) (Phase 7)
+- [x] Scheduled posts + Markdown import (Phase 8a/8b)
 
 ### Documentation
 
