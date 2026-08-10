@@ -93,11 +93,13 @@ Not “forgotten placeholders” — intentional follow-ups:
 | ~~Global rate-limit middleware~~ | Done (B68-86) — Redis-backed multi-replica still optional |
 | ~~Media cleanup / serving polish~~ | Phase 13 (B68-94 / B68-85) |
 | ~~Development guide~~ | Phase 14 (B68-102) |
-| Editor/image polish | TipTap already integrated; residual UX in B68-83 / B68-90 |
-| ~~Post list pagination polish~~ | Keyset cursor + Load more UX (B68-88) |
-| ~~Responsive design polish~~ | B68-89 — mobile nav drawer, editor stack, safe areas |
+| ~~TipTap + editor image upload~~ | B68-83 / B68-90 — shipped |
+| ~~Onboarding wizard~~ | B68-87 — shipped |
+| ~~Post list pagination polish~~ | Keyset cursor + Load more UX (B68-88, PR #41) |
+| ~~Responsive design polish~~ | B68-89 — mobile nav, editor stack, safe areas (PR #42) |
+| ~~Federation delivery error UX~~ | B68-95 / Phase 6 — stats, last_error, retry |
 | Deep integration / browser E2E | B68-97 / B68-98 (smoke + federation cover basics) |
-| Federation delivery error UX | Improved in Phase 6; B68-95 may still track extras |
+| API validation / error / session nits | B68-91–93 (partial; CSRF + rate limits done) |
 
 ## Notes
 
