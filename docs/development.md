@@ -168,11 +168,26 @@ cd packages/db && bun test
 Tests use `bun:test`. Prefer pure helpers and avoid live DB unless the package
 already does so.
 
-### Smoke scripts (integration-lite)
+### Integration tests (in-process)
+
+Hono app factory `createApp()` in `apps/api/src/app.ts` is tested without
+binding a port:
+
+```bash
+bun run test:integration
+# or
+cd apps/api && bun test src/app.integration.test.ts
+```
+
+These use `app.request()` for health, auth 401, CSRF boundaries, and (when
+Postgres is reachable) public list routes.
+
+### Smoke / E2E scripts
 
 | Script | Needs | What it checks |
 |--------|--------|----------------|
-| `scripts/smoke-api.sh` | Running API | `/health`, OpenAPI, docs route |
+| `scripts/smoke-api.sh` | Running API | health, OpenAPI, docs, posts list, `/me` 401, nodeinfo |
+| `scripts/smoke-e2e-auth.sh` | API + `E2E_USERNAME` / `E2E_PASSWORD` | login, CSRF, `/me`, logout |
 | `scripts/smoke-mcp.sh` | API + `MCP_API_KEY` | MCP `tools/list` |
 | `scripts/test-federation.sh` | Public instance | WebFinger, actor, nodeinfo, etc. |
 
@@ -181,10 +196,15 @@ Example:
 ```bash
 # API up on 8080
 ./scripts/smoke-api.sh
-API_URL=http://localhost:8080 ./scripts/smoke-api.sh
+make smoke
+
+E2E_USERNAME=admin E2E_PASSWORD=secret ./scripts/smoke-e2e-auth.sh
+# or
+make smoke-auth
 ```
 
-Full browser E2E is still light; federation script is the main remote E2E path.
+Browser automation E2E is not required for merge; smoke + federation cover the
+critical remote paths.
 
 ## Package notes
 

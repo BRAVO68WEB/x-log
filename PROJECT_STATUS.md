@@ -80,9 +80,10 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 
 - [x] Unit: HTTP Signatures (`packages/ap`)
 - [x] Unit: analytics, invites, rate-limit, blocks, media-storage, CSRF, media-cleanup, post-versions (`apps/api`)
-- [x] Smoke: `scripts/smoke-api.sh`, `scripts/smoke-mcp.sh`
+- [x] Smoke: `scripts/smoke-api.sh`, `scripts/smoke-mcp.sh`, `scripts/smoke-e2e-auth.sh`
+- [x] In-process integration: `apps/api/src/app.integration.test.ts` (`createApp` + `app.request`)
 - [x] Federation script: `scripts/test-federation.sh`
-- [ ] Full browser E2E suite (still optional; B68-98)
+- [ ] Full browser automation suite (Playwright/Cypress) — optional future
 
 ## Still open (honest backlog)
 
@@ -98,8 +99,9 @@ Not “forgotten placeholders” — intentional follow-ups:
 | ~~Post list pagination polish~~ | Keyset cursor + Load more UX (B68-88, PR #41) |
 | ~~Responsive design polish~~ | B68-89 — mobile nav, editor stack, safe areas (PR #42) |
 | ~~Federation delivery error UX~~ | B68-95 / Phase 6 — stats, last_error, retry |
-| Deep integration / browser E2E | B68-97 / B68-98 (smoke + federation cover basics) |
 | ~~API validation / error / session~~ | B68-91–93 — sliding session, structured errors |
+| ~~Integration + auth E2E smoke~~ | B68-97 / B68-98 — createApp tests + smoke scripts |
+| Full browser E2E (Playwright) | Optional; not blocking |
 
 ## Notes
 

@@ -18,6 +18,8 @@
     "type-check": "turbo run type-check",
     "test": "bun run --cwd packages/ap test && bun run --cwd packages/db test && bun run --cwd apps/api test",
     "test:smoke": "bash ./scripts/smoke-api.sh",
+    "test:e2e-auth": "bash ./scripts/smoke-e2e-auth.sh",
+    "test:integration": "bun run --cwd apps/api test src/app.integration.test.ts",
     "migrate": "dotenv --override=false -- turbo run migrate",
     "start": "dotenv --override=false -- turbo run start"
   },

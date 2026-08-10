@@ -1,4 +1,4 @@
-.PHONY: help dev dev-watch dev-stop build up down logs migrate clean install test smoke
+.PHONY: help dev dev-watch dev-stop build up down logs migrate clean install test smoke smoke-auth
 
 # Default target
 help:
@@ -16,6 +16,7 @@ help:
 	@echo "  make install      - Install dependencies"
 	@echo "  make test         - Run unit tests (bun)"
 	@echo "  make smoke        - API smoke script (API must be up)"
+	@echo "  make smoke-auth   - Optional auth E2E (E2E_USERNAME/PASSWORD)"
 	@echo ""
 
 # Development with watch mode (Bun --watch)
@@ -77,6 +78,11 @@ test:
 smoke:
 	@echo "Running API smoke checks..."
 	bash ./scripts/smoke-api.sh
+
+# Optional authenticated E2E (E2E_USERNAME + E2E_PASSWORD)
+smoke-auth:
+	@echo "Running auth E2E smoke..."
+	bash ./scripts/smoke-e2e-auth.sh
 
 # Setup: create .env file if it doesn't exist
 setup:

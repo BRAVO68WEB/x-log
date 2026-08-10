@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Lightweight API smoke checks against a running x-log API.
-# Does not require auth, DB fixtures, or the web app.
+# Does not require auth credentials.
 #
 # Usage:
 #   ./scripts/smoke-api.sh
@@ -15,6 +15,8 @@ GREEN='\033[0;32m'
 NC='\033[0m'
 PASS=0
 FAIL=0
+BODY_FILE=$(mktemp)
+trap 'rm -f "$BODY_FILE"' EXIT
 
 ok() {
   echo -e "${GREEN}✓${NC} $1"
@@ -31,7 +33,7 @@ check_status() {
   local want="$2"
   local label="$3"
   local code
-  code=$(curl -sS -o /tmp/xlog-smoke-body.txt -w "%{http_code}" --connect-timeout 3 "${API_URL}${path}" 2>/dev/null) || true
+  code=$(curl -sS -o "$BODY_FILE" -w "%{http_code}" --connect-timeout 3 "${API_URL}${path}" 2>/dev/null) || true
   if [[ -z "$code" ]]; then
     code="000"
   fi
@@ -39,8 +41,8 @@ check_status() {
     ok "$label (HTTP $code)"
   else
     bad "$label (expected HTTP $want, got $code)"
-    if [[ -s /tmp/xlog-smoke-body.txt ]]; then
-      head -c 200 /tmp/xlog-smoke-body.txt
+    if [[ -s "$BODY_FILE" ]]; then
+      head -c 200 "$BODY_FILE"
       echo
     fi
   fi
@@ -67,13 +69,33 @@ fi
 
 check_status "/docs" "200" "GET /docs (Scalar)"
 
-# Public auth status should not require session
-code=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 3 "${API_URL}/api/auth/registration-status" 2>/dev/null) || true
-if [[ -z "$code" ]]; then code="000"; fi
-if [[ "$code" == "200" ]]; then
-  ok "GET /api/auth/registration-status"
+check_status "/api/auth/registration-status" "200" "GET /api/auth/registration-status"
+
+# Public posts list
+code=$(curl -sS -o "$BODY_FILE" -w "%{http_code}" --connect-timeout 3 "${API_URL}/api/posts?limit=3" 2>/dev/null) || true
+[[ -z "$code" ]] && code="000"
+if [[ "$code" == "200" ]] && grep -q '"items"' "$BODY_FILE" 2>/dev/null; then
+  ok "GET /api/posts list shape"
 else
-  bad "GET /api/auth/registration-status (HTTP $code)"
+  bad "GET /api/posts (HTTP $code)"
+fi
+
+# Unauthenticated me
+code=$(curl -sS -o "$BODY_FILE" -w "%{http_code}" --connect-timeout 3 "${API_URL}/api/users/me" 2>/dev/null) || true
+[[ -z "$code" ]] && code="000"
+if [[ "$code" == "401" ]]; then
+  ok "GET /api/users/me unauthenticated → 401"
+else
+  bad "GET /api/users/me expected 401, got $code"
+fi
+
+# NodeInfo discovery (federation smoke, soft)
+code=$(curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 3 "${API_URL}/.well-known/nodeinfo" 2>/dev/null) || true
+[[ -z "$code" ]] && code="000"
+if [[ "$code" == "200" || "$code" == "404" ]]; then
+  ok "GET /.well-known/nodeinfo reachable (HTTP $code)"
+else
+  bad "GET /.well-known/nodeinfo unexpected HTTP $code"
 fi
 
 echo ""
