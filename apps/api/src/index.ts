@@ -14,6 +14,7 @@ import { migrateToLatest } from "@xlog/db/migrate";
 import { getEnv } from "@xlog/config";
 import { isMcpEnabled } from "./mcp/context";
 import { startOtelIfEnabled } from "./lib/otel";
+import { csrfMiddleware } from "./middleware/csrf";
 
 await startOtelIfEnabled();
 
@@ -31,6 +32,8 @@ app.use(
     credentials: false,
   })
 );
+// Cookie-session CSRF (double-submit + Origin). Skips Bearer / no-session.
+app.use("/api/*", csrfMiddleware);
 
 // Log all error responses (4xx and 5xx)
 app.use("*", async (c, next) => {

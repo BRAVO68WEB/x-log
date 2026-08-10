@@ -7,6 +7,7 @@ import { Input } from "@/components/Input";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useMutation } from "react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { withCsrf } from "@/lib/csrf";
 
 export default function OIDCLinkClient() {
   const [email, setEmail] = useState("");
@@ -32,12 +33,12 @@ export default function OIDCLinkClient() {
         try {
           setLoading(true);
           setError(null);
-          const res = await fetch(`/api/auth/oidc/link`, {
+          const res = await fetch(`/api/auth/oidc/link`, withCsrf({
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ state }), // No email/password needed when logged in
-          });
+          }));
           if (!res.ok) {
             const err = await res.json().catch(() => ({ error: "Account linking failed" }));
             throw new Error(err.error || `HTTP ${res.status}`);
@@ -55,12 +56,12 @@ export default function OIDCLinkClient() {
 
   const linkMutation = useMutation(
     async () => {
-      const res = await fetch(`/api/auth/oidc/link`, {
+      const res = await fetch(`/api/auth/oidc/link`, withCsrf({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, state }),
-      });
+      }));
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Account linking failed" }));
         throw new Error(err.error || `HTTP ${res.status}`);

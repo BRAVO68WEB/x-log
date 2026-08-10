@@ -25,6 +25,7 @@ import { renderMarkdownSync } from "@xlog/markdown";
 import toast from "react-hot-toast";
 import { useMutation } from "react-query";
 import { cn } from "@/lib/utils";
+import { withCsrf } from "@/lib/csrf";
 
 // Swap Enter and Cmd+Enter behavior:
 //   Enter       → hard break (<br>, new line in same paragraph)
@@ -131,11 +132,11 @@ export function Editor({
     const fd = new FormData();
     fd.append("file", file);
     fd.append("asset_type", "post_attachment");
-    const res = await fetch(`/api/media/upload`, {
+    const res = await fetch(`/api/media/upload`, withCsrf({
       method: "POST",
       credentials: "include",
       body: fd,
-    });
+    }));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);
@@ -147,11 +148,11 @@ export function Editor({
     const fd = new FormData();
     fd.append("file", file);
     fd.append("asset_type", "banner");
-    const res = await fetch(`/api/media/upload`, {
+    const res = await fetch(`/api/media/upload`, withCsrf({
       method: "POST",
       credentials: "include",
       body: fd,
-    });
+    }));
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: "Upload failed" }));
       throw new Error(err.error || `HTTP ${res.status}`);

@@ -3,6 +3,7 @@ import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
 import { sign, verify } from "hono/jwt";
+import { clearCsrfCookie, setCsrfCookie, CSRF_COOKIE_NAME } from "./csrf";
 
 export interface SessionUser {
   id: string;
@@ -18,8 +19,8 @@ declare module "hono" {
   }
 }
 
-const SESSION_COOKIE_NAME = "xlog_session";
-const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
+export const SESSION_COOKIE_NAME = "xlog_session";
+export const SESSION_MAX_AGE = 60 * 60 * 24 * 7; // 7 days
 const MOBILE_TOKEN_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 interface AuthPayload {
@@ -76,6 +77,10 @@ export async function sessionMiddleware(c: Context, next: Next) {
     if (!isAuthenticated) {
       // Invalid session token, clear cookie
       deleteCookie(c, SESSION_COOKIE_NAME);
+      clearCsrfCookie(c);
+    } else if (!getCookie(c, CSRF_COOKIE_NAME)) {
+      // Backfill CSRF cookie for sessions created before CSRF rolled out
+      setCsrfCookie(c);
     }
   }
 
@@ -145,12 +150,15 @@ export function setSessionCookie(c: Context, token: string) {
   setCookie(c, SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "Strict",
     maxAge: SESSION_MAX_AGE,
     path: "/",
   });
+  // Pair session with a double-submit CSRF token (readable by JS)
+  setCsrfCookie(c);
 }
 
 export function clearSessionCookie(c: Context) {
-  deleteCookie(c, SESSION_COOKIE_NAME);
+  deleteCookie(c, SESSION_COOKIE_NAME, { path: "/" });
+  clearCsrfCookie(c);
 }

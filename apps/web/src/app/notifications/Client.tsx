@@ -10,6 +10,7 @@ import {
   BentoCardHeader,
   BentoCardContent,
 } from "@/components/ui/bento-grid";
+import { withCsrf } from "@/lib/csrf";
 
 type Notification = {
   id: string;
@@ -33,12 +34,12 @@ export default function NotificationsClient() {
 
   const markAll = useMutation(
     async () => {
-      const res = await fetch("/api/notifications/read", {
+      const res = await fetch("/api/notifications/read", withCsrf({
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
-      });
+      }));
       if (!res.ok) throw new Error("Failed to mark read");
       return res.json();
     },
