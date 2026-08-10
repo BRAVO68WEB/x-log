@@ -24,6 +24,7 @@ import {
 import { useMutation, useQuery } from "react-query";
 import {
   FaBell,
+  FaChartSimple,
   FaEnvelope,
   FaGear,
   FaPalette,
@@ -33,6 +34,7 @@ import {
   FaRobot,
 } from "react-icons/fa6";
 import FeaturesTab from "./FeaturesTab";
+import AnalyticsDashboard from "../analytics/AnalyticsDashboard";
 
 export default function SettingsClient() {
   const [activeTab, setActiveTab] = useState("general");
@@ -370,6 +372,10 @@ export default function SettingsClient() {
             <TabsTrigger value="features" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaPuzzlePiece className="h-3.5 w-3.5" />
               Features
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
+              <FaChartSimple className="h-3.5 w-3.5" />
+              Analytics
             </TabsTrigger>
             <TabsTrigger value="ai" className="gap-2 px-3 py-2.5 lg:w-full lg:justify-start">
               <FaRobot className="h-3.5 w-3.5" />
@@ -738,6 +744,22 @@ export default function SettingsClient() {
 
             <TabsContent value="features">
               <FeaturesTab />
+            </TabsContent>
+
+            <TabsContent value="analytics">
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-xl font-semibold font-heading">Analytics</h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    First-party views. Also available at{" "}
+                    <a href="/analytics" className="text-primary hover:underline">
+                      /analytics
+                    </a>
+                    .
+                  </p>
+                </div>
+                <AnalyticsDashboard embedded />
+              </div>
             </TabsContent>
 
             <TabsContent value="ai">

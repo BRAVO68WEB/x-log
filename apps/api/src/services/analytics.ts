@@ -119,17 +119,36 @@ export async function collectPageView(input: CollectViewInput): Promise<boolean>
   return true;
 }
 
+export type AnalyticsTopPost = {
+  post_id: string | null;
+  title: string | null;
+  views: number;
+};
+
+export type AnalyticsSummary = {
+  days: number;
+  total_views: number;
+  top_posts: AnalyticsTopPost[];
+  top_referrers: Array<{ host: string | null; views: number }>;
+  daily: Array<{ day: string; views: number }>;
+  privacy: {
+    store_raw_ip: boolean;
+    respect_dnt: boolean;
+    retention_days: number;
+  };
+  scope: "all" | "own";
+};
+
 export async function getAnalyticsSummary(opts?: {
   authorId?: string;
   days?: number;
-}) {
+}): Promise<AnalyticsSummary> {
   const days = opts?.days ?? 30;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   const db = getDb();
+  const env = getEnv();
 
-  let base = db
-    .selectFrom("page_views")
-    .where("created_at", ">=", since);
+  let base = db.selectFrom("page_views").where("created_at", ">=", since);
 
   if (opts?.authorId) {
     base = base.where("author_id", "=", opts.authorId);
@@ -154,6 +173,22 @@ export async function getAnalyticsSummary(opts?: {
   }
 
   const topPosts = await topPostsQ.execute();
+
+  const postIds = topPosts
+    .map((r) => r.post_id)
+    .filter((id): id is string => Boolean(id));
+
+  const titlesById = new Map<string, string>();
+  if (postIds.length > 0) {
+    const posts = await db
+      .selectFrom("posts")
+      .select(["id", "title"])
+      .where("id", "in", postIds)
+      .execute();
+    for (const p of posts) {
+      titlesById.set(p.id, p.title);
+    }
+  }
 
   let topRefsQ = db
     .selectFrom("page_views")
@@ -194,6 +229,7 @@ export async function getAnalyticsSummary(opts?: {
     total_views: Number(totalRow?.count || 0),
     top_posts: topPosts.map((r) => ({
       post_id: r.post_id,
+      title: r.post_id ? titlesById.get(r.post_id) ?? null : null,
       views: Number(r.views),
     })),
     top_referrers: topReferrers.map((r) => ({
@@ -201,6 +237,12 @@ export async function getAnalyticsSummary(opts?: {
       views: Number(r.views),
     })),
     daily,
+    privacy: {
+      store_raw_ip: env.ANALYTICS_STORE_RAW_IP,
+      respect_dnt: env.ANALYTICS_RESPECT_DNT,
+      retention_days: env.ANALYTICS_RETENTION_DAYS,
+    },
+    scope: opts?.authorId ? "own" : "all",
   };
 }
 

@@ -66,8 +66,10 @@ analyticsRoutes.get("/status", async (c) => {
 });
 
 /**
- * Operator summary (authenticated).
+ * Operator / author summary (authenticated).
  * GET /api/analytics/summary?days=30
+ * Admin: all views; author: own posts only.
+ * 404 when feature flag `analytics` is off.
  */
 analyticsRoutes.get(
   "/summary",

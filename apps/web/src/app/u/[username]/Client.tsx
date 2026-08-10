@@ -16,6 +16,7 @@ import {
 import { useQuery } from "react-query";
 import Image from "next/image";
 import { FaGithub, FaGlobe, FaLinkedin, FaReddit, FaTwitter, FaYoutube } from "react-icons/fa";
+import { AnalyticsBeacon } from "@/components/AnalyticsBeacon";
 
 function actorUrlToHandle(data: {
   remote_actor: string;
@@ -225,6 +226,7 @@ export default function UserProfileClient(props: { params: Promise<{ username: s
 
   return (
     <main className="min-h-screen py-8 px-4">
+      <AnalyticsBeacon path={`/u/${params.username}`} />
       <div className="max-w-4xl mx-auto">
         <BentoGrid columns={3}>
           {/* Banner + Avatar + Bio */}

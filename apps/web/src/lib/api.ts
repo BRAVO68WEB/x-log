@@ -469,6 +469,35 @@ export const settingsApi = {
   },
 };
 
+// Analytics API
+export interface AnalyticsSummary {
+  days: number;
+  total_views: number;
+  top_posts: Array<{
+    post_id: string | null;
+    title: string | null;
+    views: number;
+  }>;
+  top_referrers: Array<{ host: string | null; views: number }>;
+  daily: Array<{ day: string; views: number }>;
+  privacy: {
+    store_raw_ip: boolean;
+    respect_dnt: boolean;
+    retention_days: number;
+  };
+  scope: "all" | "own";
+}
+
+export const analyticsApi = {
+  getStatus: async () => {
+    return apiRequest<{ enabled: boolean }>("/api/analytics/status");
+  },
+
+  getSummary: async (days = 30) => {
+    return apiRequest<AnalyticsSummary>(`/api/analytics/summary?days=${days}`);
+  },
+};
+
 // Admin API
 export interface FeatureFlagItem {
   feature: string;
