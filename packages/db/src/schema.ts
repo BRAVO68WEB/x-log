@@ -27,8 +27,23 @@ export interface UsersTable {
   email: string | null;
   password_hash: string | null;
   role: UserRole;
+  /** Soft-deactivate: login and write APIs blocked when false */
+  is_active: ColumnType<boolean, boolean | undefined, boolean>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date>;
+}
+
+export interface UserInvitesTable {
+  id: string; // uuid
+  token_hash: string;
+  email: string | null;
+  role: UserRole;
+  invited_by: string; // FK users.id
+  expires_at: Date;
+  accepted_at: Date | null;
+  accepted_user_id: string | null;
+  revoked_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
 }
 
 export interface UserProfilesTable {
@@ -324,6 +339,7 @@ export interface LinkSnapshotsTable {
 
 export interface Database {
   users: UsersTable;
+  user_invites: UserInvitesTable;
   user_profiles: UserProfilesTable;
   user_keys: UserKeysTable;
   posts: PostsTable;

@@ -85,14 +85,24 @@ export async function setPrimaryUserId(userId: string): Promise<PrimaryUser> {
   return user;
 }
 
-/** Local author count (for solo vs multi-derived mode). */
+/** Local author count (for solo vs multi-derived mode). Active users only. */
 export async function countLocalUsers(): Promise<number> {
   const db = getDb();
-  const row = await db
-    .selectFrom("users")
-    .select((eb) => eb.fn.countAll<number>().as("count"))
-    .executeTakeFirst();
-  return Number(row?.count || 0);
+  try {
+    const row = await db
+      .selectFrom("users")
+      .select((eb) => eb.fn.countAll<number>().as("count"))
+      .where("is_active", "=", true)
+      .executeTakeFirst();
+    return Number(row?.count || 0);
+  } catch {
+    // Pre-migration 027 fallback
+    const row = await db
+      .selectFrom("users")
+      .select((eb) => eb.fn.countAll<number>().as("count"))
+      .executeTakeFirst();
+    return Number(row?.count || 0);
+  }
 }
 
 export function deriveInstanceMode(userCount: number): "solo" | "multi" {

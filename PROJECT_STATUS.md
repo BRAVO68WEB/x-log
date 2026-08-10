@@ -119,7 +119,7 @@
 - [x] Analytics dashboard UI (`/analytics` + Settings tab)
 - [x] OTEL named spans (API + worker) + PostHog server events (Phase 2)
 - [x] Primary author (`primary_user_id`) + solo/multi derived mode (Phase 0)
-- [ ] Multi-user invite / registration productization
+- [x] Multi-user invite + authz (Phase 3 M1)
 
 ### Documentation
 

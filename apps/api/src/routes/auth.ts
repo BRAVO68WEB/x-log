@@ -35,6 +35,10 @@ async function authenticateUser(username: string, password: string) {
     return null;
   }
 
+  if (user.is_active === false) {
+    return null;
+  }
+
   const isValid = await bcrypt.compare(password, user.password_hash);
   if (!isValid) {
     return null;

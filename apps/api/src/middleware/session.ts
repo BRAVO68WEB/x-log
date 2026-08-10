@@ -38,11 +38,16 @@ async function authenticateToken(c: Context, token: string) {
 
     const user = await db
       .selectFrom("users")
-      .select(["id", "username", "email", "role"])
+      .select(["id", "username", "email", "role", "is_active"])
       .where("id", "=", payload.userId)
       .executeTakeFirst();
 
     if (!user) {
+      return false;
+    }
+
+    // Soft-deactivated accounts cannot use sessions
+    if (user.is_active === false) {
       return false;
     }
 
@@ -94,6 +99,18 @@ export async function requireAdmin(c: Context, next: Next) {
   const user = c.get("user");
   if (!user || user.role !== "admin") {
     return c.json({ error: "Forbidden" }, 403);
+  }
+  await next();
+}
+
+/** Authors and admins may publish content; readers cannot. */
+export async function requireAuthor(c: Context, next: Next) {
+  const user = c.get("user");
+  if (!user) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  if (user.role !== "admin" && user.role !== "author") {
+    return c.json({ error: "Forbidden: author role required" }, 403);
   }
   await next();
 }

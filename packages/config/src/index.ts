@@ -28,6 +28,8 @@ const envSchema = z.object({
     .string()
     .transform((val) => val !== "false")
     .default("true"),
+  /** Cap on local author+admin accounts (invite/open reg). Default 10. */
+  MAX_LOCAL_AUTHORS: z.coerce.number().int().min(1).max(1000).default(10),
   PORT: z.string().transform(Number).default("8080"),
   NEXT_PUBLIC_API_URL: z.string().default("http://localhost:8080"),
   OIDC_CLIENT_ID: z.string().min(1),
