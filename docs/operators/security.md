@@ -62,21 +62,53 @@ backfills a missing CSRF cookie for existing sessions.
 
 ## Rate limiting
 
-x-log uses a simple **in-process** sliding-window limiter
-(`apps/api/src/lib/rate-limit.ts`) for sensitive public endpoints such as:
-
-- Public registration
-- Invite accept
+x-log uses an **in-process** sliding-window limiter
+(`apps/api/src/lib/rate-limit.ts`) plus global middleware
+(`apps/api/src/middleware/rate-limit.ts`).
 
 Limits are per client IP (from `CF-Connecting-IP`, `X-Forwarded-For`, or
-`X-Real-IP`).
+`X-Real-IP`). Blocked requests return **429** with `Retry-After` and
+`X-RateLimit-*` headers when applicable.
+
+### Middleware (always on unless disabled)
+
+| Scope | Default | Notes |
+|-------|---------|--------|
+| Global `/api/*` | 600 / minute | Override with `RATE_LIMIT_API_MAX`, `RATE_LIMIT_API_WINDOW_MS` |
+| Login (web + mobile) | 20 / 15 minutes | Brute-force guard |
+| Forgot / reset password | 10–20 / hour | Plus per-user DB limit on forgot |
+| Analytics collect | 120 / minute | Public beacon |
+| Media upload | 60 / minute | |
+| MCP | 180 / minute | `RATE_LIMIT_MCP_MAX` |
+| ActivityPub inbox POST | 240 / minute | `RATE_LIMIT_INBOX_MAX` |
+
+Skipped paths: `/health`, `/docs`, OpenAPI JSON, well-known discovery GETs,
+and public actor GETs (so probes and Fediverse discovery stay cheap).
+
+### Route-level (extra)
+
+| Endpoint | Limit |
+|----------|--------|
+| Public registration | 5 / hour |
+| Invite accept | 10 / hour |
+| Email verify | 20 / hour |
+| Login | 20 / 15 minutes (route + middleware) |
+
+### Configuration
+
+| Env | Default | Purpose |
+|-----|---------|---------|
+| `RATE_LIMIT_ENABLED` | on (unset) | Set to `false` to disable middleware |
+| `RATE_LIMIT_API_MAX` | `600` | Global API requests per window |
+| `RATE_LIMIT_API_WINDOW_MS` | `60000` | Global window (ms) |
+| `RATE_LIMIT_MCP_MAX` | `180` | MCP requests per minute |
+| `RATE_LIMIT_INBOX_MAX` | `240` | Inbox POSTs per minute |
 
 <!-- prettier-ignore -->
 > [!NOTE]
 > The in-process limiter is fine for a single API instance. Multi-replica
 > deploys should move buckets to Redis (or edge rate limits) so counts are
-> shared across processes. Global middleware rate limiting remains a follow-up
-> (Linear B68-86).
+> shared across processes.
 
 ## ActivityPub and MCP
 

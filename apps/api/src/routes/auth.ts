@@ -157,6 +157,20 @@ authRoutes.post(
   }),
   validator("json", LoginSchema),
   async (c) => {
+    // Defense-in-depth: middleware already limits by IP; keep route-level too
+    // so direct mounts / tests still get a budget.
+    const ip = clientKeyFromRequest(c);
+    const rl = checkRateLimit(`route-login:${ip}`, {
+      limit: 20,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!rl.ok) {
+      return c.json(
+        { error: `Too many login attempts. Retry in ${rl.retryAfterSec}s` },
+        429
+      );
+    }
+
     const { username, password } = c.req.valid("json");
     const user = await authenticateUser(username, password);
 
@@ -198,6 +212,18 @@ authRoutes.post(
   }),
   validator("json", LoginSchema),
   async (c) => {
+    const ip = clientKeyFromRequest(c);
+    const rl = checkRateLimit(`route-mobile-login:${ip}`, {
+      limit: 20,
+      windowMs: 15 * 60 * 1000,
+    });
+    if (!rl.ok) {
+      return c.json(
+        { error: `Too many login attempts. Retry in ${rl.retryAfterSec}s` },
+        429
+      );
+    }
+
     const { username, password } = c.req.valid("json");
     const user = await authenticateUser(username, password);
 

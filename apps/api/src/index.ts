@@ -15,6 +15,7 @@ import { getEnv } from "@xlog/config";
 import { isMcpEnabled } from "./mcp/context";
 import { startOtelIfEnabled } from "./lib/otel";
 import { csrfMiddleware } from "./middleware/csrf";
+import { rateLimitMiddleware } from "./middleware/rate-limit";
 
 await startOtelIfEnabled();
 
@@ -32,6 +33,8 @@ app.use(
     credentials: false,
   })
 );
+// Per-IP rate limits (global API + sensitive paths). RATE_LIMIT_ENABLED=false to disable.
+app.use("*", rateLimitMiddleware);
 // Cookie-session CSRF (double-submit + Origin). Skips Bearer / no-session.
 app.use("/api/*", csrfMiddleware);
 
