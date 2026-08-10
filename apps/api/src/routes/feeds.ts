@@ -37,11 +37,14 @@ feedsRoutes.get(
     const user = await db
       .selectFrom("users")
       .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-      .select(["users.username", "user_profiles.full_name"])
-      .where("users.username", "=", username)
+      .select(["users.username", "users.role", "users.is_active", "user_profiles.full_name"])
+      .where("users.username", "=", username.toLowerCase())
       .executeTakeFirst();
 
-    if (!user) {
+    if (!user || user.is_active === false) {
+      return c.json({ error: "User not found" }, 404);
+    }
+    if (user.role !== "admin" && user.role !== "author") {
       return c.json({ error: "User not found" }, 404);
     }
 
@@ -56,19 +59,24 @@ feedsRoutes.get(
         "posts.published_at",
         "posts.updated_at",
       ])
-      .where("users.username", "=", username)
+      .where("users.username", "=", user.username)
       .where("posts.visibility", "=", "public")
       .where("posts.published_at", "is not", null)
       .orderBy("posts.published_at", "desc")
       .limit(20)
       .execute();
 
+    const display = user.full_name || user.username;
+    const selfUrl = `https://${settings.instance_domain}/api/feeds/${user.username}/rss`;
+    const homeUrl = `https://${settings.instance_domain}/u/${user.username}`;
+
     const rss = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
-    <title>${user.full_name?.split(" ")[0] || user.username}</title>
-    <link>https://${settings.instance_domain}/u/${username}</link>
-    <description>Blog posts by ${user.full_name?.split(" ")[0] || user.username}</description>
+    <title>${escapeXml(display)}</title>
+    <link>${homeUrl}</link>
+    <atom:link href="${selfUrl}" rel="self" type="application/rss+xml" />
+    <description>Blog posts by ${escapeXml(display)} on ${escapeXml(settings.instance_name || "x-log")}</description>
     <lastBuildDate>${new Date().toUTCString()}</lastBuildDate>
     ${posts
       .map(
@@ -121,11 +129,14 @@ feedsRoutes.get(
     const user = await db
       .selectFrom("users")
       .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-      .select(["users.username", "user_profiles.full_name"])
-      .where("users.username", "=", username)
+      .select(["users.username", "users.role", "users.is_active", "user_profiles.full_name"])
+      .where("users.username", "=", username.toLowerCase())
       .executeTakeFirst();
 
-    if (!user) {
+    if (!user || user.is_active === false) {
+      return c.json({ error: "User not found" }, 404);
+    }
+    if (user.role !== "admin" && user.role !== "author") {
       return c.json({ error: "User not found" }, 404);
     }
 
@@ -140,21 +151,27 @@ feedsRoutes.get(
         "posts.published_at",
         "posts.updated_at",
       ])
-      .where("users.username", "=", username)
+      .where("users.username", "=", user.username)
       .where("posts.visibility", "=", "public")
       .where("posts.published_at", "is not", null)
       .orderBy("posts.published_at", "desc")
       .limit(20)
       .execute();
 
+    const display = user.full_name || user.username;
+    const homeUrl = `https://${settings.instance_domain}/u/${user.username}`;
+    const selfUrl = `https://${settings.instance_domain}/api/feeds/${user.username}/atom`;
+
     const atom = `<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom">
-  <title>${user.full_name?.split(" ")[0] || user.username}</title>
-  <link href="https://${settings.instance_domain}/u/${username}" />
-  <id>https://${settings.instance_domain}/u/${username}</id>
+  <title>${escapeXml(display)}</title>
+  <link href="${homeUrl}" rel="alternate" type="text/html" />
+  <link href="${selfUrl}" rel="self" type="application/atom+xml" />
+  <id>${homeUrl}</id>
   <updated>${posts[0]?.updated_at.toISOString() || new Date().toISOString()}</updated>
   <author>
-    <name>${user.full_name?.split(" ")[0] || user.username}</name>
+    <name>${escapeXml(display)}</name>
+    <uri>${homeUrl}</uri>
   </author>
   ${posts
     .map(

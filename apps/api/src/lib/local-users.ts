@@ -44,6 +44,11 @@ export async function createLocalAuthor(input: CreateLocalAuthorInput) {
     throw new Error("Username must be 3–32 chars: a-z, 0-9, underscore");
   }
 
+  const { isReservedUsername } = await import("./reserved-usernames");
+  if (isReservedUsername(username)) {
+    throw new Error("Username is reserved");
+  }
+
   const existing = await db
     .selectFrom("users")
     .select("id")

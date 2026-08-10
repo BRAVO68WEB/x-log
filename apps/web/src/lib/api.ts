@@ -72,6 +72,15 @@ export const authApi = {
 };
 
 // Users API
+export interface McpKeyItem {
+  id: string;
+  name: string;
+  key_prefix: string;
+  scopes: string;
+  last_used_at: string | null;
+  created_at: string;
+}
+
 export const usersApi = {
   getMe: async () => {
     return apiRequest("/api/users/me");
@@ -88,6 +97,23 @@ export const usersApi = {
     return apiRequest<{ message: string }>("/api/users/me/password", {
       method: "PATCH",
       body: JSON.stringify(data),
+    });
+  },
+
+  listMcpKeys: async () => {
+    return apiRequest<{ keys: McpKeyItem[] }>("/api/users/me/mcp-keys");
+  },
+
+  createMcpKey: async (data?: { name?: string; scopes?: "read" | "write" | "read_write" }) => {
+    return apiRequest<McpKeyItem & { key: string }>("/api/users/me/mcp-keys", {
+      method: "POST",
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  revokeMcpKey: async (id: string) => {
+    return apiRequest<{ message: string }>(`/api/users/me/mcp-keys/${id}`, {
+      method: "DELETE",
     });
   },
 };

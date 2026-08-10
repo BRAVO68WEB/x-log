@@ -44,6 +44,21 @@ export interface EmailVerificationsTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+/** Per-user MCP API keys (instance MCP_API_KEY remains fallback) */
+export type McpKeyScope = "read" | "write" | "read_write";
+
+export interface McpApiKeysTable {
+  id: string;
+  user_id: string;
+  name: string;
+  key_prefix: string;
+  key_hash: string;
+  scopes: McpKeyScope;
+  last_used_at: Date | null;
+  revoked_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
 export interface UserInvitesTable {
   id: string; // uuid
   token_hash: string;
@@ -352,6 +367,7 @@ export interface Database {
   users: UsersTable;
   user_invites: UserInvitesTable;
   email_verifications: EmailVerificationsTable;
+  mcp_api_keys: McpApiKeysTable;
   user_profiles: UserProfilesTable;
   user_keys: UserKeysTable;
   posts: PostsTable;

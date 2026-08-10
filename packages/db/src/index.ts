@@ -22,6 +22,6 @@ export function getDb(): Kysely<Database> {
   return db;
 }
 
-export type { Database } from "./schema";
+export type { Database, McpKeyScope } from "./schema";
 export * from "./instance-settings";
 export * from "./primary-user";
