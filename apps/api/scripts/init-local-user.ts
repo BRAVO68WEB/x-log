@@ -121,6 +121,18 @@ async function main() {
     .execute();
   console.log(`  Created AP keypair (keyId=${keyId})`);
 
+  // Site owner / default Fediverse actor
+  try {
+    await db
+      .updateTable("instance_settings")
+      .set({ primary_user_id: userId })
+      .where("id", "=", 1)
+      .execute();
+    console.log("  Set primary_user_id on instance_settings");
+  } catch {
+    console.log("  Skipped primary_user_id (column may not exist yet — run migrations)");
+  }
+
   console.log("\nDone! You can now log in with:");
   console.log(`  Username: ${username}`);
   console.log(`  Password: ${password}`);

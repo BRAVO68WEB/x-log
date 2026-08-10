@@ -24,3 +24,4 @@ export function getDb(): Kysely<Database> {
 
 export type { Database } from "./schema";
 export * from "./instance-settings";
+export * from "./primary-user";

@@ -118,7 +118,7 @@ onboardingRoutes.post(
       })
       .execute();
 
-    // Create instance settings
+    // Create instance settings (primary author = first admin)
     await db
       .insertInto("instance_settings")
       .values({
@@ -132,6 +132,7 @@ onboardingRoutes.post(
         federation_enabled: true,
         following_enabled: false,
         use_profile_as_landing: false,
+        primary_user_id: userId,
         theme_id: "system",
       })
       .execute();

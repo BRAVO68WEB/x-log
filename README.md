@@ -205,11 +205,42 @@ POSTHOG_HOST=https://us.i.posthog.com
 
 No PostHog network calls when disabled.
 
-## Multi-user (product direction)
+## Instance modes (solo vs multi)
 
-**Default:** single-author instance (one owner, registrations closed).
+x-log is **solo-first**: one domain, one **primary author** (site owner).
 
-**Later (phased):** invite-only multi-author on one domain; each author is a separate ActivityPub actor. Not a community platform—see project plan for M0–M3. Schema already supports multiple `users`; product polish is incremental.
+| Mode | When | Behavior |
+|------|------|----------|
+| **solo** | ≤1 local user (default) | Landing can use primary profile; MCP key acts as primary; registrations closed |
+| **multi** | 2+ local users | Multiple authors, each a separate ActivityPub actor; still one operator/admin |
+
+### Primary author
+
+Stored as `instance_settings.primary_user_id` (backfilled to oldest admin on migrate).
+
+Used for:
+- Profile-as-landing (`use_profile_as_landing`)
+- Instance “follow remote” as the site account
+- MCP write tools when `MCP_ACTOR_USERNAME` is unset
+- Public `/api/public/instance` → `primary_profile`
+- NodeInfo metadata contact account
+
+Set via **Settings → Federation → Primary author** (admin UI), or
+`PATCH /api/settings` with `{ "primary_user_id": "<uuid>" }`.
+
+### Roles (minimal)
+
+| Capability | admin | author |
+|------------|-------|--------|
+| Publish as self | ✓ | ✓ |
+| Instance settings / primary user | ✓ | |
+| Invite users (Phase 3+) | ✓ | |
+
+**Not a social network:** no local timeline of strangers; multi-user is for small teams / invite-only blogs.
+
+### Multi-user roadmap
+
+Invite-only multi-author is planned (Linear B68-107+). Schema already supports multiple `users`.
 
 ## MCP server
 

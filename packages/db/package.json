@@ -5,6 +5,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "type-check": "tsc --noEmit",
+    "test": "bun test src",
     "migrate": "bun run src/migrate.ts"
   },
   "dependencies": {
