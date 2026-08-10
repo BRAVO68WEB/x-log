@@ -65,7 +65,7 @@ chat history. Roadmap phases 0–9 + 8c are done; follow-ups start at Phase 10.
 | 11a CSRF | Done (PR #36) |
 | 11b Broader rate-limit middleware | Done (PR #37) |
 | 12 Author depth — post version history | Done (PR #38) |
-| 13 Media ops cleanup | Done (PR pending) |
+| 13 Media ops cleanup | Done (PR #39) |
 | 14 Quality / E2E depth | Planned |
 
 ### Documentation
