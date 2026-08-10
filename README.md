@@ -266,6 +266,15 @@ Authors cannot change instance domain / federation / primary author. Post CRUD i
 
 x-log exposes a remote **Model Context Protocol** server so agents (Cursor, Claude, etc.) can read public content and create/publish posts as a configured local author.
 
+### Keys
+
+| Key type | Who it acts as | How |
+|----------|----------------|-----|
+| Instance `MCP_API_KEY` | Primary author (or `MCP_ACTOR_USERNAME`) | Env on the API |
+| Per-user key `xlog_mcp_…` | That user only | Profile → **MCP API keys** |
+
+Per-user keys cannot write as another author.
+
 ### Enable
 
 ```bash

@@ -11,6 +11,59 @@ import {
 
 export const publicRoutes = new Hono();
 
+/** Public author directory (multi-user). Empty list when solo. */
+publicRoutes.get("/authors", async (c) => {
+  const db = getDb();
+  const userCount = await countLocalUsers();
+  const mode = deriveInstanceMode(userCount);
+
+  if (mode === "solo") {
+    return c.json({ instance_mode: "solo", authors: [] });
+  }
+
+  const rows = await db
+    .selectFrom("users")
+    .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
+    .select([
+      "users.username",
+      "users.role",
+      "user_profiles.full_name",
+      "user_profiles.bio",
+      "user_profiles.avatar_url",
+    ])
+    .where("users.role", "in", ["admin", "author"])
+    .where("users.is_active", "=", true)
+    .orderBy("users.created_at", "asc")
+    .execute();
+
+  // Post counts per author
+  const counts = await db
+    .selectFrom("posts")
+    .innerJoin("users", "users.id", "posts.author_id")
+    .select(["users.username"])
+    .select((eb) => eb.fn.countAll<number>().as("count"))
+    .where("posts.published_at", "is not", null)
+    .where("posts.visibility", "=", "public")
+    .groupBy("users.username")
+    .execute();
+  const countMap = new Map(counts.map((r) => [r.username, Number(r.count)]));
+
+  return c.json({
+    instance_mode: "multi",
+    authors: rows.map((r) => ({
+      username: r.username,
+      role: r.role,
+      full_name: r.full_name,
+      bio: r.bio,
+      avatar_url: r.avatar_url,
+      public_post_count: countMap.get(r.username) || 0,
+      profile_path: `/u/${r.username}`,
+      rss_path: `/api/feeds/${r.username}/rss`,
+      atom_path: `/api/feeds/${r.username}/atom`,
+    })),
+  });
+});
+
 publicRoutes.get(
   "/instance",
   describeRoute({

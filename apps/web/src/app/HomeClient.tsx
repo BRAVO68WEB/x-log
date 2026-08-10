@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BentoGrid, BentoCard, BentoCardContent } from "@/components/ui/bento-grid";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { AuthorDirectory } from "@/components/AuthorDirectory";
 import { usePosts } from "@/hooks/usePosts";
 import { useAuth } from "@/hooks/useAuth";
 import Link from "next/link";
@@ -53,7 +54,8 @@ export default function HomeClient() {
 
   return (
     <main className="min-h-screen py-10 sm:py-16 px-4">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto space-y-6">
+        <AuthorDirectory />
         <BentoGrid columns={3}>
           {/* Quick action card — only for authenticated users */}
           {isAuthenticated && (

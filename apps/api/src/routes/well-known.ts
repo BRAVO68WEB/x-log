@@ -24,22 +24,30 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
   }
 
   const db = getDb();
+  // Usernames are stored lowercase; only active authors/admins
   const user = await db
     .selectFrom("users")
-    .select("username")
-    .where("username", "=", username)
+    .select(["username", "role", "is_active"])
+    .where("username", "=", username.toLowerCase())
     .executeTakeFirst();
 
-  if (!user) {
+  if (!user || user.is_active === false) {
+    return c.json({ error: "User not found" }, 404);
+  }
+  if (user.role !== "admin" && user.role !== "author") {
     return c.json({ error: "User not found" }, 404);
   }
 
-  const actorId = getActorUrlSync(username, settings.instance_domain);
-  const profileUrl = `https://${settings.instance_domain}/u/${username}`;
+  // Canonical username for actor URLs
+  const canonicalUsername = user.username;
+
+  const actorId = getActorUrlSync(canonicalUsername, settings.instance_domain);
+  const profileUrl = `https://${settings.instance_domain}/u/${canonicalUsername}`;
+  const subject = `acct:${canonicalUsername}@${settings.instance_domain}`;
 
   const jrd = {
-    subject: resource,
-    aliases: [profileUrl, actorId],
+    subject,
+    aliases: [profileUrl, actorId, resource],
     links: [
       {
         rel: "http://webfinger.net/rel/profile-page",
@@ -50,6 +58,16 @@ wellKnownRoutes.get("/.well-known/webfinger", async (c) => {
         rel: "self",
         type: "application/activity+json",
         href: actorId,
+      },
+      {
+        rel: "alternate",
+        type: "application/rss+xml",
+        href: `https://${settings.instance_domain}/api/feeds/${canonicalUsername}/rss`,
+      },
+      {
+        rel: "alternate",
+        type: "application/atom+xml",
+        href: `https://${settings.instance_domain}/api/feeds/${canonicalUsername}/atom`,
       },
       {
         rel: "http://ostatus.org/schema/1.0/subscribe",

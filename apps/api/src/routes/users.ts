@@ -4,7 +4,12 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { UserResponseSchema } from "@xlog/validation";
 import { getDb } from "@xlog/db";
-import { sessionMiddleware, requireAuth } from "../middleware/session";
+import { sessionMiddleware, requireAuth, requireAuthor } from "../middleware/session";
+import {
+  createUserMcpKey,
+  listUserMcpKeys,
+  revokeUserMcpKey,
+} from "../lib/mcp-keys";
 
 export const usersRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -176,3 +181,42 @@ usersRoutes.patch(
     return c.json({ message: "Password changed" });
   }
 );
+
+// ── MCP per-user API keys ──────────────────────────────────────────
+
+usersRoutes.get("/me/mcp-keys", requireAuth, requireAuthor, async (c) => {
+  const user = c.get("user")!;
+  const keys = await listUserMcpKeys(user.id);
+  return c.json({ keys });
+});
+
+usersRoutes.post(
+  "/me/mcp-keys",
+  requireAuth,
+  requireAuthor,
+  validator(
+    "json",
+    z.object({
+      name: z.string().min(1).max(80).optional(),
+      scopes: z.enum(["read", "write", "read_write"]).optional(),
+    })
+  ),
+  async (c) => {
+    const user = c.get("user")!;
+    const body = c.req.valid("json");
+    const created = await createUserMcpKey({
+      userId: user.id,
+      name: body.name,
+      scopes: body.scopes,
+    });
+    return c.json(created, 201);
+  }
+);
+
+usersRoutes.delete("/me/mcp-keys/:id", requireAuth, requireAuthor, async (c) => {
+  const user = c.get("user")!;
+  const id = c.req.param("id");
+  const ok = await revokeUserMcpKey(user.id, id);
+  if (!ok) return c.json({ error: "Key not found" }, 404);
+  return c.json({ message: "Key revoked" });
+});
