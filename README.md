@@ -24,6 +24,14 @@ x-log is an open-source, Bun + TypeScript powered blog platform that federates w
 - **Queue**: Redis + Worker (Bun)
 - **Deployment**: Docker Compose
 
+## Operator documentation
+
+Guides for production ops live under [`docs/operators/`](./docs/operators/):
+
+- [Federation](./docs/operators/federation.md)
+- [Multi-user](./docs/operators/multi-user.md)
+- [Analytics privacy](./docs/operators/analytics-privacy.md)
+
 ## Getting Started
 
 ### Prerequisites
