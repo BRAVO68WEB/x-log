@@ -6,6 +6,7 @@ import { getDb } from "@xlog/db";
 import { generateId } from "@xlog/snowflake";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { isFeatureEnabled } from "../lib/features";
+import { archiveToWayback, utcDayBounds } from "../lib/wayback";
 
 async function fetchOgMetadata(
   url: string
@@ -44,23 +45,31 @@ async function fetchOgMetadata(
   }
 }
 
-async function archiveToWayback(url: string): Promise<string | null> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-    const res = await fetch(`https://web.archive.org/save/${url}`, {
-      signal: controller.signal,
-      headers: { "User-Agent": "x-log/1.0 (link-archiver)" },
-    });
-    clearTimeout(timeout);
+/** Latest non-null snapshot URL for each link id (avoids multi-row join fan-out). */
+async function latestSnapshotUrls(
+  db: ReturnType<typeof getDb>,
+  linkIds: string[]
+): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (linkIds.length === 0) return map;
+  for (const id of linkIds) map.set(id, null);
 
-    if (res.ok) {
-      return res.url || `https://web.archive.org/web/*/${url}`;
+  const rows = await db
+    .selectFrom("link_snapshots")
+    .select(["link_id", "archived_url", "archived_at"])
+    .where("link_id", "in", linkIds)
+    .where("archived_url", "is not", null)
+    .orderBy("archived_at", "desc")
+    .execute();
+
+  for (const row of rows) {
+    if (!map.has(row.link_id)) continue;
+    // first row per link is latest because of order
+    if (map.get(row.link_id) === null) {
+      map.set(row.link_id, row.archived_url);
     }
-    return null;
-  } catch {
-    return null;
   }
+  return map;
 }
 
 export const linksRoutes = new Hono().use("*", sessionMiddleware);
@@ -93,7 +102,6 @@ linksRoutes.get(
       .selectFrom("links")
       .leftJoin("users", "users.id", "links.user_id")
       .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-      .leftJoin("link_snapshots", "link_snapshots.link_id", "links.id")
       .select([
         "links.id",
         "links.url",
@@ -109,7 +117,6 @@ linksRoutes.get(
         "users.username",
         "user_profiles.full_name",
         "user_profiles.avatar_url",
-        "link_snapshots.archived_url",
       ])
       .where("links.is_public", "=", true)
       .orderBy("links.archived_at", "desc")
@@ -124,7 +131,12 @@ linksRoutes.get(
 
     const rows = await query.execute();
     const hasMore = rows.length > limit;
-    const items = rows.slice(0, limit).map((row) => ({
+    const page = rows.slice(0, limit);
+    const snapMap = await latestSnapshotUrls(
+      db,
+      page.map((r) => r.id)
+    );
+    const items = page.map((row) => ({
       id: row.id,
       url: row.url,
       title: row.title,
@@ -134,7 +146,7 @@ linksRoutes.get(
       tags: row.tags ?? [],
       view_count: row.view_count,
       is_public: row.is_public,
-      archived_url: row.archived_url ?? null,
+      archived_url: snapMap.get(row.id) ?? null,
       user: {
         id: row.user_id,
         username: row.username ?? "unknown",
@@ -178,7 +190,6 @@ linksRoutes.get(
       .selectFrom("links")
       .leftJoin("users", "users.id", "links.user_id")
       .leftJoin("user_profiles", "user_profiles.user_id", "users.id")
-      .leftJoin("link_snapshots", "link_snapshots.link_id", "links.id")
       .select([
         "links.id",
         "links.url",
@@ -194,7 +205,6 @@ linksRoutes.get(
         "users.username",
         "user_profiles.full_name",
         "user_profiles.avatar_url",
-        "link_snapshots.archived_url",
       ])
       .where("links.id", "=", id)
       .executeTakeFirst();
@@ -210,6 +220,8 @@ linksRoutes.get(
       .where("id", "=", id)
       .execute();
 
+    const snapMap = await latestSnapshotUrls(db, [link.id]);
+
     return c.json({
       id: link.id,
       url: link.url,
@@ -220,7 +232,7 @@ linksRoutes.get(
       tags: link.tags ?? [],
       view_count: link.view_count + 1,
       is_public: link.is_public,
-      archived_url: link.archived_url ?? null,
+      archived_url: snapMap.get(link.id) ?? null,
       user: {
         id: link.user_id,
         username: link.username ?? "unknown",
@@ -375,15 +387,101 @@ linksRoutes.delete(
 linksRoutes.post(
   "/:id/archive",
   describeRoute({
-    description: "Save link to Wayback Machine",
+    description:
+      "Save link to Wayback Machine (at most one new snapshot row per UTC day; reuses today's capture if present)",
     tags: ["links"],
     responses: {
-      200: { description: "Archived" },
+      200: { description: "Archived (or reused today's snapshot)" },
       403: { description: "Feature disabled" },
       404: { description: "Link not found" },
+      502: { description: "Wayback Machine failed" },
     },
   }),
   requireAuth,
+  async (c) => {
+    const enabled = await isFeatureEnabled("link_archive");
+    if (!enabled) {
+      return c.json({ error: "Link archive feature is not enabled" }, 403);
+    }
+
+    const id = c.req.param("id");
+    const user = c.get("user")!;
+    const db = getDb();
+
+    const link = await db
+      .selectFrom("links")
+      .select(["url", "user_id"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+    if (!link) return c.json({ error: "Link not found" }, 404);
+    if (link.user_id !== user.id && user.role !== "admin") {
+      return c.json({ error: "Not authorized", code: "forbidden" }, 403);
+    }
+
+    // One DB snapshot row per link per UTC day
+    const { start, end } = utcDayBounds(new Date());
+    const existingToday = await db
+      .selectFrom("link_snapshots")
+      .select(["id", "archived_url", "archived_at"])
+      .where("link_id", "=", id)
+      .where("archived_at", ">=", start)
+      .where("archived_at", "<", end)
+      .where("archived_url", "is not", null)
+      .orderBy("archived_at", "desc")
+      .executeTakeFirst();
+
+    if (existingToday?.archived_url) {
+      return c.json({
+        archived_url: existingToday.archived_url,
+        success: true,
+        already_snapshotted_today: true,
+        snapshot_at: existingToday.archived_at.toISOString(),
+      });
+    }
+
+    const result = await archiveToWayback(link.url);
+
+    if (result.archived_url) {
+      await db
+        .insertInto("link_snapshots")
+        .values({
+          id: crypto.randomUUID(),
+          link_id: id,
+          archived_url: result.archived_url,
+        })
+        .execute();
+    }
+
+    if (!result.archived_url) {
+      return c.json(
+        {
+          archived_url: null,
+          success: false,
+          error: result.error || "Wayback archive failed",
+          status: result.status ?? null,
+        },
+        result.status === 429 ? 429 : 502
+      );
+    }
+
+    return c.json({
+      archived_url: result.archived_url,
+      success: true,
+      already_snapshotted_today: false,
+      reused_existing_capture: Boolean(result.reused),
+      warning: result.error || null,
+    });
+  }
+);
+
+// ── GET /links/:id/snapshots ───────────────────────────────────────
+
+linksRoutes.get(
+  "/:id/snapshots",
+  describeRoute({
+    description: "List Wayback snapshots recorded for a link",
+    tags: ["links"],
+  }),
   async (c) => {
     const enabled = await isFeatureEnabled("link_archive");
     if (!enabled) {
@@ -395,20 +493,29 @@ linksRoutes.post(
 
     const link = await db
       .selectFrom("links")
-      .select(["url"])
+      .select(["id", "is_public", "user_id"])
       .where("id", "=", id)
       .executeTakeFirst();
     if (!link) return c.json({ error: "Link not found" }, 404);
 
-    const archivedUrl = await archiveToWayback(link.url);
-
-    if (archivedUrl) {
-      await db
-        .insertInto("link_snapshots")
-        .values({ id: crypto.randomUUID(), link_id: id, archived_url: archivedUrl })
-        .execute();
+    const user = c.get("user");
+    if (!link.is_public && (!user || (user.id !== link.user_id && user.role !== "admin"))) {
+      return c.json({ error: "Link not found" }, 404);
     }
 
-    return c.json({ archived_url: archivedUrl, success: !!archivedUrl });
+    const rows = await db
+      .selectFrom("link_snapshots")
+      .select(["id", "archived_url", "archived_at"])
+      .where("link_id", "=", id)
+      .orderBy("archived_at", "desc")
+      .execute();
+
+    return c.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        archived_url: r.archived_url,
+        archived_at: r.archived_at.toISOString(),
+      })),
+    });
   }
 );
