@@ -1,5 +1,7 @@
 import { Kysely, sql } from "kysely";
 
+export const name = "029_mcp_api_keys";
+
 export async function up(db: Kysely<any>): Promise<void> {
   await db.schema
     .createTable("mcp_api_keys")
