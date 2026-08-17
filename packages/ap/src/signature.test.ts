@@ -1,11 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { generateKeyPairSync } from "crypto";
+import { createHash, createSign, generateKeyPairSync } from "crypto";
 import {
   computeDigest,
   createSignatureString,
+  extractSignatureKeyId,
+  isRfc9421SignatureHeader,
+  parseRfc9421Signatures,
   parseSignatureHeader,
   signHttpRequest,
+  verifyContentDigestHeader,
   verifyHttpSignature,
+  verifyRfc9421HttpSignature,
 } from "./signature";
 
 function generateTestKeys() {
@@ -212,5 +217,86 @@ describe("parseSignatureHeader", () => {
     const parts = parseSignatureHeader(header);
     expect(parts.keyId).toBe("https://example.com/ap/users/alice#main-key");
     expect(parts.algorithm).toBe("rsa-sha256");
+  });
+});
+
+describe("RFC 9421 HTTP Message Signatures", () => {
+  test("detects sig1 dictionary form", () => {
+    expect(isRfc9421SignatureHeader("sig1=:abc123=:")).toBe(true);
+    expect(
+      isRfc9421SignatureHeader(
+        'keyId="https://example.com#main-key",algorithm="rsa-sha256",headers="(request-target) host date",signature="abc"'
+      )
+    ).toBe(false);
+  });
+
+  test("parses Signature-Input + Signature and extracts keyId", () => {
+    const keyId = "https://mastodon.social/users/alice#main-key";
+    const input = `sig1=("@method" "@authority" "@path" "date");created=1700000000;keyid="${keyId}"`;
+    const sig = `sig1=:dGVzdA==:`;
+    const parsed = parseRfc9421Signatures(sig, input);
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].keyId).toBe(keyId);
+    expect(parsed[0].components).toEqual(["@method", "@authority", "@path", "date"]);
+    expect(extractSignatureKeyId(sig, input)).toBe(keyId);
+  });
+
+  test("round-trips rsa-v1_5-sha256 verify", () => {
+    const { privateKey, publicKey } = generateTestKeys();
+    const method = "POST";
+    const path = "/ap/inbox";
+    const authority = "xlog.example";
+    const created = Math.floor(Date.now() / 1000);
+    const date = new Date(created * 1000).toUTCString();
+    const body = '{"type":"Delete"}';
+    const contentDigest = `sha-256=:${createHash("sha256").update(body).digest("base64")}:`;
+
+    const components = ["@method", "@authority", "@path", "content-digest", "date"];
+    const keyId = "https://remote.example/users/bob#main-key";
+    const signatureParams = `("@method" "@authority" "@path" "content-digest" "date");alg="rsa-v1_5-sha256";created=${created};keyid="${keyId}"`;
+
+    const base = [
+      `"@method": ${method}`,
+      `"@authority": ${authority}`,
+      `"@path": ${path}`,
+      `"content-digest": ${contentDigest}`,
+      `"date": ${date}`,
+      `"@signature-params": ${signatureParams}`,
+    ].join("\n");
+
+    const sign = createSign("RSA-SHA256");
+    sign.update(base);
+    sign.end();
+    const signatureBase64 = sign.sign(privateKey, "base64");
+
+    const ok = verifyRfc9421HttpSignature({
+      method,
+      path,
+      authority,
+      headers: {
+        date,
+        "content-digest": contentDigest,
+      },
+      body,
+      signature: {
+        label: "sig1",
+        components,
+        signatureParams,
+        keyId,
+        algorithm: "rsa-v1_5-sha256",
+        created,
+        signatureBase64,
+      },
+      publicKeyPem: publicKey,
+    });
+    expect(ok).toBe(true);
+  });
+
+  test("content-digest verifies body", () => {
+    const body = '{"a":1}';
+    const dig = `sha-256=:${createHash("sha256").update(body).digest("base64")}:`;
+    expect(verifyContentDigestHeader(dig, body)).toBe(true);
+    expect(verifyContentDigestHeader(dig, body + "x")).toBe(false);
+    expect(verifyContentDigestHeader(computeDigest(body), body)).toBe(true);
   });
 });

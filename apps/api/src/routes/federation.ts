@@ -14,6 +14,7 @@ import {
   followObjectForAccept,
   signRequest,
   fetchRemoteActorInbox,
+  extractSignatureKeyId,
 } from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
 
@@ -60,6 +61,54 @@ function getActivityObjectId(activity: any): string | null {
     return object.id;
   }
   return null;
+}
+
+function normalizeHost(h: string): string {
+  return h.replace(/^www\./i, "").toLowerCase();
+}
+
+/** Ensure Signature keyId host matches activity.actor host (www ≡ apex). */
+function assertActorSignatureDomain(
+  signatureHeader: string,
+  headers: Record<string, string>,
+  activityActor: unknown
+): { ok: true } | { ok: false; reason: string } {
+  const sigKeyId = extractSignatureKeyId(
+    signatureHeader,
+    headers["signature-input"] || headers["Signature-Input"]
+  );
+  let sigActorDomain: string | null = null;
+  let activityActorDomain: string | null = null;
+  try {
+    sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
+  } catch {
+    sigActorDomain = null;
+  }
+  try {
+    activityActorDomain = activityActor ? new URL(String(activityActor)).hostname : null;
+  } catch {
+    activityActorDomain = null;
+  }
+  if (
+    !sigActorDomain ||
+    !activityActorDomain ||
+    normalizeHost(sigActorDomain) !== normalizeHost(activityActorDomain)
+  ) {
+    return {
+      ok: false,
+      reason: `domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`,
+    };
+  }
+  return { ok: true };
+}
+
+/**
+ * When a remote actor is gone (410) or limited (403), remotes still deliver
+ * signed Delete retries we cannot verify (no public key). Acknowledge without
+ * applying side effects so they stop hammering the inbox. Do NOT process body.
+ */
+function softAcceptUnverifiedDelete(activity: any): boolean {
+  return activity?.type === "Delete";
 }
 
 async function acceptFollowActivity({
@@ -872,35 +921,21 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
   );
 
   if (!isValid) {
+    if (softAcceptUnverifiedDelete(activity)) {
+      console.warn(
+        `Inbox soft-accept Delete (unverified/gone actor) actor=${activity.actor} user=${username}`
+      );
+      return c.json({ success: true, soft: true }, 202);
+    }
     console.warn(
       `Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`
     );
     return c.json({ error: "Invalid signature" }, 401);
   }
 
-  // Validate actor domain matches signer domain (treat www. as equivalent apex)
-  const sigKeyId = signatureHeader.match(/keyId="([^"]+)"/)?.[1];
-  const normalizeHost = (h: string) => h.replace(/^www\./i, "").toLowerCase();
-  let sigActorDomain: string | null = null;
-  let activityActorDomain: string | null = null;
-  try {
-    sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
-  } catch {
-    sigActorDomain = null;
-  }
-  try {
-    activityActorDomain = activity.actor ? new URL(String(activity.actor)).hostname : null;
-  } catch {
-    activityActorDomain = null;
-  }
-  if (
-    !sigActorDomain ||
-    !activityActorDomain ||
-    normalizeHost(sigActorDomain) !== normalizeHost(activityActorDomain)
-  ) {
-    console.warn(
-      `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
-    );
+  const domainCheck = assertActorSignatureDomain(signatureHeader, headers, activity.actor);
+  if (!domainCheck.ok) {
+    console.warn(`Inbox rejected: ${domainCheck.reason}`);
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 
@@ -1039,35 +1074,21 @@ federationRoutes.post("/ap/inbox", async (c) => {
   });
 
   if (!isValid) {
+    if (softAcceptUnverifiedDelete(activity)) {
+      console.warn(
+        `Inbox soft-accept Delete (unverified/gone actor) actor=${activity.actor}`
+      );
+      return c.json({ success: true, soft: true }, 202);
+    }
     console.warn(
       `Inbox rejected: signature verification failed for ${activity.actor} (type=${activity.type})`
     );
     return c.json({ error: "Invalid signature" }, 401);
   }
 
-  // Validate actor domain matches signer domain (treat www. as equivalent apex)
-  const sigKeyId = signatureHeader.match(/keyId="([^"]+)"/)?.[1];
-  const normalizeHost = (h: string) => h.replace(/^www\./i, "").toLowerCase();
-  let sigActorDomain: string | null = null;
-  let activityActorDomain: string | null = null;
-  try {
-    sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
-  } catch {
-    sigActorDomain = null;
-  }
-  try {
-    activityActorDomain = activity.actor ? new URL(String(activity.actor)).hostname : null;
-  } catch {
-    activityActorDomain = null;
-  }
-  if (
-    !sigActorDomain ||
-    !activityActorDomain ||
-    normalizeHost(sigActorDomain) !== normalizeHost(activityActorDomain)
-  ) {
-    console.warn(
-      `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
-    );
+  const domainCheck = assertActorSignatureDomain(signatureHeader, headers, activity.actor);
+  if (!domainCheck.ok) {
+    console.warn(`Inbox rejected: ${domainCheck.reason}`);
     return c.json({ error: "Actor/signature domain mismatch" }, 403);
   }
 
@@ -1167,16 +1188,18 @@ federationRoutes.post("/ap/inbox", async (c) => {
     }
   }
 
-  // If targeting public or followers collections, find all local followers of the sender
+  // Public / unaddressed activities: deliver to local users who FOLLOW the sender
+  // (following table). Previously this queried `followers` (remotes who follow us),
+  // so Creates from accounts we follow (e.g. floss.social) were ignored-no-target
+  // and never appeared in the Following feed.
   const isPublic = recipients.includes("https://www.w3.org/ns/activitystreams#Public");
   if (isPublic || targetedUsernames.length === 0) {
-    // Find local users who follow the sender
     const followRows = await db
-      .selectFrom("followers")
-      .innerJoin("users", "users.id", "followers.local_user_id")
+      .selectFrom("following")
+      .innerJoin("users", "users.id", "following.local_user_id")
       .select(["users.id", "users.username"])
-      .where("followers.remote_actor", "=", activity.actor)
-      .where("followers.approved", "=", true)
+      .where("following.remote_actor", "=", activity.actor)
+      .where("following.accepted", "=", true)
       .execute();
 
     if (followRows.length === 0) {
@@ -1185,7 +1208,7 @@ federationRoutes.post("/ap/inbox", async (c) => {
       );
     } else {
       console.warn(
-        `Inbox route=public-followers-fanout actor=${activity.actor} type=${activity.type} count=${followRows.length}`
+        `Inbox route=public-following-fanout actor=${activity.actor} type=${activity.type} count=${followRows.length}`
       );
     }
 

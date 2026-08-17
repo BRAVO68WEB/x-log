@@ -13,7 +13,8 @@ export function Footer() {
   const { data: settings } = useQuery<InstanceSettings>(
     "instanceSettings",
     async () => {
-      const res = await fetch("/api/settings");
+      // Public endpoint — footer renders for anonymous visitors too.
+      const res = await fetch("/api/public/instance", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to load settings");
       return res.json();
     },
