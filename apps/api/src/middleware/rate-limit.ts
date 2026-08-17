@@ -126,7 +126,12 @@ export async function rateLimitMiddleware(c: Context, next: Next) {
   const path = c.req.path;
   const method = c.req.method.toUpperCase();
 
-  if (path === "/health" || path === "/docs" || path === "/api/openapi.json") {
+  if (
+    path === "/health" ||
+    path === "/api/health" ||
+    path === "/docs" ||
+    path === "/api/openapi.json"
+  ) {
     return next();
   }
 

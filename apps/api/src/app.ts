@@ -49,9 +49,13 @@ export function createApp(opts: CreateAppOptions = {}): Hono {
   if (!opts.quiet) {
     app.use("*", async (c, next) => {
       await next();
-      if (c.res.status >= 400) {
-        console.error(`[ERROR] ${c.req.method} ${c.req.path} - ${c.res.status}`);
+      const status = c.res.status;
+      if (status < 400) return;
+      // 401 on session routes is expected for anonymous/SSR probes — not an error.
+      if (status === 401) {
+        return;
       }
+      console.error(`[ERROR] ${c.req.method} ${c.req.path} - ${status}`);
     });
   }
 
@@ -123,16 +127,18 @@ export function createApp(opts: CreateAppOptions = {}): Hono {
   app.route("/", wellKnownRoutes);
   app.route("/media", mediaRoutes);
 
-  app.get("/health", (c) => {
-    return c.json({
-      status: "ok",
-      mcp: {
-        enabled: isMcpEnabled(),
-        streamable: "/mcp",
-        jsonrpc: "/mcp/jsonrpc",
-      },
-    });
+  const healthBody = () => ({
+    status: "ok" as const,
+    mcp: {
+      enabled: isMcpEnabled(),
+      streamable: "/mcp",
+      jsonrpc: "/mcp/jsonrpc",
+    },
   });
+
+  // Canonical probe path + common /api/health alias (load balancers / uptime checks).
+  app.get("/health", (c) => c.json(healthBody()));
+  app.get("/api/health", (c) => c.json(healthBody()));
 
   return app;
 }
