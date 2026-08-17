@@ -802,14 +802,13 @@ export type RemoteActorDocument = {
 /**
  * Fetch a remote actor document for key resolution / inbox delivery.
  *
- * Strategy (most of the fedi, including mastodon.social public actors):
- *   1. Unsigned GET first — many servers do NOT require HTTP signatures.
- *   2. If 401/403 and we have a signer, retry with signed GET (authorized-fetch /
- *      "secure mode" instances like some Mastodon configs and Threads).
- *
- * Previously we signed first and skipped unsigned on 401/403, which broke key
- * fetch against public Mastodon actors when our signed GET was rejected, and
- * could stall inbox verification for tens of seconds per Delete retry.
+ * 1. Unsigned GET first — most of the fedi (public Mastodon) does not require
+ *    HTTP signatures.
+ * 2. If that fails and we have a signer, retry signed GET. Authorized-fetch
+ *    servers (Threads, some Mastodon "secure mode") reject unsigned as 401/403
+ *    **or 404** (Threads hides the actor unless the GET is signed).
+ * 3. Unsigned **410 Gone** is treated as a real tombstone — signed retry will
+ *    not recover a deleted Mastodon account, so we skip it.
  */
 export async function fetchRemoteActorDocument(
   actorUrl: string,
@@ -837,44 +836,16 @@ export async function fetchRemoteActorDocument(
         };
       }
 
-      // Actor deleted/suspended — no public key; stop probing variants
-      if (unsigned.status === 404 || unsigned.status === 410) {
+      // Real tombstone — do not burn a signed GET (Mastodon gone actors).
+      if (unsigned.status === 410) {
         console.warn(
-          `fetchRemoteActorDocument: actor gone status=${unsigned.status} url=${candidate}`
+          `fetchRemoteActorDocument: actor gone status=410 url=${candidate}`
         );
         break;
       }
 
-      // Authorized-fetch servers reject unsigned GETs — retry signed
-      if (
-        signerUserId &&
-        (unsigned.status === 401 || unsigned.status === 403)
-      ) {
-        const signed = await signedFetch(candidate, {
-          method: "GET",
-          userId: signerUserId,
-          headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
-        });
-        lastStatus = signed.status;
-        if (signed.ok) {
-          return {
-            actorUrl: candidate,
-            actor: (await signed.json()) as RemoteActorDocument["actor"],
-          };
-        }
-        if (signed.status === 404 || signed.status === 410) {
-          console.warn(
-            `fetchRemoteActorDocument: actor gone status=${signed.status} url=${candidate}`
-          );
-          break;
-        }
-        console.warn(
-          `fetchRemoteActorDocument: signed GET failed status=${signed.status} url=${candidate}`
-        );
-        continue;
-      }
-
-      // Other 4xx: try signed once if available, then next candidate
+      // 401/403/404 + other 4xx: authorized-fetch may still succeed when signed.
+      // Threads returns 404 (not 401) for unsigned actor GETs.
       if (signerUserId && unsigned.status >= 400 && unsigned.status < 500) {
         const signed = await signedFetch(candidate, {
           method: "GET",
@@ -890,20 +861,30 @@ export async function fetchRemoteActorDocument(
         }
         if (signed.status === 404 || signed.status === 410) {
           console.warn(
-            `fetchRemoteActorDocument: actor gone status=${signed.status} url=${candidate}`
+            `fetchRemoteActorDocument: actor gone after signed GET status=${signed.status} url=${candidate}`
           );
           break;
         }
+        console.warn(
+          `fetchRemoteActorDocument: signed GET failed status=${signed.status} (unsigned=${unsigned.status}) url=${candidate}`
+        );
+        continue;
+      }
+
+      if (unsigned.status === 404) {
+        console.warn(
+          `fetchRemoteActorDocument: actor gone status=404 url=${candidate} (no signer)`
+        );
+        break;
       }
     } catch (err) {
-      // TLS / network / abort — one line, no stack dump
       lastError = formatFetchError(err);
       console.warn(`fetchRemoteActorDocument: network error url=${candidate} err=${lastError}`);
     }
   }
 
   console.warn(
-    `fetchRemoteActorDocument failed for ${actorUrl} lastStatus=${lastStatus} lastError=${lastError ?? "-"} signed=${Boolean(signerUserId)}`
+    `fetchRemoteActorDocument failed for ${actorUrl} lastStatus=${lastStatus} lastError=${lastError ?? "-"} hadSigner=${Boolean(signerUserId)}`
   );
   return null;
 }
