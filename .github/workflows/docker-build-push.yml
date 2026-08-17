@@ -17,7 +17,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/x-log
+  # GHCR requires lowercase; set per-job from ${GITHUB_REPOSITORY,,} (owner can be mixed-case).
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -48,6 +48,8 @@ jobs:
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+          # ghcr.io/BRAVO68WEB/x-log is invalid — repository name must be lowercase
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -104,6 +106,9 @@ jobs:
       packages: write
 
     steps:
+      - name: Prepare image name
+        run: echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
       - name: Download digests
         uses: actions/download-artifact@v4
         with:
