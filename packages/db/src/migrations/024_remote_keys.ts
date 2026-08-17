@@ -1,6 +1,8 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
+export const name = "024_remote_keys";
+
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .createTable("remote_keys")

@@ -7,8 +7,8 @@ import { createApp } from "./app";
 
 await startOtelIfEnabled();
 
-// Migrate the database
-migrateToLatest();
+// Migrate the database before accepting traffic
+await migrateToLatest();
 
 const app = createApp();
 

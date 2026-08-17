@@ -1078,10 +1078,20 @@ export const linksApi = {
   },
 
   archive: async (id: string) => {
-    return apiRequest<{ archived_url: string | null; success: boolean }>(
-      `/api/links/${id}/archive`,
-      { method: "POST" }
-    );
+    return apiRequest<{
+      archived_url: string | null;
+      success: boolean;
+      already_snapshotted_today?: boolean;
+      reused_existing_capture?: boolean;
+      warning?: string | null;
+      error?: string;
+    }>(`/api/links/${id}/archive`, { method: "POST" });
+  },
+
+  listSnapshots: async (id: string) => {
+    return apiRequest<{
+      items: Array<{ id: string; archived_url: string | null; archived_at: string }>;
+    }>(`/api/links/${id}/snapshots`);
   },
 };
 

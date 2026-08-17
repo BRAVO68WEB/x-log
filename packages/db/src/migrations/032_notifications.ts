@@ -1,5 +1,7 @@
 import { Kysely, sql } from "kysely";
 
+export const name = "032_notifications";
+
 export async function up(db: Kysely<any>): Promise<void> {
   await db.schema
     .createTable("notifications")

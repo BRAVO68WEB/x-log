@@ -1,6 +1,8 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
+export const name = "026_primary_user_id";
+
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .alterTable("instance_settings")

@@ -35,12 +35,27 @@ export default function LinkDetailClient() {
   );
 
   const archiveMutation = useMutation(
-    async () => { return linksApi.archive(id); },
+    async () => {
+      return linksApi.archive(id);
+    },
     {
-      onSuccess: () => refetch(),
+      onSuccess: (data) => {
+        refetch();
+        if (data.already_snapshotted_today) {
+          setError(null);
+        } else if (data.warning) {
+          setError(data.warning);
+        } else {
+          setError(null);
+        }
+      },
       onError: (err) => setError(err instanceof Error ? err.message : "Failed to archive"),
     }
   );
+
+  const snapshotsQuery = useQuery(["link-snapshots", id], () => linksApi.listSnapshots(id), {
+    enabled: Boolean(id),
+  });
 
   const deleteMutation = useMutation(
     async () => { await linksApi.delete(id); },
@@ -186,11 +201,17 @@ export default function LinkDetailClient() {
           <a href={waybackUrl} target="_blank" rel="noopener noreferrer">
             <Button variant="outline"><Archive className="mr-2 h-4 w-4" /> View on Wayback</Button>
           </a>
-          {!link.archived_url && (
-            <Button variant="outline" onClick={() => archiveMutation.mutate()} disabled={archiveMutation.isLoading}>
-              {archiveMutation.isLoading ? "Archiving..." : "Save to Wayback"}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={() => archiveMutation.mutate()}
+            disabled={archiveMutation.isLoading}
+          >
+            {archiveMutation.isLoading
+              ? "Archiving..."
+              : link.archived_url
+                ? "Refresh Wayback snapshot"
+                : "Save to Wayback"}
+          </Button>
         </div>
 
         <div className="rounded-lg border bg-card p-4 mb-8">
@@ -200,13 +221,44 @@ export default function LinkDetailClient() {
           </a>
           {link.archived_url && (
             <>
-              <h3 className="text-sm font-medium mb-2 mt-4">Archived URL</h3>
+              <h3 className="text-sm font-medium mb-2 mt-4">Latest archived URL</h3>
               <a href={link.archived_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
                 {link.archived_url}
               </a>
             </>
           )}
         </div>
+
+        {snapshotsQuery.data && snapshotsQuery.data.items.length > 0 && (
+          <div className="rounded-lg border bg-card p-4 mb-8">
+            <h3 className="text-sm font-medium mb-3">Snapshots</h3>
+            <ul className="space-y-2 text-sm">
+              {snapshotsQuery.data.items.map((s) => (
+                <li key={s.id} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                  <span className="text-muted-foreground shrink-0">
+                    {new Date(s.archived_at).toLocaleString()}
+                  </span>
+                  {s.archived_url ? (
+                    <a
+                      href={s.archived_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline break-all"
+                    >
+                      {s.archived_url}
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">No URL</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground mt-3">
+              At most one new snapshot is recorded per UTC day. Re-saving the same day reuses the
+              existing row.
+            </p>
+          </div>
+        )}
 
         <div className="pt-8 border-t">
           <Button variant="destructive" onClick={() => { if (confirm("Delete this link?")) deleteMutation.mutate(); }}>

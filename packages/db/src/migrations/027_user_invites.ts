@@ -1,5 +1,7 @@
 import { Kysely, sql } from "kysely";
 
+export const name = "027_user_invites";
+
 export async function up(db: Kysely<any>): Promise<void> {
   await db.schema
     .alterTable("users")
