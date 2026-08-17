@@ -11,6 +11,7 @@ import {
   createCreateActivity,
   verifySignature,
   createAcceptActivity,
+  followObjectForAccept,
   signRequest,
   fetchRemoteActorInbox,
 } from "@xlog/ap";
@@ -18,12 +19,38 @@ import { renderMarkdownSync } from "@xlog/markdown";
 
 export const federationRoutes = new Hono();
 
+/**
+ * Stable id used for inbox activity de-duplication.
+ *
+ * Prefer activity.id for Follow/Accept/Like/etc. Using activity.object for Follow
+ * collapses every Follow of the same local actor into one row, so a second remote
+ * (e.g. Threads after Mastodon) is treated as a duplicate and Accept is never sent
+ * — Threads stays stuck on "Requested".
+ *
+ * Create/Update still key by the AS object id so Delete can find stored creates.
+ */
 function getInboxObjectId(activity: any): string {
-  return (
-    (typeof activity.object === "string" ? activity.object : activity.object?.id) ||
-    activity.id ||
-    `urn:xlog:inbox:${crypto.randomUUID()}`
-  );
+  const type = typeof activity?.type === "string" ? activity.type : "";
+
+  if (type === "Create" || type === "Update") {
+    const objectId =
+      typeof activity.object === "string" ? activity.object : activity.object?.id;
+    if (typeof objectId === "string" && objectId.length > 0) {
+      return objectId;
+    }
+  }
+
+  if (typeof activity?.id === "string" && activity.id.length > 0) {
+    return activity.id;
+  }
+
+  const objectId =
+    typeof activity?.object === "string" ? activity.object : activity?.object?.id;
+  if (typeof objectId === "string" && objectId.length > 0) {
+    return objectId;
+  }
+
+  return `urn:xlog:inbox:${crypto.randomUUID()}`;
 }
 
 function getActivityObjectId(activity: any): string | null {
@@ -86,11 +113,28 @@ async function processInboxActivity(
   // Handle Follow activity
   if (activity.type === "Follow") {
     const remoteActor = activity.actor;
+    if (typeof remoteActor !== "string" || !remoteActor) {
+      console.warn("Follow rejected: missing actor");
+      return;
+    }
+
     const { inbox, sharedInbox, preferredUsername } = await fetchRemoteActorInbox(remoteActor, {
       signerUserId: userId,
     });
-    const inboxUrl = sharedInbox || inbox;
-    const remoteDomain = new URL(remoteActor).hostname;
+    // Prefer personal inbox for directed Accept (Mastodon); fall back to sharedInbox
+    // (Threads shared inbox works too). Never drop personal when shared is wrong.
+    const deliveryInboxes = [
+      ...new Set(
+        [inbox, sharedInbox].filter((u): u is string => typeof u === "string" && u.length > 0)
+      ),
+    ];
+    const inboxUrl = deliveryInboxes[0] || `${remoteActor.replace(/\/$/, "")}/inbox`;
+    let remoteDomain = "unknown";
+    try {
+      remoteDomain = new URL(remoteActor).hostname;
+    } catch {
+      /* keep unknown */
+    }
 
     // Check if already following
     const existing = await db
@@ -139,6 +183,13 @@ async function processInboxActivity(
       } catch {
         /* ignore */
       }
+    } else if (inboxUrl) {
+      // Refresh stored inbox if we learned a better URL
+      await db
+        .updateTable("followers")
+        .set({ inbox_url: inboxUrl })
+        .where("id", "=", existing.id)
+        .execute();
     }
 
     try {
@@ -146,26 +197,52 @@ async function processInboxActivity(
       const actorId = getActorUrlSync(username, settings.instance_domain);
 
       const acceptActivityId = `https://${settings.instance_domain}/ap/activities/${crypto.randomUUID()}`;
-      const accept = createAcceptActivity(acceptActivityId, actorId, activity.id, [remoteActor]);
-
+      const followObject = followObjectForAccept(activity, {
+        localActorId: actorId,
+        fallbackId: acceptActivityId.replace("/activities/", "/follows/accepted/"),
+      });
+      const accept = createAcceptActivity(acceptActivityId, actorId, followObject, [remoteActor]);
       const acceptBody = JSON.stringify(accept);
-      const signed = await signRequest({
-        method: "POST",
-        url: inboxUrl,
-        body: acceptBody,
-        userId,
-      });
 
-      const response = await fetch(signed.url, {
-        method: signed.method,
-        headers: signed.headers,
-        body: signed.body,
-      });
+      let delivered = false;
+      const targets = deliveryInboxes.length > 0 ? deliveryInboxes : [inboxUrl];
+      for (const targetInbox of targets) {
+        try {
+          const signed = await signRequest({
+            method: "POST",
+            url: targetInbox,
+            body: acceptBody,
+            userId,
+          });
 
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        console.warn(
-          `Accept delivery failed local=${username} remote=${remoteActor} inbox=${inboxUrl} status=${response.status} body=${text.slice(0, 500)}`
+          const response = await fetch(signed.url, {
+            method: signed.method,
+            headers: signed.headers,
+            body: signed.body,
+          });
+
+          if (response.ok) {
+            delivered = true;
+            console.warn(
+              `Accept delivered local=${username} remote=${remoteActor} inbox=${targetInbox} status=${response.status}`
+            );
+            break;
+          }
+
+          const text = await response.text().catch(() => "");
+          console.warn(
+            `Accept delivery failed local=${username} remote=${remoteActor} inbox=${targetInbox} status=${response.status} body=${text.slice(0, 500)}`
+          );
+        } catch (err) {
+          console.warn(
+            `Accept delivery error local=${username} remote=${remoteActor} inbox=${targetInbox} err=${String(err)}`
+          );
+        }
+      }
+
+      if (!delivered) {
+        console.error(
+          `Accept not delivered local=${username} remote=${remoteActor} tried=${targets.join(",")}`
         );
       }
     } catch (err) {
@@ -801,11 +878,26 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
     return c.json({ error: "Invalid signature" }, 401);
   }
 
-  // Validate actor domain matches signer domain
+  // Validate actor domain matches signer domain (treat www. as equivalent apex)
   const sigKeyId = signatureHeader.match(/keyId="([^"]+)"/)?.[1];
-  const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
-  const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
-  if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
+  const normalizeHost = (h: string) => h.replace(/^www\./i, "").toLowerCase();
+  let sigActorDomain: string | null = null;
+  let activityActorDomain: string | null = null;
+  try {
+    sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
+  } catch {
+    sigActorDomain = null;
+  }
+  try {
+    activityActorDomain = activity.actor ? new URL(String(activity.actor)).hostname : null;
+  } catch {
+    activityActorDomain = null;
+  }
+  if (
+    !sigActorDomain ||
+    !activityActorDomain ||
+    normalizeHost(sigActorDomain) !== normalizeHost(activityActorDomain)
+  ) {
     console.warn(
       `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
     );
@@ -831,6 +923,13 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
         console.warn(
           `Inbox route=accept-follow-match actor=${activity.actor} object=${getActivityObjectId(activity)} user=${username} duplicate=true updated=${updated}`
         );
+      }
+      // Re-process Follow so Accept is re-delivered on retries (prior Accept may have failed)
+      if (activity.type === "Follow") {
+        console.warn(
+          `Inbox route=follow-retry actor=${activity.actor} object=${getActivityObjectId(activity)} user=${username} duplicate=true`
+        );
+        await processInboxActivity(activity, user.id, username, db);
       }
       return c.json({ success: true }, 202);
     }
@@ -946,11 +1045,26 @@ federationRoutes.post("/ap/inbox", async (c) => {
     return c.json({ error: "Invalid signature" }, 401);
   }
 
-  // Validate actor domain matches signer domain
+  // Validate actor domain matches signer domain (treat www. as equivalent apex)
   const sigKeyId = signatureHeader.match(/keyId="([^"]+)"/)?.[1];
-  const sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
-  const activityActorDomain = activity.actor ? new URL(activity.actor).hostname : null;
-  if (!sigActorDomain || sigActorDomain !== activityActorDomain) {
+  const normalizeHost = (h: string) => h.replace(/^www\./i, "").toLowerCase();
+  let sigActorDomain: string | null = null;
+  let activityActorDomain: string | null = null;
+  try {
+    sigActorDomain = sigKeyId ? new URL(sigKeyId.replace(/#.*$/, "")).hostname : null;
+  } catch {
+    sigActorDomain = null;
+  }
+  try {
+    activityActorDomain = activity.actor ? new URL(String(activity.actor)).hostname : null;
+  } catch {
+    activityActorDomain = null;
+  }
+  if (
+    !sigActorDomain ||
+    !activityActorDomain ||
+    normalizeHost(sigActorDomain) !== normalizeHost(activityActorDomain)
+  ) {
     console.warn(
       `Inbox rejected: domain mismatch signer=${sigActorDomain} actor=${activityActorDomain}`
     );

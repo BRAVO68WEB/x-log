@@ -83,7 +83,7 @@ export interface ActivityPubDelete {
 }
 
 export interface ActivityPubFollow {
-  "@context": string[];
+  "@context"?: string[];
   id: string;
   type: "Follow";
   actor: string;
@@ -92,12 +92,16 @@ export interface ActivityPubFollow {
   cc?: string[];
 }
 
+/** Compact Follow embedded inside Accept (no @context) — Threads/Mastodon shape. */
+export type ActivityPubEmbeddedFollow = Omit<ActivityPubFollow, "@context">;
+
 export interface ActivityPubAccept {
   "@context": string[];
   id: string;
   type: "Accept";
   actor: string;
-  object: string;
+  /** Follow activity id string, or embedded Follow object (Mastodon/Threads). */
+  object: ActivityPubEmbeddedFollow | ActivityPubFollow | string;
   to?: string[];
   cc?: string[];
 }
@@ -208,6 +212,15 @@ function inferImageMediaType(url: string): string | undefined {
   return undefined;
 }
 
+/** Prefer https for federated media URLs (mixed-content / some remote validators). */
+function ensureHttpsUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  if (url.startsWith("http://")) {
+    return `https://${url.slice("http://".length)}`;
+  }
+  return url;
+}
+
 export async function createActorObject(
   username: string,
   name: string,
@@ -251,18 +264,20 @@ export async function createActorObject(
     },
   };
 
-  if (options?.avatarUrl) {
+  const avatarUrl = ensureHttpsUrl(options?.avatarUrl);
+  if (avatarUrl) {
     actor.icon = {
       type: "Image",
-      url: options.avatarUrl,
-      mediaType: inferImageMediaType(options.avatarUrl),
+      url: avatarUrl,
+      mediaType: inferImageMediaType(avatarUrl),
     };
   }
-  if (options?.bannerUrl) {
+  const bannerUrl = ensureHttpsUrl(options?.bannerUrl);
+  if (bannerUrl) {
     actor.image = {
       type: "Image",
-      url: options.bannerUrl,
-      mediaType: inferImageMediaType(options.bannerUrl),
+      url: bannerUrl,
+      mediaType: inferImageMediaType(bannerUrl),
     };
   }
   if (options?.createdAt) {
@@ -315,18 +330,20 @@ export function createActorObjectSync(
     },
   };
 
-  if (options?.avatarUrl) {
+  const avatarUrl = ensureHttpsUrl(options?.avatarUrl);
+  if (avatarUrl) {
     actor.icon = {
       type: "Image",
-      url: options.avatarUrl,
-      mediaType: inferImageMediaType(options.avatarUrl),
+      url: avatarUrl,
+      mediaType: inferImageMediaType(avatarUrl),
     };
   }
-  if (options?.bannerUrl) {
+  const bannerUrl = ensureHttpsUrl(options?.bannerUrl);
+  if (bannerUrl) {
     actor.image = {
       type: "Image",
-      url: options.bannerUrl,
-      mediaType: inferImageMediaType(options.bannerUrl),
+      url: bannerUrl,
+      mediaType: inferImageMediaType(bannerUrl),
     };
   }
   if (options?.createdAt) {
@@ -499,10 +516,15 @@ export function createDeleteActivity(
   };
 }
 
+/**
+ * Build an Accept{Follow}. Prefer embedding the full Follow object — Threads and
+ * Mastodon both emit Accept with an embedded Follow, and Threads stays on
+ * "Requested" if it cannot match a bare id string.
+ */
 export function createAcceptActivity(
   activityId: string,
   actorId: string,
-  followActivityId: string,
+  follow: ActivityPubEmbeddedFollow | ActivityPubFollow | string,
   to?: string[]
 ): ActivityPubAccept {
   return {
@@ -510,8 +532,49 @@ export function createAcceptActivity(
     id: activityId,
     type: "Accept",
     actor: actorId,
-    object: followActivityId,
+    object: follow,
     ...(to ? { to } : {}),
+  };
+}
+
+/**
+ * Normalize a received Follow into the compact shape used as Accept.object.
+ * Ensures id/actor/object are present so remote servers can match the request.
+ */
+export function followObjectForAccept(
+  activity: {
+    id?: unknown;
+    actor?: unknown;
+    object?: unknown;
+    type?: unknown;
+  },
+  opts: { localActorId: string; fallbackId: string }
+): ActivityPubEmbeddedFollow | string {
+  const actor = typeof activity.actor === "string" ? activity.actor : "";
+  const objectId =
+    typeof activity.object === "string"
+      ? activity.object
+      : activity.object &&
+          typeof activity.object === "object" &&
+          typeof (activity.object as { id?: unknown }).id === "string"
+        ? ((activity.object as { id: string }).id as string)
+        : opts.localActorId;
+
+  const id =
+    typeof activity.id === "string" && activity.id.length > 0
+      ? activity.id
+      : opts.fallbackId;
+
+  if (!actor || !objectId) {
+    return id;
+  }
+
+  // Compact Follow (no @context) — matches Threads Accept payloads we receive.
+  return {
+    id,
+    type: "Follow",
+    actor,
+    object: objectId,
   };
 }
 
