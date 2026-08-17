@@ -1,5 +1,7 @@
 import { Kysely, sql } from "kysely";
 
+export const name = "030_federation_domain_blocks";
+
 export async function up(db: Kysely<any>): Promise<void> {
   await db.schema
     .createTable("federation_domain_blocks")

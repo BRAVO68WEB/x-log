@@ -1,6 +1,6 @@
 import type { Kysely } from "kysely";
 
-export const name = "022_ai_settings";
+export const name = "023_ai_settings";
 
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema

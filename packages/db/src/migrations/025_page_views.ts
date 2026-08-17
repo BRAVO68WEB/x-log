@@ -1,6 +1,8 @@
 import type { Kysely } from "kysely";
 import { sql } from "kysely";
 
+export const name = "025_page_views";
+
 export async function up(db: Kysely<unknown>): Promise<void> {
   await db.schema
     .alterTable("posts")
