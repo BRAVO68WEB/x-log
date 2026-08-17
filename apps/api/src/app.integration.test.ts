@@ -34,6 +34,13 @@ describe("API integration (createApp)", () => {
     expect(body.mcp).toBeDefined();
   });
 
+  test("GET /api/health alias returns ok", async () => {
+    const res = await app.request("/api/health");
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { status: string };
+    expect(body.status).toBe("ok");
+  });
+
   test("GET /api/users/me without auth is 401 with code", async () => {
     const res = await app.request("/api/users/me");
     expect(res.status).toBe(401);

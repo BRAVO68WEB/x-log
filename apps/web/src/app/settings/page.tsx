@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
     const host = hdrs.get("host") || "localhost:4000";
     const proto = hdrs.get("x-forwarded-proto") || "http";
     const base = `${proto}://${host}`;
-    const res = await fetch(`${base}/api/settings`, { cache: "no-store" });
+    const res = await fetch(`${base}/api/public/instance`, { cache: "no-store" });
     if (!res.ok) {
       return {
         title: "Instance Settings — x-log",
