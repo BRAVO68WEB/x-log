@@ -239,6 +239,310 @@ export function parseSignatureHeader(signatureHeader: string): ParsedSignatureHe
   return parts;
 }
 
+/** True when the Signature header uses RFC 9421 dictionary form (`sig1=:...:`). */
+export function isRfc9421SignatureHeader(signatureHeader: string): boolean {
+  return /=\s*:/.test(signatureHeader) && !/keyId\s*=/i.test(signatureHeader);
+}
+
+export type Rfc9421Signature = {
+  label: string;
+  /** Covered components, e.g. ["@method", "@authority", "date"] */
+  components: string[];
+  /** Raw inner-list + params value used as @signature-params (no label) */
+  signatureParams: string;
+  keyId: string;
+  algorithm?: string;
+  created?: number;
+  expires?: number;
+  /** Raw signature bytes (base64, no surrounding `:`) */
+  signatureBase64: string;
+};
+
+/**
+ * Parse RFC 9421 Signature + Signature-Input pair.
+ * Example:
+ *   Signature-Input: sig1=("@method" "@path");created=1;keyid="https://…#main-key"
+ *   Signature: sig1=:BASE64:
+ */
+export function parseRfc9421Signatures(
+  signatureHeader: string,
+  signatureInputHeader: string
+): Rfc9421Signature[] {
+  if (!signatureHeader || !signatureInputHeader) return [];
+
+  const sigValues = parseSfDictionaryByteSequences(signatureHeader);
+  const inputs = parseSfDictionaryInnerLists(signatureInputHeader);
+  const out: Rfc9421Signature[] = [];
+
+  for (const [label, input] of Object.entries(inputs)) {
+    const sigB64 = sigValues[label];
+    if (!sigB64) continue;
+    const keyId = input.params.keyid || input.params.keyId;
+    if (!keyId) continue;
+
+    out.push({
+      label,
+      components: input.items,
+      signatureParams: input.rawParams,
+      keyId,
+      algorithm: input.params.alg,
+      created: input.params.created ? Number(input.params.created) : undefined,
+      expires: input.params.expires ? Number(input.params.expires) : undefined,
+      signatureBase64: sigB64,
+    });
+  }
+
+  return out;
+}
+
+/** Extract keyId from Cavage Signature or RFC 9421 Signature-Input. */
+export function extractSignatureKeyId(
+  signatureHeader: string,
+  signatureInputHeader?: string | null
+): string | null {
+  const cavage = parseSignatureHeader(signatureHeader);
+  if (cavage.keyId) return cavage.keyId;
+
+  if (signatureInputHeader) {
+    const rfc = parseRfc9421Signatures(signatureHeader, signatureInputHeader);
+    if (rfc[0]?.keyId) return rfc[0].keyId;
+  }
+
+  // Signature-Input alone (some gateways strip pairing)
+  if (signatureInputHeader) {
+    const m = signatureInputHeader.match(/keyid="([^"]+)"/i);
+    if (m?.[1]) return m[1];
+  }
+
+  return null;
+}
+
+/**
+ * Minimal Structured Fields dictionary parser for RFC 9421 byte sequences:
+ *   sig1=:YmFzZTY0:, sig2=:abc=
+ */
+function parseSfDictionaryByteSequences(header: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  const re = /([a-zA-Z0-9_*-]+)=\s*:([A-Za-z0-9+/=]*):/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(header)) !== null) {
+    out[m[1]] = m[2];
+  }
+  return out;
+}
+
+/**
+ * Parse Signature-Input dictionary members:
+ *   sig1=("@method" "@path" "date");created=123;keyid="https://…"
+ */
+function parseSfDictionaryInnerLists(header: string): Record<
+  string,
+  { items: string[]; params: Record<string, string>; rawParams: string }
+> {
+  const out: Record<
+    string,
+    { items: string[]; params: Record<string, string>; rawParams: string }
+  > = {};
+
+  // Split top-level members on commas not inside quotes/parens
+  const members: string[] = [];
+  let buf = "";
+  let depth = 0;
+  let inQuote = false;
+  for (let i = 0; i < header.length; i++) {
+    const ch = header[i];
+    if (ch === '"' && header[i - 1] !== "\\") inQuote = !inQuote;
+    if (!inQuote) {
+      if (ch === "(") depth++;
+      if (ch === ")") depth--;
+      if (ch === "," && depth === 0) {
+        members.push(buf.trim());
+        buf = "";
+        continue;
+      }
+    }
+    buf += ch;
+  }
+  if (buf.trim()) members.push(buf.trim());
+
+  for (const member of members) {
+    const eq = member.indexOf("=");
+    if (eq < 0) continue;
+    const label = member.slice(0, eq).trim();
+    const rest = member.slice(eq + 1).trim();
+    const parenEnd = rest.indexOf(")");
+    if (!rest.startsWith("(") || parenEnd < 0) continue;
+
+    const listInner = rest.slice(1, parenEnd);
+    const after = rest.slice(parenEnd + 1); // ;param=…
+
+    const items: string[] = [];
+    const itemRe = /"([^"]+)"/g;
+    let im: RegExpExecArray | null;
+    while ((im = itemRe.exec(listInner)) !== null) {
+      items.push(im[1]);
+    }
+
+    const params: Record<string, string> = {};
+    const paramRe = /;([a-zA-Z0-9_-]+)=(?:"([^"]*)"|([0-9A-Za-z_.:/+#@-]+))/g;
+    let pm: RegExpExecArray | null;
+    while ((pm = paramRe.exec(after)) !== null) {
+      params[pm[1].toLowerCase()] = pm[2] ?? pm[3] ?? "";
+    }
+
+    // rawParams is the value used on the @signature-params line (inner-list + params)
+    const rawParams = rest.trim();
+
+    out[label] = { items, params, rawParams };
+  }
+
+  return out;
+}
+
+/**
+ * Build RFC 9421 signature base and verify with RSA (v1.5-SHA256 or PSS-SHA512).
+ * Supports common ActivityPub covered components + Content-Digest (RFC 9530).
+ */
+export function verifyRfc9421HttpSignature(opts: {
+  method: string;
+  path: string;
+  /** Host / authority (instance domain) */
+  authority: string;
+  headers: Record<string, string>;
+  body: string;
+  signature: Rfc9421Signature;
+  publicKeyPem: string;
+}): boolean {
+  try {
+    const { signature: sig } = opts;
+    const now = Math.floor(Date.now() / 1000);
+    if (sig.created != null && Math.abs(now - sig.created) > 5 * 60) {
+      console.warn(
+        `RFC9421 verify failed: created skew ${Math.abs(now - sig.created)}s`
+      );
+      return false;
+    }
+    if (sig.expires != null && now > sig.expires) {
+      console.warn("RFC9421 verify failed: signature expired");
+      return false;
+    }
+
+    // Verify Content-Digest / Digest if present in headers (body integrity)
+    const contentDigest =
+      opts.headers["content-digest"] || opts.headers["Content-Digest"];
+    if (contentDigest) {
+      if (!verifyContentDigestHeader(contentDigest, opts.body)) {
+        console.warn("RFC9421 verify failed: content-digest mismatch");
+        return false;
+      }
+    }
+
+    const lines: string[] = [];
+    for (const component of sig.components) {
+      const value = resolveRfc9421Component(component, opts);
+      if (value === null) {
+        console.warn(`RFC9421 verify failed: missing component ${component}`);
+        return false;
+      }
+      lines.push(`"${component}": ${value}`);
+    }
+    lines.push(`"@signature-params": ${sig.signatureParams}`);
+    const base = lines.join("\n");
+
+    const alg = (sig.algorithm || "rsa-v1_5-sha256").toLowerCase();
+    const sigBuf = Buffer.from(sig.signatureBase64, "base64");
+
+    if (alg === "rsa-v1_5-sha256" || alg === "rsa-sha256" || alg === "hs2019") {
+      const verify = crypto.createVerify("RSA-SHA256");
+      verify.update(base);
+      verify.end();
+      return verify.verify(opts.publicKeyPem, sigBuf);
+    }
+
+    if (alg === "rsa-pss-sha512") {
+      return crypto.verify(
+        "sha512",
+        Buffer.from(base, "utf8"),
+        {
+          key: opts.publicKeyPem,
+          padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto.constants.RSA_PSS_SALTLEN_DIGEST,
+        },
+        sigBuf
+      );
+    }
+
+    console.warn(`RFC9421 verify failed: unsupported alg=${alg}`);
+    return false;
+  } catch (err) {
+    console.warn(`RFC9421 verify error: ${String(err)}`);
+    return false;
+  }
+}
+
+function resolveRfc9421Component(
+  component: string,
+  opts: {
+    method: string;
+    path: string;
+    authority: string;
+    headers: Record<string, string>;
+  }
+): string | null {
+  const lower = component.toLowerCase();
+  switch (lower) {
+    case "@method":
+      return opts.method.toUpperCase();
+    case "@authority":
+      return opts.authority.toLowerCase();
+    case "@path": {
+      const q = opts.path.indexOf("?");
+      const p = q >= 0 ? opts.path.slice(0, q) : opts.path;
+      return p || "/";
+    }
+    case "@query": {
+      const q = opts.path.indexOf("?");
+      return q >= 0 ? opts.path.slice(q) : "?";
+    }
+    case "@target-uri":
+      return `https://${opts.authority}${opts.path.startsWith("/") ? "" : "/"}${opts.path}`;
+    case "@scheme":
+      return "https";
+    case "@request-target":
+      // Not standard RFC 9421 derived, but some stacks still emit it
+      return `${opts.method.toLowerCase()} ${opts.path}`;
+    default: {
+      // HTTP field component
+      const headerVal =
+        opts.headers[lower] ?? opts.headers[component] ?? opts.headers[component.toLowerCase()];
+      if (headerVal === undefined || headerVal === null) return null;
+      return String(headerVal).trim();
+    }
+  }
+}
+
+/** RFC 9530 Content-Digest: sha-256=:BASE64: (and sha-512). */
+export function verifyContentDigestHeader(header: string, body: string): boolean {
+  const re = /(sha-256|sha-512)=:([A-Za-z0-9+/=]*):/gi;
+  let m: RegExpExecArray | null;
+  let any = false;
+  while ((m = re.exec(header)) !== null) {
+    any = true;
+    const algo = m[1].toLowerCase();
+    const expected = m[2];
+    const hash = crypto
+      .createHash(algo === "sha-512" ? "sha512" : "sha256")
+      .update(body)
+      .digest("base64");
+    if (hash !== expected) return false;
+  }
+  // Also accept legacy Digest: SHA-256=...
+  if (!any && /^SHA-256=/i.test(header)) {
+    return header === computeDigest(body);
+  }
+  return any;
+}
+
 /**
  * Pure HTTP Signature builder (Cavage draft). No DB access — used by signRequest
  * and unit tests.
@@ -443,6 +747,22 @@ export async function signRequest(
   return result;
 }
 
+const ACTOR_FETCH_TIMEOUT_MS = 12_000;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs = ACTOR_FETCH_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export async function signedFetch(
   url: string,
   options: {
@@ -461,7 +781,7 @@ export async function signedFetch(
     extraHeaders: options.headers,
   });
 
-  return fetch(signed.url, {
+  return fetchWithTimeout(signed.url, {
     method: signed.method,
     headers: signed.headers,
     body: signed.body,
@@ -480,8 +800,16 @@ export type RemoteActorDocument = {
 };
 
 /**
- * Fetch a remote actor document. Uses a signed GET when signerUserId is set
- * (required for Mastodon authorized fetch / secure mode).
+ * Fetch a remote actor document for key resolution / inbox delivery.
+ *
+ * Strategy (most of the fedi, including mastodon.social public actors):
+ *   1. Unsigned GET first — many servers do NOT require HTTP signatures.
+ *   2. If 401/403 and we have a signer, retry with signed GET (authorized-fetch /
+ *      "secure mode" instances like some Mastodon configs and Threads).
+ *
+ * Previously we signed first and skipped unsigned on 401/403, which broke key
+ * fetch against public Mastodon actors when our signed GET was rejected, and
+ * could stall inbox verification for tens of seconds per Delete retry.
  */
 export async function fetchRemoteActorDocument(
   actorUrl: string,
@@ -497,61 +825,78 @@ export async function fetchRemoteActorDocument(
 
   for (const candidate of candidates) {
     try {
-      let resp: Response;
-      if (signerUserId) {
-        resp = await signedFetch(candidate, {
-          method: "GET",
-          userId: signerUserId,
-          headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
-        });
-      } else {
-        resp = await fetch(candidate, {
-          headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
-        });
-      }
+      const unsigned = await fetchWithTimeout(candidate, {
+        headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
+      });
+      lastStatus = unsigned.status;
 
-      lastStatus = resp.status;
-      if (resp.ok) {
+      if (unsigned.ok) {
         return {
           actorUrl: candidate,
-          actor: (await resp.json()) as RemoteActorDocument["actor"],
+          actor: (await unsigned.json()) as RemoteActorDocument["actor"],
         };
       }
 
-      // Actor deleted/suspended — no public key available; stop probing variants
-      if (resp.status === 404 || resp.status === 410) {
+      // Actor deleted/suspended — no public key; stop probing variants
+      if (unsigned.status === 404 || unsigned.status === 410) {
         console.warn(
-          `fetchRemoteActorDocument: actor gone status=${resp.status} url=${candidate}`
+          `fetchRemoteActorDocument: actor gone status=${unsigned.status} url=${candidate}`
         );
         break;
       }
 
-      // Authorized fetch: do not fall back to unsigned on 401/403
-      if (signerUserId && (resp.status === 401 || resp.status === 403)) {
+      // Authorized-fetch servers reject unsigned GETs — retry signed
+      if (
+        signerUserId &&
+        (unsigned.status === 401 || unsigned.status === 403)
+      ) {
+        const signed = await signedFetch(candidate, {
+          method: "GET",
+          userId: signerUserId,
+          headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
+        });
+        lastStatus = signed.status;
+        if (signed.ok) {
+          return {
+            actorUrl: candidate,
+            actor: (await signed.json()) as RemoteActorDocument["actor"],
+          };
+        }
+        if (signed.status === 404 || signed.status === 410) {
+          console.warn(
+            `fetchRemoteActorDocument: actor gone status=${signed.status} url=${candidate}`
+          );
+          break;
+        }
+        console.warn(
+          `fetchRemoteActorDocument: signed GET failed status=${signed.status} url=${candidate}`
+        );
         continue;
       }
 
-      // Some servers accept unsigned GET even when signed fails for other reasons
-      if (signerUserId && resp.status >= 400 && resp.status < 500) {
-        const unsigned = await fetch(candidate, {
+      // Other 4xx: try signed once if available, then next candidate
+      if (signerUserId && unsigned.status >= 400 && unsigned.status < 500) {
+        const signed = await signedFetch(candidate, {
+          method: "GET",
+          userId: signerUserId,
           headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
         });
-        lastStatus = unsigned.status;
-        if (unsigned.ok) {
+        lastStatus = signed.status;
+        if (signed.ok) {
           return {
             actorUrl: candidate,
-            actor: (await unsigned.json()) as RemoteActorDocument["actor"],
+            actor: (await signed.json()) as RemoteActorDocument["actor"],
           };
         }
-        if (unsigned.status === 404 || unsigned.status === 410) {
+        if (signed.status === 404 || signed.status === 410) {
           console.warn(
-            `fetchRemoteActorDocument: actor gone status=${unsigned.status} url=${candidate}`
+            `fetchRemoteActorDocument: actor gone status=${signed.status} url=${candidate}`
           );
           break;
         }
       }
     } catch (err) {
-      // TLS / network — one line, no stack dump (www cert mismatches used to spam logs)
+      // TLS / network / abort — one line, no stack dump
       lastError = formatFetchError(err);
       console.warn(`fetchRemoteActorDocument: network error url=${candidate} err=${lastError}`);
     }
@@ -737,11 +1082,13 @@ export async function verifySignature(
     // configured instance domain as the canonical host — it always
     // matches what remote servers signed against.
     const settings = await getInstanceSettings();
-    headers = { ...headers, host: settings.instance_domain };
+    const authority = settings.instance_domain.split(":")[0];
+    headers = { ...headers, host: authority };
 
     const db = getDb();
     const digestHeader = headers["digest"] || headers["Digest"];
-    if (digestHeader) {
+    if (digestHeader && !isRfc9421SignatureHeader(signatureHeader)) {
+      // Cavage Digest: SHA-256=...
       const expectedDigest = computeDigest(body);
       if (digestHeader !== expectedDigest) {
         console.warn("Sig verify failed: digest mismatch");
@@ -750,7 +1097,7 @@ export async function verifySignature(
     }
 
     const dateHeader = headers["date"] || headers["Date"];
-    if (dateHeader) {
+    if (dateHeader && !isRfc9421SignatureHeader(signatureHeader)) {
       const parsed = new Date(dateHeader).getTime();
       if (Number.isNaN(parsed)) {
         console.warn("Sig verify failed: invalid date header");
@@ -764,8 +1111,50 @@ export async function verifySignature(
       }
     }
 
-    const signatureParts = parseSignatureHeader(signatureHeader) as Record<string, string>;
+    const signatureInput =
+      headers["signature-input"] || headers["Signature-Input"] || "";
 
+    // ── RFC 9421 path (Mastodon 4.4+ dual-sign / pure RFC deliveries) ──
+    if (isRfc9421SignatureHeader(signatureHeader) || signatureInput) {
+      const rfcSigs = parseRfc9421Signatures(signatureHeader, signatureInput);
+      if (rfcSigs.length > 0) {
+        for (const rfcSig of rfcSigs) {
+          const ok = await verifyOneKeySignature({
+            method,
+            path,
+            authority,
+            headers,
+            body,
+            keyId: rfcSig.keyId,
+            dateHeader,
+            signatureToken: rfcSig.signatureBase64,
+            settingsDomain: settings.instance_domain,
+            db,
+            keyFetchSignerUserId: options?.keyFetchSignerUserId,
+            verifyWithKey: (publicKeyPem) =>
+              verifyRfc9421HttpSignature({
+                method,
+                path,
+                authority,
+                headers,
+                body,
+                signature: rfcSig,
+                publicKeyPem,
+              }),
+          });
+          if (ok) return true;
+        }
+        // Fall through to Cavage if Signature also carries draft form
+      } else if (isRfc9421SignatureHeader(signatureHeader)) {
+        console.warn(
+          `Sig verify failed: RFC9421 Signature without usable Signature-Input (sample=${signatureHeader.slice(0, 80)})`
+        );
+        return false;
+      }
+    }
+
+    // ── Cavage draft path (classic ActivityPub) ──
+    const signatureParts = parseSignatureHeader(signatureHeader) as Record<string, string>;
     const keyId = signatureParts.keyId;
     if (!keyId) {
       console.warn(
@@ -774,92 +1163,121 @@ export async function verifySignature(
       return false;
     }
 
-    console.warn(`Verifying signature for keyId: ${keyId}`);
-
-    const replayKey = `${signatureParts.signature || ""}:${dateHeader || ""}`;
-    const replay = await db
-      .selectFrom("replay_cache")
-      .select("created_at")
-      .where("key", "=", replayKey)
-      .executeTakeFirst();
-    const now = Date.now();
-    if (replay && now - new Date(replay.created_at as any).getTime() < SIGNATURE_TTL_MS) {
-      console.warn(`Sig verify failed: replay cache hit for keyId=${keyId}`);
-      return false;
-    }
-    await db
-      .insertInto("replay_cache")
-      .values({ key: replayKey })
-      .onConflict((oc) => oc.column("key").doNothing())
-      .execute();
-
-    const actorUrl = actorUrlFromKeyId(keyId);
-    const actorId = getActorIdFromUrl(actorUrl);
-
-    // Local actor: only treat as local when host matches instance domain
-    let localUser: { id: string } | undefined;
-    try {
-      const actorHost = normalizeActorHostname(new URL(actorUrl).hostname);
-      const instanceHost = normalizeActorHostname(settings.instance_domain.split(":")[0]);
-      if (actorHost === instanceHost) {
-        localUser = await db
-          .selectFrom("users")
-          .select("id")
-          .where("username", "=", actorId || "")
-          .executeTakeFirst();
-      }
-    } catch {
-      // non-URL keyId — fall through to remote path
-    }
-
-    if (localUser) {
-      const userKey = await db
-        .selectFrom("user_keys")
-        .select("public_key_pem")
-        .where("user_id", "=", localUser.id)
-        .executeTakeFirst();
-
-      if (!userKey) {
-        console.warn("Sig verify failed: local user key not found");
-        return false;
-      }
-
-      return verifySignatureWithKey(method, path, headers, signatureParts, userKey.public_key_pem);
-    }
-
-    if (!actorUrl.startsWith("https://")) {
-      console.warn("Sig verify failed: non-HTTPS actor URL");
-      return false;
-    }
-
-    const signerUserId = await resolveKeyFetchSignerUserId(options?.keyFetchSignerUserId);
-    let publicKeyPem = await resolveRemotePublicKey(keyId, actorUrl, signerUserId);
-    if (!publicKeyPem) {
-      console.warn("Sig verify failed: remote actor fetch failed for all candidates");
-      return false;
-    }
-
-    let ok = verifySignatureWithKey(method, path, headers, signatureParts, publicKeyPem);
-    if (!ok) {
-      // Stale or rotated key: invalidate cache and re-fetch once
-      console.warn(`RSA verify failed for ${keyId}; invalidating cache and re-fetching`);
-      await invalidateRemoteKey(keyId);
-      publicKeyPem = await resolveRemotePublicKey(keyId, actorUrl, signerUserId, {
-        bypassCache: true,
-      });
-      if (!publicKeyPem) {
-        console.warn("Sig verify failed: remote key re-fetch after invalidate failed");
-        return false;
-      }
-      ok = verifySignatureWithKey(method, path, headers, signatureParts, publicKeyPem);
-    }
-    return ok;
+    return verifyOneKeySignature({
+      method,
+      path,
+      authority,
+      headers,
+      body,
+      keyId,
+      dateHeader,
+      signatureToken: signatureParts.signature || "",
+      settingsDomain: settings.instance_domain,
+      db,
+      keyFetchSignerUserId: options?.keyFetchSignerUserId,
+      verifyWithKey: (publicKeyPem) =>
+        verifySignatureWithKey(method, path, headers, signatureParts, publicKeyPem),
+    });
   } catch (error) {
     console.error("Signature verification error:", error);
     return false;
   }
     }
   );
+}
+
+async function verifyOneKeySignature(opts: {
+  method: string;
+  path: string;
+  authority: string;
+  headers: Record<string, string>;
+  body: string;
+  keyId: string;
+  dateHeader?: string;
+  signatureToken: string;
+  settingsDomain: string;
+  db: ReturnType<typeof getDb>;
+  keyFetchSignerUserId?: string;
+  verifyWithKey: (publicKeyPem: string) => boolean;
+}): Promise<boolean> {
+  const { keyId, db, dateHeader, signatureToken } = opts;
+  console.warn(`Verifying signature for keyId: ${keyId}`);
+
+  const replayKey = `${signatureToken}:${dateHeader || ""}`;
+  const replay = await db
+    .selectFrom("replay_cache")
+    .select("created_at")
+    .where("key", "=", replayKey)
+    .executeTakeFirst();
+  const now = Date.now();
+  if (replay && now - new Date(replay.created_at as any).getTime() < SIGNATURE_TTL_MS) {
+    console.warn(`Sig verify failed: replay cache hit for keyId=${keyId}`);
+    return false;
+  }
+  await db
+    .insertInto("replay_cache")
+    .values({ key: replayKey })
+    .onConflict((oc) => oc.column("key").doNothing())
+    .execute();
+
+  const actorUrl = actorUrlFromKeyId(keyId);
+  const actorId = getActorIdFromUrl(actorUrl);
+
+  let localUser: { id: string } | undefined;
+  try {
+    const actorHost = normalizeActorHostname(new URL(actorUrl).hostname);
+    const instanceHost = normalizeActorHostname(opts.settingsDomain.split(":")[0]);
+    if (actorHost === instanceHost) {
+      localUser = await db
+        .selectFrom("users")
+        .select("id")
+        .where("username", "=", actorId || "")
+        .executeTakeFirst();
+    }
+  } catch {
+    /* non-URL keyId */
+  }
+
+  if (localUser) {
+    const userKey = await db
+      .selectFrom("user_keys")
+      .select("public_key_pem")
+      .where("user_id", "=", localUser.id)
+      .executeTakeFirst();
+
+    if (!userKey) {
+      console.warn("Sig verify failed: local user key not found");
+      return false;
+    }
+    return opts.verifyWithKey(userKey.public_key_pem);
+  }
+
+  if (!actorUrl.startsWith("https://")) {
+    console.warn("Sig verify failed: non-HTTPS actor URL");
+    return false;
+  }
+
+  const signerUserId = await resolveKeyFetchSignerUserId(opts.keyFetchSignerUserId);
+  let publicKeyPem = await resolveRemotePublicKey(keyId, actorUrl, signerUserId);
+  if (!publicKeyPem) {
+    console.warn("Sig verify failed: remote actor fetch failed for all candidates");
+    return false;
+  }
+
+  let ok = opts.verifyWithKey(publicKeyPem);
+  if (!ok) {
+    console.warn(`RSA verify failed for ${keyId}; invalidating cache and re-fetching`);
+    await invalidateRemoteKey(keyId);
+    publicKeyPem = await resolveRemotePublicKey(keyId, actorUrl, signerUserId, {
+      bypassCache: true,
+    });
+    if (!publicKeyPem) {
+      console.warn("Sig verify failed: remote key re-fetch after invalidate failed");
+      return false;
+    }
+    ok = opts.verifyWithKey(publicKeyPem);
+  }
+  return ok;
 }
 
 function verifySignatureWithKey(
