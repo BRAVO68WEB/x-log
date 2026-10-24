@@ -15,6 +15,8 @@
     "isolatedModules": true,
     "incremental": true,
     "jsx": "preserve",
+    "types": ["node"],
+    "rootDir": ".",
     "paths": {
       "@xlog/db": ["./packages/db/src"],
       "@xlog/db/*": ["./packages/db/src/*"],

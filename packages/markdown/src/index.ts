@@ -3,6 +3,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
 import rehypeSlug from "rehype-slug";
+import rehypeParse from "rehype-parse";
 import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeHighlight from "rehype-highlight";
 import rehypeStringify from "rehype-stringify";
@@ -39,4 +40,29 @@ export function renderMarkdownSync(markdown: string): string {
   // For synchronous rendering when needed
   const result = processor.processSync(markdown);
   return String(result);
+}
+
+const htmlProcessor = unified()
+  .use(rehypeParse, { fragment: true })
+  .use(rehypeSanitize, sanitizeSchema)
+  .use(rehypeStringify);
+
+/** Sanitize an HTML fragment. Remote ActivityPub content must go through this. */
+export async function sanitizeHtml(html: string): Promise<string> {
+  const result = await htmlProcessor.process(html);
+  return String(result);
+}
+
+/** Visible text of HTML that has already been sanitized. */
+export function textFromHtml(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
 }

@@ -2,6 +2,10 @@
  * Simple in-process sliding-window rate limiter.
  * Fine for single-instance API; multi-replica deploys should use Redis later.
  */
+import type { Context } from "hono";
+import { getConnInfo } from "@hono/node-server/conninfo";
+import { getEnv } from "@xlog/config";
+
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
@@ -40,16 +44,56 @@ export function checkRateLimit(
   };
 }
 
-export function clientKeyFromRequest(c: {
-  req: { header: (name: string) => string | undefined };
+/**
+ * Client address for rate limits.
+ * hops <= 0 uses the socket address only.
+ * hops >= 1 trusts CF-Connecting-IP, else the X-Forwarded-For entry that
+ * many hops back from the right (the proxy-appended client, not the left-most
+ * attacker-supplied value). The proxy must strip inbound forwarding headers.
+ */
+export function clientIpFromProxy(opts: {
+  hops: number;
+  socketAddress: string;
+  cfConnectingIp?: string | null;
+  forwardedFor?: string | null;
 }): string {
-  const cf = c.req.header("cf-connecting-ip");
-  if (cf) return cf.trim();
-  const xff = c.req.header("x-forwarded-for");
-  if (xff) return xff.split(",")[0]?.trim() || "unknown";
-  const real = c.req.header("x-real-ip");
-  if (real) return real.trim();
-  return "unknown";
+  const socket = opts.socketAddress.trim() || "unknown";
+  if (opts.hops <= 0) return socket;
+  const cf = opts.cfConnectingIp?.trim();
+  if (cf) return cf;
+  if (opts.forwardedFor) {
+    const parts = opts.forwardedFor
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    const idx = parts.length - opts.hops;
+    if (idx >= 0 && parts[idx]) return parts[idx];
+  }
+  return socket;
+}
+
+function socketAddress(c: Context): string {
+  try {
+    const info = getConnInfo(c);
+    return info.remote.address?.trim() || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+export function clientKeyFromRequest(c: Context): string {
+  let hops = 0;
+  try {
+    hops = getEnv().TRUSTED_PROXY_HOPS;
+  } catch {
+    hops = 0;
+  }
+  return clientIpFromProxy({
+    hops,
+    socketAddress: socketAddress(c),
+    cfConnectingIp: c.req.header("cf-connecting-ip"),
+    forwardedFor: c.req.header("x-forwarded-for"),
+  });
 }
 
 // Periodic cleanup of expired buckets

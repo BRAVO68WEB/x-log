@@ -21,6 +21,31 @@ import { join } from "path";
 import { existsSync } from "fs";
 import { readdir, stat } from "fs/promises";
 
+function sniffedImageType(buf: Buffer): string | null {
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "image/jpeg";
+  if (
+    buf.length >= 8 &&
+    buf[0] === 0x89 &&
+    buf[1] === 0x50 &&
+    buf[2] === 0x4e &&
+    buf[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  if (buf.length >= 6) {
+    const magic = buf.subarray(0, 6).toString("ascii");
+    if (magic === "GIF87a" || magic === "GIF89a") return "image/gif";
+  }
+  if (
+    buf.length >= 12 &&
+    buf.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buf.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
 export const mediaRoutes = new Hono().use("*", sessionMiddleware);
 
 mediaRoutes.post(
@@ -72,10 +97,15 @@ mediaRoutes.post(
       const storage = await getMediaStorage();
       const key = makeObjectKey(file.name || "upload.bin");
       const arrayBuffer = await file.arrayBuffer();
+      const bytes = Buffer.from(arrayBuffer);
+      const sniffed = sniffedImageType(bytes);
+      if (!sniffed || sniffed !== file.type) {
+        return c.json({ error: "File contents do not match the declared type" }, 400);
+      }
       const { url, key: storedKey } = await storage.put({
         key,
-        body: Buffer.from(arrayBuffer),
-        contentType: file.type,
+        body: bytes,
+        contentType: sniffed,
       });
 
       const db = getDb();
@@ -87,7 +117,7 @@ mediaRoutes.post(
           user_id: user.id,
           asset_type: assetType as "banner" | "post_attachment",
           size: file.size,
-          mime_type: file.type,
+          mime_type: sniffed,
         })
         .execute();
 

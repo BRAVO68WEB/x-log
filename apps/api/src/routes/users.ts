@@ -4,7 +4,7 @@ import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { UserResponseSchema } from "@xlog/validation";
 import { getDb } from "@xlog/db";
-import { sessionMiddleware, requireAuth, requireAuthor } from "../middleware/session";
+import { sessionMiddleware, requireAuth, requireAuthor, revokeAllSessions, clearSessionCookie } from "../middleware/session";
 import {
   createUserMcpKey,
   listUserMcpKeys,
@@ -185,6 +185,9 @@ usersRoutes.patch(
       .where("id", "=", user.id)
       .execute();
 
+    await revokeAllSessions(user.id);
+    clearSessionCookie(c);
+
     return c.json({ message: "Password changed" });
   }
 );
@@ -223,6 +226,7 @@ usersRoutes.post(
 usersRoutes.delete("/me/mcp-keys/:id", requireAuth, requireAuthor, async (c) => {
   const user = c.get("user")!;
   const id = c.req.param("id");
+  if (!id) return c.json({ error: "Missing id" }, 400);
   const ok = await revokeUserMcpKey(user.id, id);
   if (!ok) return c.json({ error: "Key not found" }, 404);
   return c.json({ message: "Key revoked" });

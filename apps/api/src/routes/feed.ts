@@ -2,19 +2,15 @@ import { Hono } from "hono";
 import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
 import { getDb } from "@xlog/db";
-import { renderMarkdown } from "@xlog/markdown";
+import { renderMarkdown, sanitizeHtml, textFromHtml } from "@xlog/markdown";
+import { isHttpUrl } from "@xlog/ap";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { getPrimaryProfileUser } from "../lib/activitypub";
 
 export const feedRoutes = new Hono().use("*", sessionMiddleware);
 
-function stripHtml(input: string): string {
-  return input
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function httpUrl(value: unknown): string | null {
+  return typeof value === "string" && isHttpUrl(value) ? value : null;
 }
 
 function toDateString(value: unknown): string | null {
@@ -79,7 +75,7 @@ feedRoutes.get(
   validator(
     "query",
     z.object({
-      limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default("20"),
+      limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).prefault("20"),
       cursor: z.string().optional(),
     })
   ),
@@ -135,28 +131,27 @@ feedRoutes.get(
           typeof object?.name === "string" && object.name.trim() ? object.name.trim() : null;
         const summary =
           typeof object?.summary === "string" && object.summary.trim()
-            ? stripHtml(object.summary)
+            ? textFromHtml(await sanitizeHtml(object.summary))
             : null;
-        const contentText =
+        const contentHtml =
           typeof object?.content === "string" && object.content.trim()
-            ? stripHtml(object.content)
-            : title || objectId;
+            ? await sanitizeHtml(object.content)
+            : await renderMarkdown(title || (typeof objectId === "string" ? objectId : "") || "");
         const url =
-          typeof object?.url === "string"
-            ? object.url
-            : typeof objectId === "string"
-              ? objectId
-              : row.object_id;
+          httpUrl(object?.url) ||
+          httpUrl(objectId) ||
+          httpUrl(row.object_id) ||
+          "";
 
         return {
           id: row.id,
           type: row.type as "Create" | "Announce",
-          actor: row.actor,
+          actor: httpUrl(row.actor) || "",
           actor_handle: actorHandle(row.actor),
           object_id: objectId,
           title,
           summary,
-          content_html: await renderMarkdown(contentText || ""),
+          content_html: contentHtml,
           url,
           published_at: toDateString(object?.published || activity.published),
           received_at: row.received_at.toISOString(),

@@ -16,10 +16,10 @@ const env = getEnv();
 const port = Number(env.PORT) || 8080;
 
 if (isMcpEnabled()) {
-  const keySource = getEnv().MCP_API_KEY ? "MCP_API_KEY" : "SESSION_SECRET (dev only)";
+  const keySource = getEnv().MCP_API_KEY ? "MCP_API_KEY" : "per-user keys only";
   console.log(`MCP enabled (auth: ${keySource}); Streamable HTTP at /mcp, legacy at /mcp/jsonrpc`);
 } else {
-  console.log("MCP disabled (set MCP_API_KEY to enable)");
+  console.log("MCP disabled (MCP_ENABLED=false)");
 }
 
 console.log(`Server is running on port ${port}`);

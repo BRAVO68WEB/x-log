@@ -237,6 +237,16 @@ export interface ReplayCacheTable {
   created_at: ColumnType<Date, never, never>;
 }
 
+/** Server-side session rows. JWTs without a live row are rejected. */
+export interface AuthSessionsTable {
+  id: string;
+  user_id: string;
+  token_type: "session" | "mobile";
+  expires_at: ColumnType<Date, Date, Date>;
+  revoked_at: Date | null;
+  created_at: ColumnType<Date, never, never>;
+}
+
 /** Cached remote actor public keys for HTTP Signature verification */
 export interface RemoteKeysTable {
   key_id: string; // ActivityPub keyId URL
@@ -407,6 +417,7 @@ export interface LinkSnapshotsTable {
 
 export interface Database {
   users: UsersTable;
+  auth_sessions: AuthSessionsTable;
   user_invites: UserInvitesTable;
   email_verifications: EmailVerificationsTable;
   mcp_api_keys: McpApiKeysTable;

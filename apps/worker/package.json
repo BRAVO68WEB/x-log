@@ -9,21 +9,21 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
-    "@opentelemetry/auto-instrumentations-node": "^0.79.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.221.0",
-    "@opentelemetry/resources": "^2.10.0",
-    "@opentelemetry/sdk-node": "^0.221.0",
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.82.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/resources": "^3.0.0",
+    "@opentelemetry/sdk-node": "^0.300.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "@xlog/ap": "workspace:*",
     "@xlog/config": "workspace:*",
     "@xlog/db": "workspace:*",
     "@xlog/markdown": "workspace:*",
-    "ioredis": "^5.8.2",
-    "posthog-node": "^5.48.1"
+    "ioredis": "^6.0.0",
+    "posthog-node": "^5.57.1"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^26.6.5",
+    "typescript": "^6.0.3"
   }
 }

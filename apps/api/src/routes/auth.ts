@@ -18,9 +18,12 @@ import {
   clearSessionCookie,
   sessionMiddleware,
   requireAuth,
+  revokeSession,
 } from "../middleware/session";
 import { getOIDCClient } from "@xlog/libs";
 import { getEnv } from "@xlog/config";
+import { safeAppPath } from "../lib/app-path";
+import { clearOidcStateCookie, readOidcStateCookie, setOidcStateCookie } from "../lib/oidc-state";
 import { z } from "zod";
 import {
   getRegistrationStatus,
@@ -49,6 +52,10 @@ async function authenticateUser(username: string, password: string) {
   const isValid = await bcrypt.compare(password, user.password_hash);
   if (!isValid) {
     return null;
+  }
+
+  if (user.email_verified === false) {
+    return { ...user, email_verified: false as const };
   }
 
   return user;
@@ -89,8 +96,10 @@ authRoutes.post(
         fullName: body.full_name,
       });
 
-      const sessionToken = await createSession(user.id);
-      setSessionCookie(c, sessionToken);
+      if (user.email_verified !== false) {
+        const sessionToken = await createSession(user.id);
+        setSessionCookie(c, sessionToken);
+      }
 
       return c.json(
         {
@@ -98,7 +107,11 @@ authRoutes.post(
           username: user.username,
           role: user.role,
           actor_url: user.actor_url,
-          message: "Account created",
+          email_verification_required: user.email_verified === false,
+          message:
+            user.email_verified === false
+              ? "Account created. Check your email to verify your account."
+              : "Account created",
         },
         201
       );
@@ -177,6 +190,9 @@ authRoutes.post(
     if (!user) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
+    if (user.email_verified === false) {
+      return c.json({ error: "Email not verified" }, 403);
+    }
 
     const sessionToken = await createSession(user.id);
     setSessionCookie(c, sessionToken);
@@ -230,6 +246,9 @@ authRoutes.post(
     if (!user) {
       return c.json({ error: "Invalid credentials" }, 401);
     }
+    if (user.email_verified === false) {
+      return c.json({ error: "Email not verified" }, 403);
+    }
 
     const token = await createMobileToken(user.id);
     const expiresAt = getMobileTokenExpiryIso();
@@ -264,6 +283,8 @@ authRoutes.post(
   }),
   requireAuth,
   async (c) => {
+    const sessionId = c.get("sessionId");
+    if (sessionId) await revokeSession(sessionId);
     return c.json({ message: "Logged out" });
   }
 );
@@ -280,6 +301,8 @@ authRoutes.post(
     },
   }),
   async (c) => {
+    const sessionId = c.get("sessionId");
+    if (sessionId) await revokeSession(sessionId);
     clearSessionCookie(c);
     return c.json({ message: "Logged out" });
   }
@@ -315,9 +338,7 @@ authRoutes.get(
     const oidcClient = getOIDCClient();
     const state = crypto.randomUUID();
     const nonce = crypto.randomUUID();
-
-    // Store state in session or Redis for validation
-    // For simplicity, we'll include it in the callback validation
+    setOidcStateCookie(c, state, nonce);
     const authUrl = await oidcClient.getAuthorizationUrl(state, nonce);
 
     return c.json({ auth_url: authUrl });
@@ -394,7 +415,9 @@ authRoutes.get(
       return c.json(
         {
           action: "error",
-          redirect_url: `/login?error=oidc_failed&description=${encodeURIComponent(errorDescription || error)}`,
+          redirect_url: safeAppPath(
+            `/login?error=oidc_failed&description=${encodeURIComponent(errorDescription || error)}`
+          ),
           error: errorDescription || error,
         },
         400
@@ -412,9 +435,21 @@ authRoutes.get(
       );
     }
 
+    const bound = readOidcStateCookie(c);
+    clearOidcStateCookie(c);
+    if (!bound || bound.state !== state) {
+      return c.json(
+        {
+          action: "error",
+          redirect_url: "/login?error=invalid_callback",
+          error: "OIDC state mismatch",
+        },
+        400
+      );
+    }
+
     try {
-      // Complete OIDC flow and get user info
-      const userInfo = await oidcClient.completeFlow(code);
+      const userInfo = await oidcClient.completeFlow(code, bound.nonce);
       const providerAccountId = userInfo.sub;
       const email = userInfo.email;
       const provider = new URL(env.OIDC_DISCOVERY_URL).hostname; // Use hostname as provider identifier
@@ -434,7 +469,7 @@ authRoutes.get(
             // OIDC account already linked to current user
             return c.json({
               action: "already_linked",
-              redirect_url: "/settings",
+              redirect_url: safeAppPath("/settings"),
               user: {
                 id: currentUser.id,
                 username: currentUser.username,
@@ -447,7 +482,7 @@ authRoutes.get(
             return c.json(
               {
                 action: "error",
-                redirect_url: "/settings",
+                redirect_url: safeAppPath("/settings"),
                 error: "This OIDC account is already linked to another user",
               },
               400
@@ -472,7 +507,7 @@ authRoutes.get(
 
         return c.json({
           action: "link",
-          redirect_url: "/settings",
+          redirect_url: safeAppPath("/settings"),
           user: {
             id: currentUser.id,
             username: currentUser.username,
@@ -492,11 +527,21 @@ authRoutes.get(
           .executeTakeFirst();
 
         if (user) {
+          if (user.email_verified === false) {
+            return c.json(
+              {
+                action: "error",
+                redirect_url: "/login?error=email_not_verified",
+                error: "Email not verified",
+              },
+              403
+            );
+          }
           const sessionToken = await createSession(user.id);
           setSessionCookie(c, sessionToken);
           return c.json({
             action: "login",
-            redirect_url: "/",
+            redirect_url: safeAppPath("/"),
             user: {
               id: user.id,
               username: user.username,
@@ -515,8 +560,7 @@ authRoutes.get(
           .where("email", "=", email)
           .executeTakeFirst();
 
-        if (existingUser) {
-          // Auto-link: Email matches
+        if (existingUser && userInfo.email_verified === true) {
           await db
             .insertInto("oidc_accounts")
             .values({
@@ -525,17 +569,25 @@ authRoutes.get(
               provider,
               provider_account_id: providerAccountId,
               email: email,
-              email_verified: userInfo.email_verified || false,
+              email_verified: true,
               name: userInfo.name || userInfo.preferred_username || null,
               picture: userInfo.picture || null,
             })
             .execute();
 
+          if (existingUser.email_verified === false) {
+            await db
+              .updateTable("users")
+              .set({ email_verified: true, updated_at: new Date() })
+              .where("id", "=", existingUser.id)
+              .execute();
+          }
+
           const sessionToken = await createSession(existingUser.id);
           setSessionCookie(c, sessionToken);
           return c.json({
             action: "login",
-            redirect_url: "/?linked=success",
+            redirect_url: safeAppPath("/?linked=success"),
             user: {
               id: existingUser.id,
               username: existingUser.username,
@@ -568,7 +620,9 @@ authRoutes.get(
 
       return c.json({
         action: "pending_link",
-        redirect_url: `/login/link?state=${linkState}&email=${encodeURIComponent(email || "")}`,
+        redirect_url: safeAppPath(
+          `/login/link?state=${linkState}&email=${encodeURIComponent(email || "")}`
+        ),
         link_state: linkState,
       });
     } catch (error) {
@@ -576,7 +630,7 @@ authRoutes.get(
       return c.json(
         {
           action: "error",
-          redirect_url: `/login?error=oidc_processing_failed`,
+          redirect_url: safeAppPath("/login?error=oidc_processing_failed"),
           error: error instanceof Error ? error.message : "OIDC processing failed",
         },
         500
@@ -708,8 +762,10 @@ authRoutes.post(
     // Delete pending link
     await db.deleteFrom("oidc_pending_links").where("id", "=", pendingLink.id).execute();
 
-    // Create session if user was not logged in
     if (!currentUser) {
+      if (user.email_verified === false) {
+        return c.json({ error: "Email not verified" }, 403);
+      }
       const sessionToken = await createSession(user.id);
       setSessionCookie(c, sessionToken);
     }

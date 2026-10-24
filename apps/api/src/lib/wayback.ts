@@ -21,7 +21,8 @@ export function parseWaybackSnapshotUrl(value: string | null | undefined): strin
       ? value
       : `https://web.archive.org${value.startsWith("/") ? "" : "/"}${value}`;
     const u = new URL(absolute);
-    if (!u.hostname.includes("web.archive.org") && !u.hostname.includes("archive.org")) {
+    const host = u.hostname.toLowerCase();
+    if (host !== "web.archive.org" && host !== "archive.org") {
       return null;
     }
     // /web/20240101120000/https://example.com

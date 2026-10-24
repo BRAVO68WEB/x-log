@@ -5,7 +5,8 @@ import bcrypt from "bcryptjs";
 import { getDb, getInstanceSettings } from "@xlog/db";
 import { isFeatureEnabled } from "../lib/features";
 import { sendEmail } from "../lib/email";
-import { sessionMiddleware, setSessionCookie, createSession } from "../middleware/session";
+import { sessionMiddleware, setSessionCookie, createSession, revokeAllSessions } from "../middleware/session";
+import { escapeHtml } from "../lib/html";
 
 const TOKEN_BYTES = 32;
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
@@ -120,10 +121,10 @@ passwordResetRoutes.post(
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2 style="color: #333;">Reset your password</h2>
-          <p>Hi ${user.username},</p>
-          <p>You requested a password reset for your ${settings.instance_name} account.</p>
+          <p>Hi ${escapeHtml(user.username)},</p>
+          <p>You requested a password reset for your ${escapeHtml(settings.instance_name)} account.</p>
           <p style="margin: 24px 0;">
-            <a href="${resetUrl}"
+            <a href="${escapeHtml(resetUrl)}"
                style="background: #333; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
               Reset Password
             </a>
@@ -133,7 +134,7 @@ passwordResetRoutes.post(
           </p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
           <p style="color: #999; font-size: 12px;">
-            ${settings.instance_name} · ${settings.instance_domain}
+            ${escapeHtml(settings.instance_name)} · ${escapeHtml(settings.instance_domain)}
           </p>
         </div>
       `,
@@ -269,7 +270,7 @@ passwordResetRoutes.post(
       .where("used_at", "is", null)
       .execute();
 
-    // Auto-login: create session for the user
+    await revokeAllSessions(reset.user_id);
     const sessionToken = await createSession(reset.user_id);
     setSessionCookie(c, sessionToken);
 

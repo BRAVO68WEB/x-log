@@ -118,21 +118,15 @@ export function isTrustedCsrfOrigin(c: Context): boolean {
  *
  * Skips:
  * - Safe methods (GET/HEAD/OPTIONS)
- * - Bearer Authorization (mobile, MCP, API clients)
- * - Requests without a session cookie (public login/register/collect)
+ * - Requests without a session cookie (Bearer-only mobile/MCP, public login)
  *
- * Enforces when `xlog_session` is present:
+ * Enforces whenever `xlog_session` is present, even if Authorization is Bearer:
  * 1. Trusted Origin or Referer (production)
  * 2. Double-submit: cookie `xlog_csrf` === header `X-CSRF-Token`
  */
 export async function csrfMiddleware(c: Context, next: Next) {
   const method = c.req.method.toUpperCase();
   if (SAFE_METHODS.has(method)) {
-    return next();
-  }
-
-  const auth = c.req.header("authorization");
-  if (auth?.toLowerCase().startsWith("bearer ")) {
     return next();
   }
 

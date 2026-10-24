@@ -16,6 +16,14 @@ describe("parseWaybackSnapshotUrl", () => {
   test("rejects calendar/search URLs without timestamp", () => {
     expect(parseWaybackSnapshotUrl("https://web.archive.org/web/*/https://example.com")).toBeNull();
     expect(parseWaybackSnapshotUrl("https://example.com")).toBeNull();
+    expect(
+      parseWaybackSnapshotUrl(
+        "https://web.archive.org.evil.example/web/20240115123045/https://example.com/"
+      )
+    ).toBeNull();
+    expect(
+      parseWaybackSnapshotUrl("https://not-archive.org/web/20240115123045/https://example.com/")
+    ).toBeNull();
   });
 });
 

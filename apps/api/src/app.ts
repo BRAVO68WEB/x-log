@@ -40,6 +40,14 @@ export function createApp(opts: CreateAppOptions = {}): Hono {
     })
   );
 
+  app.use("*", async (c, next) => {
+    await next();
+    c.header("X-Content-Type-Options", "nosniff");
+    c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+    c.header("X-Frame-Options", "DENY");
+    c.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  });
+
   if (!opts.disableRateLimit) {
     app.use("*", rateLimitMiddleware);
   }
@@ -89,7 +97,6 @@ export function createApp(opts: CreateAppOptions = {}): Hono {
       persistAuth: false,
       telemetry: true,
       isEditable: false,
-      isLoading: false,
       hideModels: false,
       documentDownloadType: "both",
       hideTestRequestButton: false,
@@ -99,7 +106,6 @@ export function createApp(opts: CreateAppOptions = {}): Hono {
       orderSchemaPropertiesBy: "alpha",
       orderRequiredPropertiesFirst: true,
       _integration: "hono",
-      default: false,
       slug: "api-1",
       title: "API #1",
     })

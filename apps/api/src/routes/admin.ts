@@ -3,7 +3,7 @@ import { describeRoute, resolver, validator } from "hono-openapi";
 import { z } from "zod";
 import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
-import { sessionMiddleware, requireAdmin } from "../middleware/session";
+import { sessionMiddleware, requireAdmin, revokeAllSessions } from "../middleware/session";
 import {
   FEATURE_KEYS,
   getAllFeatures,
@@ -49,6 +49,7 @@ adminRoutes.get("/federation/stats", requireAdmin, async (c) => {
 
 adminRoutes.post("/deliveries/:id/retry", requireAdmin, async (c) => {
   const id = c.req.param("id");
+  if (!id) return c.json({ error: "Missing id" }, 400);
   const result = await retryDelivery(id);
   if (!result.ok) {
     return c.json({ error: result.error || "Retry failed" }, 400);
@@ -99,6 +100,7 @@ adminRoutes.post(
 
 adminRoutes.delete("/federation/blocks/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
+  if (!id) return c.json({ error: "Missing id" }, 400);
   const ok = await removeDomainBlock(id);
   if (!ok) return c.json({ error: "Block not found" }, 404);
   return c.json({ message: "Block removed" });
@@ -288,6 +290,9 @@ adminRoutes.patch(
     if (body.role !== undefined) update.role = body.role;
 
     await db.updateTable("users").set(update).where("id", "=", id).execute();
+    if (body.is_active === false) {
+      await revokeAllSessions(id);
+    }
 
     const updated = await db
       .selectFrom("users")
@@ -388,6 +393,7 @@ adminRoutes.post(
 
 adminRoutes.delete("/invites/:id", requireAdmin, async (c) => {
   const id = c.req.param("id");
+  if (!id) return c.json({ error: "Missing id" }, 400);
   const db = getDb();
   const invite = await db
     .selectFrom("user_invites")

@@ -1,8 +1,8 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import { getDb } from "@xlog/db";
 import { getInstanceSettings } from "@xlog/db";
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 
 async function getSmtpUrl(): Promise<string | null> {
   // Check env var first
@@ -21,7 +21,7 @@ async function getSmtpUrl(): Promise<string | null> {
   return settings?.smtp_url ?? null;
 }
 
-async function getTransporter(): Promise<nodemailer.Transporter | null> {
+async function getTransporter(): Promise<Transporter | null> {
   const smtpUrl = await getSmtpUrl();
 
   if (!smtpUrl) {

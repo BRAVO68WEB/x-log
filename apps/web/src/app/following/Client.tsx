@@ -10,26 +10,48 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+function httpHref(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol === "http:" || url.protocol === "https:") return value;
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 function RemotePostCard({ item }: { item: FollowingFeedItem }) {
+  const actorHref = httpHref(item.actor);
+  const postHref = httpHref(item.url);
   return (
     <Card className="overflow-hidden transition-colors hover:border-input">
       <CardContent className="p-6">
         <div className="mb-3 flex items-center justify-between gap-3 text-sm text-muted-foreground">
-          <a
-            href={item.actor}
-            target="_blank"
-            rel="noreferrer"
-            className="truncate text-primary hover:underline"
-          >
-            {item.actor_handle || item.actor}
-          </a>
+          {actorHref ? (
+            <a
+              href={actorHref}
+              target="_blank"
+              rel="noreferrer"
+              className="truncate text-primary hover:underline"
+            >
+              {item.actor_handle || item.actor}
+            </a>
+          ) : (
+            <span className="truncate">{item.actor_handle || "Remote actor"}</span>
+          )}
           <Badge variant="secondary">{item.type === "Announce" ? "Boost" : "Post"}</Badge>
         </div>
-        <a href={item.url} target="_blank" rel="noreferrer">
-          <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
+        {postHref ? (
+          <a href={postHref} target="_blank" rel="noreferrer">
+            <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 hover:text-primary transition-colors font-heading">
+              {item.title || "Remote post"}
+            </h2>
+          </a>
+        ) : (
+          <h2 className="text-2xl font-normal tracking-[-0.02em] leading-tight mb-2 font-heading">
             {item.title || "Remote post"}
           </h2>
-        </a>
+        )}
         {item.summary && <p className="mb-4 text-muted-foreground">{item.summary}</p>}
         <div
           className="prose prose-sm max-w-none line-clamp-6"

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { getDb, getInstanceSettings } from "@xlog/db";
 import {
   getActorUrlSync,
@@ -15,6 +16,8 @@ import {
   signRequest,
   fetchRemoteActorInbox,
   extractSignatureKeyId,
+  assertPublicUrl,
+  safeFetch,
 } from "@xlog/ap";
 import { renderMarkdownSync } from "@xlog/markdown";
 
@@ -30,6 +33,11 @@ export const federationRoutes = new Hono();
  *
  * Create/Update still key by the AS object id so Delete can find stored creates.
  */
+const inboxBodyLimit = bodyLimit({
+  maxSize: 1_048_576,
+  onError: (c) => c.json({ error: "Payload too large" }, 413),
+});
+
 function getInboxObjectId(activity: any): string {
   const type = typeof activity?.type === "string" ? activity.type : "";
 
@@ -171,13 +179,26 @@ async function processInboxActivity(
       signerUserId: userId,
     });
     // Prefer personal inbox for directed Accept (Mastodon); fall back to sharedInbox
-    // (Threads shared inbox works too). Never drop personal when shared is wrong.
-    const deliveryInboxes = [
-      ...new Set(
-        [inbox, sharedInbox].filter((u): u is string => typeof u === "string" && u.length > 0)
-      ),
-    ];
-    const inboxUrl = deliveryInboxes[0] || `${remoteActor.replace(/\/$/, "")}/inbox`;
+    // (Threads shared inbox works too). Every candidate must be public https.
+    const deliveryInboxes: string[] = [];
+    for (const candidate of [inbox, sharedInbox]) {
+      if (typeof candidate !== "string" || candidate.length === 0) continue;
+      try {
+        const checked = await assertPublicUrl(candidate);
+        if (checked.protocol !== "https:") {
+          console.warn(`Follow inbox rejected: non-https ${checked.href}`);
+          continue;
+        }
+        if (!deliveryInboxes.includes(checked.href)) deliveryInboxes.push(checked.href);
+      } catch (err) {
+        console.warn(`Follow inbox rejected: ${candidate} ${String(err)}`);
+      }
+    }
+    if (deliveryInboxes.length === 0) {
+      console.warn(`Follow rejected: no public https inbox for ${remoteActor}`);
+      return;
+    }
+    const inboxUrl = deliveryInboxes[0]!;
     let remoteDomain = "unknown";
     try {
       remoteDomain = new URL(remoteActor).hostname;
@@ -254,20 +275,23 @@ async function processInboxActivity(
       const acceptBody = JSON.stringify(accept);
 
       let delivered = false;
-      const targets = deliveryInboxes.length > 0 ? deliveryInboxes : [inboxUrl];
+      const targets = deliveryInboxes;
       for (const targetInbox of targets) {
         try {
+          const checked = await assertPublicUrl(targetInbox);
+          if (checked.protocol !== "https:") continue;
           const signed = await signRequest({
             method: "POST",
-            url: targetInbox,
+            url: checked.href,
             body: acceptBody,
             userId,
           });
 
-          const response = await fetch(signed.url, {
+          const response = await safeFetch(signed.url, {
             method: signed.method,
             headers: signed.headers,
             body: signed.body,
+            followRedirects: false,
           });
 
           if (response.ok) {
@@ -853,7 +877,7 @@ federationRoutes.get("/ap/users/:username/following", async (c) => {
 });
 
 // Per-user Inbox endpoint
-federationRoutes.post("/ap/users/:username/inbox", async (c) => {
+federationRoutes.post("/ap/users/:username/inbox", inboxBodyLimit, async (c) => {
   const username = c.req.param("username");
   const db = getDb();
 
@@ -989,7 +1013,7 @@ federationRoutes.post("/ap/users/:username/inbox", async (c) => {
 });
 
 // Shared inbox endpoint (A11)
-federationRoutes.post("/ap/inbox", async (c) => {
+federationRoutes.post("/ap/inbox", inboxBodyLimit, async (c) => {
   const db = getDb();
 
   // Validate Content-Type

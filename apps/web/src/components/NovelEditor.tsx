@@ -1,38 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import {
-  EditorContent,
-  EditorRoot,
-  type EditorInstance,
-  type JSONContent,
-  handleCommandNavigation,
-  handleImageDrop,
-  handleImagePaste,
-  createImageUpload,
-  EditorCommand,
-  EditorCommandEmpty,
-  EditorCommandItem,
-  EditorCommandList,
-  Command,
-  StarterKit,
-  TiptapLink,
-  CharacterCount,
-  CodeBlockLowlight,
-  Placeholder,
-  CustomKeymap,
-  TiptapImage,
-  TaskList,
-  TaskItem,
-  UploadImagesPlugin,
-  renderItems,
-  createSuggestionItems,
-} from "novel";
-import { Markdown } from "tiptap-markdown";
-import Table from "@tiptap/extension-table";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { EditorContent, useEditor } from "@tiptap/react";
+import { Extension, type Editor as TiptapEditor, type JSONContent, type Range } from "@tiptap/core";
+import StarterKit from "@tiptap/starter-kit";
+import Suggestion from "@tiptap/suggestion";
+import { CharacterCount, Placeholder } from "@tiptap/extensions";
+import CodeBlockLowlight from "@tiptap/extension-code-block-lowlight";
+import TiptapImage from "@tiptap/extension-image";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
+import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableCell from "@tiptap/extension-table-cell";
 import TableHeader from "@tiptap/extension-table-header";
+import Youtube from "@tiptap/extension-youtube";
+import { Markdown } from "tiptap-markdown";
 import { createLowlight, common } from "lowlight";
 import { useMutation } from "react-query";
 import NextImage from "next/image";
@@ -52,11 +34,10 @@ import {
   ListOrdered,
   Text,
   TextQuote,
-  Twitter,
-  Youtube,
+  Share2,
+  Video,
   Table as TableIcon,
 } from "lucide-react";
-import { cx } from "class-variance-authority";
 import dynamic from "next/dynamic";
 import { withCsrf } from "@/lib/csrf";
 
@@ -64,7 +45,22 @@ const AIToolbar = dynamic(() => import("./AIToolbar"), { ssr: false });
 
 const lowlight = createLowlight(common);
 
-const suggestionItems = createSuggestionItems([
+type SlashItem = {
+  title: string;
+  description: string;
+  searchTerms: string[];
+  icon: React.ReactNode;
+  command: (props: { editor: TiptapEditor; range: Range }) => void;
+};
+
+type SlashMenu = {
+  items: SlashItem[];
+  selected: number;
+  clientRect: (() => DOMRect | null) | null;
+  command: (item: SlashItem) => void;
+};
+
+const suggestionItems: SlashItem[] = [
   {
     title: "Text",
     description: "Just start typing with plain text.",
@@ -162,10 +158,13 @@ const suggestionItems = createSuggestionItems([
       input.type = "file";
       input.accept = "image/*";
       input.onchange = async () => {
-        if (input.files?.length) {
-          const file = input.files[0];
-          const pos = editor.view.state.selection.from;
-          uploadFn(file, editor.view, pos);
+        const file = input.files?.[0];
+        if (!file) return;
+        try {
+          const url = await uploadEditorImage(file);
+          editor.chain().focus().setImage({ src: url }).run();
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Upload failed");
         }
       };
       input.click();
@@ -175,7 +174,7 @@ const suggestionItems = createSuggestionItems([
     title: "Youtube",
     description: "Embed a Youtube video.",
     searchTerms: ["video", "youtube", "embed"],
-    icon: <Youtube size={18} />,
+    icon: <Video size={18} />,
     command: ({ editor, range }) => {
       const videoLink = prompt("Please enter Youtube Video Link");
       //From https://regexr.com/3dj5t
@@ -203,21 +202,19 @@ const suggestionItems = createSuggestionItems([
     title: "Twitter",
     description: "Embed a Tweet.",
     searchTerms: ["twitter", "embed"],
-    icon: <Twitter size={18} />,
+    icon: <Share2 size={18} />,
     command: ({ editor, range }) => {
       const tweetLink = prompt("Please enter Twitter Link");
       const tweetRegex = new RegExp(
         /^https?:\/\/(www\.)?x\.com\/([a-zA-Z0-9_]{1,15})(\/status\/(\d+))?(\/\S*)?$/
       );
 
-      if (tweetRegex.test(tweetLink as string)) {
+      if (tweetLink && tweetRegex.test(tweetLink)) {
         editor
           .chain()
           .focus()
           .deleteRange(range)
-          .setTweet({
-            src: tweetLink as string,
-          })
+          .insertContent(`<a href="${tweetLink}">${tweetLink}</a>`)
           .run();
       } else {
         if (tweetLink !== null) {
@@ -235,58 +232,45 @@ const suggestionItems = createSuggestionItems([
       editor.chain().focus().deleteRange(range).insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
     },
   },
-]);
+];
 
-const slashCommand = Command.configure({
-  suggestion: {
-    items: () => suggestionItems,
-    render: renderItems,
-  },
-});
+function filterSlashItems(query: string): SlashItem[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return suggestionItems;
+  return suggestionItems.filter((item) => {
+    return (
+      item.title.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      item.searchTerms.some((term) => term.toLowerCase().includes(q))
+    );
+  });
+}
 
-// interface SuggestionItem {
-//   title: string;
-//   description: string;
-//   searchTerms: string[];
-//   icon: React.ReactNode;
-//   command: ({
-//     editor,
-//     range,
-//   }: {
-//     editor: EditorInstance;
-//     range: { from: number; to: number };
-//   }) => void;
-// }
-
-const uploadFn = createImageUpload({
-  validateFn: (file: File) => {
-    if (!file.type.includes("image/")) {
-      toast.error("File type not supported.");
-      return false;
-    }
-    if (file.size / 1024 / 1024 > 20) {
-      toast.error("File size too big (max 20MB).");
-      return false;
-    }
-    return true;
-  },
-  onUpload: async (file: File) => {
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("asset_type", "post_attachment");
-    const res = await fetch(`/api/media/upload`, withCsrf({
+async function uploadEditorImage(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("File type not supported.");
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("File size too big (max 10MB).");
+  }
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("asset_type", "post_attachment");
+  const res = await fetch(
+    `/api/media/upload`,
+    withCsrf({
       method: "POST",
       credentials: "include",
       body: fd,
-    }));
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "Upload failed" }));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    const { url } = (await res.json()) as { url: string };
-    return url;
-  },
-});
+    })
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: "Upload failed" }));
+    throw new Error(err.error || `HTTP ${res.status}`);
+  }
+  const { url } = (await res.json()) as { url: string };
+  return url;
+}
 
 function resolveNovelInitialContent(content?: JSONContent | string): JSONContent | undefined {
   if (content == null || content === "") return undefined;
@@ -314,62 +298,129 @@ interface EditorProps {
   sidebar?: React.ReactNode;
 }
 
-const tiptapImage = TiptapImage.extend({
-  addProseMirrorPlugins() {
-    return [
-      UploadImagesPlugin({
-        imageClass: cx("opacity-40 rounded-lg border border-stone-200"),
-      }),
-    ];
-  },
-}).configure({
-  allowBase64: true,
-  HTMLAttributes: {
-    class: cx("rounded-lg border border-muted"),
-  },
-});
+function editorMarkdown(editor: TiptapEditor): string {
+  const storage = editor.storage as TiptapEditor["storage"] & {
+    markdown?: { getMarkdown: () => string };
+  };
+  return storage.markdown?.getMarkdown() ?? "";
+}
 
-const extensions = [
-  StarterKit.configure({
-    codeBlock: false,
-    dropcursor: {
-      color: "#DBEAFE",
-      width: 4,
+function editorExtensions(setSlashMenu: (menu: SlashMenu | null) => void, slashRef: { current: SlashMenu | null }) {
+  const slashCommand = Extension.create({
+    name: "slashCommand",
+    addProseMirrorPlugins() {
+      return [
+        Suggestion<SlashItem, SlashItem>({
+          editor: this.editor,
+          char: "/",
+          items: ({ query }) => filterSlashItems(query),
+          command: ({ editor, range, props }) => {
+            props.command({ editor, range });
+          },
+          render: () => {
+            let selected = 0;
+            const publish = (
+              props: {
+                items: SlashItem[];
+                command: (item: SlashItem) => void;
+                clientRect?: (() => DOMRect | null) | null;
+              } | null
+            ) => {
+              if (!props) {
+                slashRef.current = null;
+                setSlashMenu(null);
+                return;
+              }
+              const menu: SlashMenu = {
+                items: props.items,
+                selected: props.items.length === 0 ? 0 : Math.min(selected, props.items.length - 1),
+                clientRect: props.clientRect ?? null,
+                command: (item) => props.command(item),
+              };
+              slashRef.current = menu;
+              setSlashMenu(menu);
+            };
+            return {
+              onStart: (props) => {
+                selected = 0;
+                publish(props);
+              },
+              onUpdate: (props) => publish(props),
+              onExit: () => publish(null),
+              onKeyDown: ({ event }) => {
+                const menu = slashRef.current;
+                if (!menu || menu.items.length === 0) return false;
+                if (event.key === "ArrowDown") {
+                  selected = (menu.selected + 1) % menu.items.length;
+                  publish(menu);
+                  return true;
+                }
+                if (event.key === "ArrowUp") {
+                  selected = (menu.selected + menu.items.length - 1) % menu.items.length;
+                  publish(menu);
+                  return true;
+                }
+                if (event.key === "Enter") {
+                  const item = menu.items[menu.selected];
+                  if (item) menu.command(item);
+                  return true;
+                }
+                return false;
+              },
+            };
+          },
+        }),
+      ];
     },
-    gapcursor: false,
-  }),
-  Placeholder.configure({
-    placeholder: "Start writing your post...",
-  }),
-  TiptapLink.configure({
-    openOnClick: false,
-  }),
-  tiptapImage,
-  CodeBlockLowlight.configure({
-    lowlight,
-  }),
-  CharacterCount,
-  Markdown.configure({
-    html: false,
-    transformCopiedText: true,
-    transformPastedText: true,
-    tightLists: true,
-    tightListClass: "tight",
-    bulletListMarker: "-",
-    linkify: false,
-    breaks: false,
-  }),
-  CustomKeymap,
-  TaskList,
-  TaskItem.configure({
-    nested: true,
-  }),
-  Table.configure({ resizable: true }),
-  TableRow,
-  TableCell,
-  TableHeader,
-  slashCommand,
-];
+  });
+
+  return [
+    StarterKit.configure({
+      codeBlock: false,
+      link: { openOnClick: false },
+      dropcursor: {
+        color: "#DBEAFE",
+        width: 4,
+      },
+      gapcursor: false,
+    }),
+    Placeholder.configure({
+      placeholder: "Start writing your post...",
+    }),
+    TiptapImage.configure({
+      allowBase64: true,
+      HTMLAttributes: {
+        class: "rounded-lg border border-muted",
+      },
+    }),
+    CodeBlockLowlight.configure({
+      lowlight,
+    }),
+    CharacterCount,
+    Markdown.configure({
+      html: false,
+      transformCopiedText: true,
+      transformPastedText: true,
+      tightLists: true,
+      tightListClass: "tight",
+      bulletListMarker: "-",
+      linkify: false,
+      breaks: false,
+    }),
+    TaskList,
+    TaskItem.configure({
+      nested: true,
+    }),
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableCell,
+    TableHeader,
+    Youtube.configure({
+      nocookie: true,
+    }),
+    slashCommand,
+  ];
+}
 
 export default function Editor({
   initialContent,
@@ -392,8 +443,11 @@ export default function Editor({
   const [bannerImage, setBannerImage] = useState<string>(initialBannerUrl || "");
   const [bannerUrl, setBannerUrl] = useState<string>(initialBannerUrl || "");
   const [bannerUploading, setBannerUploading] = useState(false);
-
-  const [editorInstance, setEditorInstance] = useState<EditorInstance | null>(null);
+  const [slashMenu, setSlashMenu] = useState<SlashMenu | null>(null);
+  const [extensions] = useState(() => {
+    const slashRef = { current: null as SlashMenu | null };
+    return editorExtensions(setSlashMenu, slashRef);
+  });
 
   const uploadBannerMutation = useMutation(async (file: File) => {
     const fd = new FormData();
@@ -430,17 +484,64 @@ export default function Editor({
     }
   };
 
+  const editorRef = useRef<TiptapEditor | null>(null);
+  const editorContent = resolveNovelInitialContent(initialContent);
+  const editor = useEditor({
+    immediatelyRender: false,
+    shouldRerenderOnTransaction: true,
+    extensions,
+    content: editorContent,
+    editorProps: {
+      attributes: {
+        class: "prose prose-lg max-w-none focus:outline-none min-h-[600px] p-6",
+      },
+      handlePaste: (_view, event) => {
+        const file = Array.from(event.clipboardData?.files ?? []).find((item) =>
+          item.type.startsWith("image/")
+        );
+        if (!file) return false;
+        event.preventDefault();
+        void uploadEditorImage(file)
+          .then((url) => editorRef.current?.chain().focus().setImage({ src: url }).run())
+          .catch((err) => toast.error(err instanceof Error ? err.message : "Upload failed"));
+        return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const file = Array.from(event.dataTransfer?.files ?? []).find((item) =>
+          item.type.startsWith("image/")
+        );
+        if (!file) return false;
+        event.preventDefault();
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        void uploadEditorImage(file)
+          .then((url) => {
+            const current = editorRef.current;
+            if (!current) return;
+            const chain = current.chain().focus();
+            if (coords) chain.setTextSelection(coords.pos);
+            chain.setImage({ src: url }).run();
+          })
+          .catch((err) => toast.error(err instanceof Error ? err.message : "Upload failed"));
+        return true;
+      },
+    },
+  });
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
+
   const handleSave = useCallback(() => {
-    if (!editorInstance || !onSave) return;
-    const json = editorInstance.getJSON();
-    const markdown = editorInstance.storage.markdown.getMarkdown();
+    if (!editor || !onSave) return;
+    const json = editor.getJSON();
+    const markdown = editorMarkdown(editor);
     onSave(json, markdown, bannerUrl || undefined);
-  }, [editorInstance, onSave, bannerUrl]);
+  }, [editor, onSave, bannerUrl]);
 
   const handlePublish = useCallback(() => {
-    if (!editorInstance || !onPublish) return;
-    const json = editorInstance.getJSON();
-    const markdown = editorInstance.storage.markdown.getMarkdown();
+    if (!editor || !onPublish) return;
+    const json = editor.getJSON();
+    const markdown = editorMarkdown(editor);
     onPublish(
       json,
       markdown,
@@ -449,7 +550,7 @@ export default function Editor({
       bannerUrl || undefined,
       summary || undefined
     );
-  }, [editorInstance, onPublish, title, hashtags, bannerUrl, summary]);
+  }, [editor, onPublish, title, hashtags, bannerUrl, summary]);
 
   const addHashtag = (tag?: string) => {
     const tagToAdd = (tag || hashtagInput).trim().toLowerCase().replace(/^#/, "");
@@ -487,7 +588,7 @@ export default function Editor({
     }
   };
 
-  const editorContent = resolveNovelInitialContent(initialContent);
+  const slashRect = slashMenu?.clientRect?.() ?? null;
 
   return (
     <div>
@@ -611,32 +712,23 @@ export default function Editor({
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-6">
           <Card className="overflow-hidden">
-          {showAIToolbar && editorInstance && (
+          {showAIToolbar && editor && (
             <div className="px-4 py-3 border-b border-border bg-accent/30">
               <AIToolbar
-                selectedText={editorInstance.state.doc.textBetween(
-                  editorInstance.state.selection.from,
-                  editorInstance.state.selection.to,
+                selectedText={editor.state.doc.textBetween(
+                  editor.state.selection.from,
+                  editor.state.selection.to,
                   " "
                 )}
-                fullContent={editorInstance.storage.markdown.getMarkdown()}
+                fullContent={editorMarkdown(editor)}
                 onReplace={(newText) => {
-                  const { from, to } = editorInstance.state.selection;
+                  const { from, to } = editor.state.selection;
                   if (from !== to) {
-                    editorInstance
-                      .chain()
-                      .focus()
-                      .deleteRange({ from, to })
-                      .insertContent(newText)
-                      .run();
+                    editor.chain().focus().deleteRange({ from, to }).insertContent(newText).run();
                   }
                 }}
                 onAppend={(text) => {
-                  editorInstance
-                    .chain()
-                    .focus()
-                    .insertContent("\n\n" + text)
-                    .run();
+                  editor.chain().focus().insertContent("\n\n" + text).run();
                 }}
                 onTitleGenerated={(t) => setTitle(t)}
                 onMetaGenerated={(meta) => {
@@ -648,55 +740,43 @@ export default function Editor({
               />
             </div>
           )}
-          <EditorRoot>
-            <EditorContent
-              initialContent={editorContent}
-              extensions={extensions}
-              editorProps={{
-                handleDOMEvents: {
-                  keydown: (_view, event) => handleCommandNavigation(event),
-                },
-                handlePaste: (view, event) => handleImagePaste(view, event, uploadFn),
-                handleDrop: (view, event, _slice, moved) =>
-                  handleImageDrop(view, event, moved, uploadFn),
-                attributes: {
-                  class: "prose prose-lg max-w-none focus:outline-none min-h-[600px] p-6",
-                },
-              }}
-              onUpdate={({ editor }) => {
-                setEditorInstance(editor);
-              }}
-              onCreate={({ editor }) => {
-                setEditorInstance(editor);
-              }}
+          <EditorContent editor={editor} />
+          {slashMenu && slashRect && (
+            <div
+              className="z-50 h-auto max-h-[330px] w-72 overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md"
+              style={{ position: "fixed", top: slashRect.bottom + 4, left: slashRect.left }}
             >
-              <EditorCommand className="z-50 h-auto max-h-[330px] w-full overflow-y-auto rounded-md border border-muted bg-background px-1 py-2 shadow-md transition-all">
-                <EditorCommandEmpty className="px-2 text-muted-foreground">
-                  No results
-                </EditorCommandEmpty>
-                <EditorCommandList>
-                  {suggestionItems.map((item) => (
-                    <EditorCommandItem
-                      value={item.title}
-                      onCommand={(val) => item.command!(val)}
-                      className="flex w-full cursor-pointer items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent aria-selected:bg-accent"
-                      key={item.title}
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
-                        {item.icon}
-                      </div>
-                      <div>
-                        <p className="font-medium">{item.title}</p>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      </div>
-                    </EditorCommandItem>
-                  ))}
-                </EditorCommandList>
-              </EditorCommand>
-
+              {slashMenu.items.length === 0 ? (
+                <div className="px-2 text-muted-foreground">No results</div>
+              ) : (
+                slashMenu.items.map((item, index) => (
+                  <button
+                    type="button"
+                    key={item.title}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      slashMenu.command(item);
+                    }}
+                    className={cn(
+                      "flex w-full cursor-pointer items-center space-x-2 rounded-md px-2 py-1 text-left text-sm hover:bg-accent",
+                      index === slashMenu.selected && "bg-accent"
+                    )}
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md border border-muted bg-background">
+                      {item.icon}
+                    </div>
+                    <div>
+                      <p className="font-medium">{item.title}</p>
+                      <p className="text-xs text-muted-foreground">{item.description}</p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
               <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 px-3 sm:px-4 py-3 border-t border-border bg-accent/50">
                 <div className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">
-                  {editorInstance?.storage.characterCount.characters() || 0} characters
+                  {editor?.storage.characterCount.characters() || 0} characters
                 </div>
                 <div className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                   <Button
@@ -716,8 +796,6 @@ export default function Editor({
                   </Button>
                 </div>
               </div>
-            </EditorContent>
-          </EditorRoot>
         </Card>
 
         {sidebar && (
