@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 import { Context, Next } from "hono";
 import {
   getMcpApiKey,
@@ -8,8 +8,9 @@ import {
 } from "../mcp/context";
 
 function instanceKeyMatches(provided: string, expected: string): boolean {
-  const a = createHash("sha256").update(provided).digest();
-  const b = createHash("sha256").update(expected).digest();
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
   return timingSafeEqual(a, b);
 }
 
