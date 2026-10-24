@@ -14,17 +14,24 @@ Dashboard auth uses an HTTP-only JWT cookie:
 
 Both use `SameSite=Strict`, `Path=/`, and `Secure` in production.
 
+The JWT is only a handle. Each login inserts a row in `auth_sessions`. Logout,
+password change, password reset, and admin deactivation revoke those rows.
+Tokens issued before this table existed stop working on the next request, so a
+deploy of this change signs every current user out once.
+
 **Sliding refresh:** when a cookie session has fewer than **2 days** remaining,
-the API re-issues a fresh 7-day JWT on the next request (cookie path only; Bearer
-mobile tokens are not slid).
+the API extends that same session row and re-signs its id (cookie path only;
+Bearer mobile tokens are not slid).
 
 `GET /api/users/me` includes:
 
 - `auth_method`: `"cookie"` | `"bearer"`
 - `session_expires_at`: ISO timestamp (when known)
 
-Mobile and MCP clients use `Authorization: Bearer …` instead of cookies. Those
-requests are not subject to CSRF checks.
+Mobile and MCP clients use `Authorization: Bearer …` instead of cookies. A
+Bearer request is exempt from CSRF only when the session cookie is absent. If
+`xlog_session` is present, Origin and the double-submit token are required
+even when a Bearer header is also sent.
 
 ## API errors
 
@@ -48,9 +55,9 @@ Mutating `/api/*` requests that include the session cookie must pass:
 ### What is skipped
 
 - Safe methods: `GET`, `HEAD`, `OPTIONS`
-- Requests with `Authorization: Bearer …` (API keys, mobile, MCP)
-- Requests **without** `xlog_session` (public login, register, invite accept,
-  password reset, analytics collect with `credentials: "omit"`)
+- Requests **without** `xlog_session` (Bearer-only mobile and MCP clients,
+  public login, register, invite accept, password reset, analytics collect
+  with `credentials: "omit"`)
 
 ### Trusted hosts
 
@@ -87,9 +94,12 @@ x-log uses an **in-process** sliding-window limiter
 (`apps/api/src/lib/rate-limit.ts`) plus global middleware
 (`apps/api/src/middleware/rate-limit.ts`).
 
-Limits are per client IP (from `CF-Connecting-IP`, `X-Forwarded-For`, or
-`X-Real-IP`). Blocked requests return **429** with `Retry-After` and
-`X-RateLimit-*` headers when applicable.
+The client key is the socket address unless `TRUSTED_PROXY_HOPS` is greater
+than 0. With hops set to 1 (one nginx or Cloudflare proxy), the API trusts
+`CF-Connecting-IP` if present, otherwise the right-most `X-Forwarded-For`
+value that proxy appended. The proxy must strip client-supplied copies of
+those headers. `X-Real-IP` is not used. Blocked requests return **429** with
+`Retry-After` and `X-RateLimit-*` headers when applicable.
 
 ### Middleware (always on unless disabled)
 
@@ -124,6 +134,7 @@ and public actor GETs (so probes and Fediverse discovery stay cheap).
 | `RATE_LIMIT_API_WINDOW_MS` | `60000` | Global window (ms) |
 | `RATE_LIMIT_MCP_MAX` | `180` | MCP requests per minute |
 | `RATE_LIMIT_INBOX_MAX` | `240` | Inbox POSTs per minute |
+| `TRUSTED_PROXY_HOPS` | `0` | Reverse proxies allowed to set the client IP |
 
 <!-- prettier-ignore -->
 > [!NOTE]
@@ -131,10 +142,37 @@ and public actor GETs (so probes and Fediverse discovery stay cheap).
 > deploys should move buckets to Redis (or edge rate limits) so counts are
 > shared across processes.
 
+## Secrets at rest
+
+Production refuses to boot without `DATA_ENCRYPTION_KEY` (32 bytes, standard
+base64, `openssl rand -base64 32`). It encrypts ActivityPub private keys and
+Nostr secrets. Do not derive it from `SESSION_SECRET`. Existing plaintext rows
+are encrypted on migrate when the key is set. Decrypt still accepts leftover
+plaintext so a dev database without the key keeps working.
+
+Admin settings no longer return `smtp_url` or `ai_api_key`. The API returns
+`has_smtp` and `has_ai_api_key`. A PATCH updates a secret only when the field
+is a non-empty string. Send `clear_smtp` or `clear_ai_api_key` to remove one.
+An empty string does not wipe the stored value.
+
+`AI_ALLOW_PRIVATE_BASE=true` permits an AI base URL that resolves to a private
+address. Outside production, private AI base URLs are allowed so a local model
+can be used. Federation and link-unfurl fetches always refuse private and
+metadata addresses.
+
 ## ActivityPub and MCP
 
 - **Federation** inbox/outbox live outside cookie CSRF (signed HTTP traffic).
+  Signed deliveries do not follow redirects. Inbound POST signatures must
+  cover `(request-target)`, `host`, `date`, and `digest`.
 - **MCP** uses Bearer keys at `/mcp` and `/mcp/jsonrpc`, not session cookies.
+  `?api_key=` is ignored. `SESSION_SECRET` is not an MCP key. Per-user keys
+  still authenticate when `MCP_API_KEY` is unset. Set `MCP_ENABLED=false` to
+  turn the endpoints off.
+- Public deploys must set `NODE_ENV=production`. Cookie `Secure` and the
+  production CSRF missing-origin rejection follow that flag.
+
+Set `NODE_ENV=production` on any instance that is reachable beyond localhost.
 
 ## Next steps
 

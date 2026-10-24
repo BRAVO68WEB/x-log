@@ -3,6 +3,8 @@ import Redis from "ioredis";
 import { getEnv } from "@xlog/config";
 import { getDb } from "@xlog/db";
 import {
+  assertPublicUrl,
+  safeFetch,
   signRequest,
   createCreateActivity,
   createUpdateActivity,
@@ -158,6 +160,7 @@ async function deliverActivity(delivery: DeliveryJob) {
       body = JSON.stringify(activity);
     }
 
+    await assertPublicUrl(inboxUrl);
     const signed = await signRequest({
       method: "POST",
       url: inboxUrl,
@@ -171,10 +174,11 @@ async function deliverActivity(delivery: DeliveryJob) {
       .where("activity_id", "=", delivery.activityId)
       .execute();
 
-    const response = await fetch(signed.url, {
+    const response = await safeFetch(signed.url, {
       method: signed.method,
       headers: signed.headers,
       body: signed.body,
+      followRedirects: false,
     });
 
     if (response.ok) {

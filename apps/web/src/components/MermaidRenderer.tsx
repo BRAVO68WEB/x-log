@@ -50,6 +50,7 @@ export function MermaidRenderer({ contentHtml, className }: MermaidRendererProps
           startOnLoad: false,
           theme: isDark ? "dark" : "default",
           fontFamily: "inherit",
+          securityLevel: "strict",
         });
 
         for (let i = 0; i < codeBlocks.length; i++) {
@@ -64,9 +65,12 @@ export function MermaidRenderer({ contentHtml, className }: MermaidRendererProps
 
           try {
             const { svg } = await mermaid.render(id, source);
+            const DOMPurify = (await import("dompurify")).default;
             const wrapper = document.createElement("div");
             wrapper.className = "mermaid-diagram";
-            wrapper.innerHTML = svg;
+            wrapper.innerHTML = DOMPurify.sanitize(svg, {
+              USE_PROFILES: { svg: true, svgFilters: true },
+            });
             preEl.replaceWith(wrapper);
           } catch {
             preEl.classList.add("mermaid-error");

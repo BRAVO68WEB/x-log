@@ -2,6 +2,7 @@ import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
 import { generateKeyPairSync } from "crypto";
 import bcrypt from "bcryptjs";
+import { sealSecret } from "./seal-secret";
 
 export async function countLocalAuthors(): Promise<number> {
   const db = getDb();
@@ -105,7 +106,7 @@ export async function createLocalAuthor(input: CreateLocalAuthorInput) {
     .values({
       user_id: userId,
       public_key_pem: publicKey,
-      private_key_pem: privateKey,
+      private_key_pem: sealSecret(privateKey),
       key_id: keyId,
     })
     .execute();

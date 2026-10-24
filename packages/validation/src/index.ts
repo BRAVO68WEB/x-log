@@ -3,13 +3,13 @@ import { z } from "zod";
 // Post schemas
 export const PostCreateSchema = z.object({
   title: z
-    .string({ required_error: "Title is required" })
+    .string({ error: "Title is required" })
     .min(1, "Title is required")
     .max(200, "Title must be at most 200 characters"),
   banner_url: z.string().url("Banner URL must be a valid URL").optional(),
-  content_blocks: z.record(z.any()).optional(), // ProseMirror/TipTap document object
+  content_blocks: z.record(z.string(), z.any()).optional(), // ProseMirror/TipTap document object
   content_markdown: z
-    .string({ required_error: "Content is required" })
+    .string({ error: "Content is required" })
     .min(1, "Content is required"),
   hashtags: z
     .array(
@@ -179,7 +179,7 @@ export const SearchQuerySchema = z
       .regex(/^[a-z0-9_]{1,64}$/i)
       .optional(),
     type: z.enum(["post", "profile"]).optional(),
-    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default("20"),
+    limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).prefault("20"),
     cursor: z.string().optional(),
   })
   .refine((data) => Boolean(data.q) || Boolean(data.hashtag), {
@@ -188,7 +188,7 @@ export const SearchQuerySchema = z
 
 // Pagination schemas
 export const PaginationQuerySchema = z.object({
-  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default("20"),
+  limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).prefault("20"),
   cursor: z.string().optional(),
 });
 

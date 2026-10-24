@@ -66,6 +66,33 @@ describe("API integration (createApp)", () => {
     expect([400, 401, 422, 500]).toContain(res.status);
   });
 
+  test("CSRF rejects bearer when a session cookie is also present", async () => {
+    const res = await app.request("/api/users/me", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer not-a-real-token",
+        Cookie: "xlog_session=invalid-but-present",
+        Origin: "http://localhost:3000",
+      },
+      body: JSON.stringify({ email: "a@b.com" }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  test("bearer without a session cookie skips CSRF", async () => {
+    const res = await app.request("/api/users/me", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer not-a-real-token",
+        Origin: "http://evil.example",
+      },
+      body: JSON.stringify({ email: "a@b.com" }),
+    });
+    expect(res.status).not.toBe(403);
+  });
+
   test("CSRF rejects cookie session POST without token", async () => {
     const res = await app.request("/api/users/me", {
       method: "PATCH",

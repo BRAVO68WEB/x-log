@@ -60,6 +60,8 @@ export default function SettingsClient() {
     instance_domain: "",
     admin_email: "",
     smtp_url: "",
+    has_smtp: false,
+    clear_smtp: false,
     federation_enabled: true,
     following_enabled: false,
     use_profile_as_landing: false,
@@ -67,6 +69,8 @@ export default function SettingsClient() {
     theme_id: "system" as InstanceThemeId,
     ai_base_url: "",
     ai_api_key: "",
+    has_ai_api_key: false,
+    clear_ai_api_key: false,
     ai_model: "",
     ai_max_tokens: 2048,
     ai_temperature: 0.7,
@@ -96,7 +100,7 @@ export default function SettingsClient() {
         instance_description: string | null;
         instance_domain: string;
         admin_email: string | null;
-        smtp_url: string | null;
+        has_smtp: boolean;
         federation_enabled: boolean;
         following_enabled: boolean;
         use_profile_as_landing: boolean;
@@ -107,7 +111,7 @@ export default function SettingsClient() {
         local_users: Array<{ id: string; username: string; role: string }>;
         theme_id: InstanceThemeId;
         ai_base_url: string | null;
-        ai_api_key: string | null;
+        has_ai_api_key: boolean;
         ai_model: string | null;
         ai_max_tokens: number | null;
         ai_temperature: number | null;
@@ -120,14 +124,18 @@ export default function SettingsClient() {
           instance_description: data.instance_description || "",
           instance_domain: data.instance_domain,
           admin_email: data.admin_email || "",
-          smtp_url: data.smtp_url || "",
+          smtp_url: "",
+          has_smtp: Boolean(data.has_smtp),
+          clear_smtp: false,
           federation_enabled: data.federation_enabled,
           following_enabled: data.following_enabled,
           use_profile_as_landing: data.use_profile_as_landing,
           primary_user_id: data.primary_user_id || data.local_users[0]?.id || "",
           theme_id: normalizeThemeId(data.theme_id),
           ai_base_url: data.ai_base_url || "",
-          ai_api_key: data.ai_api_key || "",
+          ai_api_key: "",
+          has_ai_api_key: Boolean(data.has_ai_api_key),
+          clear_ai_api_key: false,
           ai_model: data.ai_model || "",
           ai_max_tokens: data.ai_max_tokens || 2048,
           ai_temperature: data.ai_temperature ?? 0.7,
@@ -196,14 +204,16 @@ export default function SettingsClient() {
           instance_description: settings.instance_description || null,
           instance_domain: settings.instance_domain,
           admin_email: settings.admin_email || null,
-          smtp_url: settings.smtp_url || null,
+          ...(settings.smtp_url ? { smtp_url: settings.smtp_url } : {}),
+          ...(settings.clear_smtp ? { clear_smtp: true } : {}),
           federation_enabled: settings.federation_enabled,
           following_enabled: settings.following_enabled,
           use_profile_as_landing: settings.use_profile_as_landing,
           primary_user_id: settings.primary_user_id || undefined,
           theme_id: settings.theme_id,
           ai_base_url: settings.ai_base_url || null,
-          ai_api_key: settings.ai_api_key || null,
+          ...(settings.ai_api_key ? { ai_api_key: settings.ai_api_key } : {}),
+          ...(settings.clear_ai_api_key ? { clear_ai_api_key: true } : {}),
           ai_model: settings.ai_model || null,
           ai_max_tokens: settings.ai_max_tokens || null,
           ai_temperature: settings.ai_temperature,
@@ -681,11 +691,29 @@ export default function SettingsClient() {
                       />
                       <Input
                         label="SMTP URL"
-                        type="url"
+                        type="password"
                         value={settings.smtp_url}
-                        onChange={(e) => setSettings({ ...settings, smtp_url: e.target.value })}
-                        placeholder="smtp://user:pass@smtp.example.com:587"
+                        onChange={(e) =>
+                          setSettings({ ...settings, smtp_url: e.target.value, clear_smtp: false })
+                        }
+                        placeholder={
+                          settings.has_smtp && !settings.clear_smtp
+                            ? "Configured"
+                            : "smtp://user:pass@smtp.example.com:587"
+                        }
+                        autoComplete="new-password"
                       />
+                      {settings.has_smtp && (
+                        <button
+                          type="button"
+                          className="text-sm text-muted-foreground underline"
+                          onClick={() =>
+                            setSettings({ ...settings, smtp_url: "", clear_smtp: true })
+                          }
+                        >
+                          {settings.clear_smtp ? "Saved SMTP URL will be removed" : "Remove saved SMTP URL"}
+                        </button>
+                      )}
                     </div>
                   </BentoCardContent>
                 </BentoCard>
@@ -809,9 +837,33 @@ export default function SettingsClient() {
                           label="API Key"
                           type="password"
                           value={settings.ai_api_key}
-                          onChange={(e) => setSettings({ ...settings, ai_api_key: e.target.value })}
-                          placeholder="sk-..."
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              ai_api_key: e.target.value,
+                              clear_ai_api_key: false,
+                            })
+                          }
+                          placeholder={
+                            settings.has_ai_api_key && !settings.clear_ai_api_key
+                              ? "Configured"
+                              : "sk-..."
+                          }
+                          autoComplete="new-password"
                         />
+                        {settings.has_ai_api_key && (
+                          <button
+                            type="button"
+                            className="text-sm text-muted-foreground underline"
+                            onClick={() =>
+                              setSettings({ ...settings, ai_api_key: "", clear_ai_api_key: true })
+                            }
+                          >
+                            {settings.clear_ai_api_key
+                              ? "Saved API key will be removed"
+                              : "Remove saved API key"}
+                          </button>
+                        )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -857,7 +909,7 @@ export default function SettingsClient() {
 
                       <div className="rounded-lg border bg-muted/50 p-4">
                         <div className="flex items-center gap-2 mb-2">
-                          {settings.ai_api_key ? (
+                          {settings.ai_api_key || (settings.has_ai_api_key && !settings.clear_ai_api_key) ? (
                             <>
                               <div className="h-2 w-2 rounded-full bg-green-500" />
                               <span className="text-sm font-medium">Configured</span>

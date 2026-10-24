@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from "crypto";
 import { Context, Next } from "hono";
 import {
   getMcpApiKey,
@@ -5,6 +6,12 @@ import {
   resolveMcpActor,
   type McpActor,
 } from "../mcp/context";
+
+function instanceKeyMatches(provided: string, expected: string): boolean {
+  const a = createHash("sha256").update(provided).digest();
+  const b = createHash("sha256").update(expected).digest();
+  return timingSafeEqual(a, b);
+}
 
 export interface MCPAuthContext {
   apiKey: string;
@@ -37,7 +44,7 @@ function unauthorized(c: Context, data: string) {
  * Accepts Authorization: Bearer <key> where key is either:
  * - instance MCP_API_KEY (acts as primary / MCP_ACTOR_USERNAME)
  * - per-user key (xlog_mcp_…) acting as that user only
- * Legacy: Authorization: mcp-key <key>, or ?api_key= (deprecated).
+ * Legacy header: Authorization: mcp-key <key>
  */
 export async function mcpAuthMiddleware(c: Context, next: Next) {
   if (!isMcpEnabled()) {
@@ -51,11 +58,6 @@ export async function mcpAuthMiddleware(c: Context, next: Next) {
     apiKey = authHeader.slice(7).trim();
   } else if (authHeader?.startsWith("mcp-key ")) {
     apiKey = authHeader.slice(8).trim();
-  } else {
-    apiKey = c.req.query("api_key") || undefined;
-    if (apiKey) {
-      console.warn("[MCP Auth] api_key query param is deprecated; use Authorization: Bearer");
-    }
   }
 
   if (!apiKey) {
@@ -68,7 +70,7 @@ export async function mcpAuthMiddleware(c: Context, next: Next) {
   const instanceKey = getMcpApiKey();
 
   // 1) Instance key → primary / MCP_ACTOR_USERNAME
-  if (instanceKey && apiKey === instanceKey) {
+  if (instanceKey && instanceKeyMatches(apiKey, instanceKey)) {
     const actor = await resolveMcpActor();
     if (!actor) {
       return c.json(

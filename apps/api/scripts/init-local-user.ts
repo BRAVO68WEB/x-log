@@ -12,6 +12,7 @@
 
 import { getDb } from "@xlog/db";
 import { getEnv } from "@xlog/config";
+import { sealSecret } from "../src/lib/seal-secret";
 import bcrypt from "bcryptjs";
 import { generateKeyPairSync } from "crypto";
 import { migrateToLatest } from "@xlog/db/migrate";
@@ -115,7 +116,7 @@ async function main() {
     .values({
       user_id: userId,
       public_key_pem: publicKey,
-      private_key_pem: privateKey,
+      private_key_pem: sealSecret(privateKey),
       key_id: keyId,
     })
     .execute();

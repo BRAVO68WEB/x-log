@@ -14,33 +14,15 @@ export type McpToolContext = {
 
 /**
  * Whether MCP endpoints should be mounted/serving.
- * - MCP_ENABLED=false forces off
- * - MCP_ENABLED=true forces on (instance key and/or per-user keys)
- * - otherwise: on when MCP_API_KEY is set, or in development with SESSION_SECRET,
- *   or always available for per-user key auth (keys validated at request time)
+ * MCP_ENABLED=false forces off. Otherwise per-user keys (and MCP_API_KEY, if set)
+ * are accepted. SESSION_SECRET is never an MCP credential.
  */
 export function isMcpEnabled(): boolean {
-  const env = getEnv();
-  if (env.MCP_ENABLED === "false") {
-    return false;
-  }
-  if (env.MCP_ENABLED === "true") {
-    return true;
-  }
-  if (env.MCP_API_KEY) return true;
-  // Dev-only fallback so local setups keep working without a dedicated key
-  if (env.NODE_ENV !== "production" && Boolean(env.SESSION_SECRET)) return true;
-  // Production without instance key: still allow per-user MCP keys
-  return true;
+  return getEnv().MCP_ENABLED !== "false";
 }
 
 export function getMcpApiKey(): string | null {
-  const env = getEnv();
-  if (env.MCP_API_KEY) return env.MCP_API_KEY;
-  if (env.NODE_ENV !== "production") {
-    return env.SESSION_SECRET;
-  }
-  return null;
+  return getEnv().MCP_API_KEY || null;
 }
 
 export async function resolveMcpActor(): Promise<McpActor | null> {

@@ -1,11 +1,6 @@
 import { promises as fs } from "fs";
-import {
-  Kysely,
-  Migrator,
-  PostgresDialect,
-  type Migration,
-  type MigrationProvider,
-} from "kysely";
+import { Kysely, PostgresDialect } from "kysely";
+import { Migrator, type Migration, type MigrationProvider } from "kysely/migration";
 import { Pool } from "pg";
 import * as path from "path";
 import { pathToFileURL } from "url";

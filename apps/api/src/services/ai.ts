@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { assertPublicUrl, getEnv } from "@xlog/config";
 import { getDb } from "@xlog/db";
 
 let client: OpenAI | null = null;
@@ -52,6 +53,9 @@ async function getClient(): Promise<OpenAI | null> {
 
   // Recreate client if base URL or API key changed
   if (!client || cachedBaseUrl !== config.baseUrl || cachedApiKey !== config.apiKey) {
+    const env = getEnv();
+    const allowPrivate = env.NODE_ENV !== "production" || env.AI_ALLOW_PRIVATE_BASE;
+    await assertPublicUrl(config.baseUrl, { allowPrivate });
     client = new OpenAI({
       baseURL: config.baseUrl,
       apiKey: config.apiKey,

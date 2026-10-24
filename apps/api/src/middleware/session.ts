@@ -49,20 +49,32 @@ async function authenticateToken(token: string): Promise<AuthResult> {
 
   try {
     const payload = (await verify(token, env.SESSION_SECRET, "HS256")) as unknown as AuthPayload;
-    const db = getDb();
-
-    const user = await db
-      .selectFrom("users")
-      .select(["id", "username", "email", "role", "is_active"])
-      .where("id", "=", payload.userId)
-      .executeTakeFirst();
-
-    if (!user) {
+    if (!payload.userId || !payload.sessionId) {
       return { ok: false };
     }
 
-    // Soft-deactivated accounts cannot use sessions
-    if (user.is_active === false) {
+    const db = getDb();
+    const user = await db
+      .selectFrom("users")
+      .select(["id", "username", "email", "role", "is_active", "email_verified"])
+      .where("id", "=", payload.userId)
+      .executeTakeFirst();
+
+    if (!user || user.is_active === false || user.email_verified === false) {
+      return { ok: false };
+    }
+
+    const session = await db
+      .selectFrom("auth_sessions")
+      .select(["id", "expires_at", "revoked_at"])
+      .where("id", "=", payload.sessionId)
+      .where("user_id", "=", user.id)
+      .executeTakeFirst();
+
+    if (!session || session.revoked_at) {
+      return { ok: false };
+    }
+    if (new Date(session.expires_at).getTime() <= Date.now()) {
       return { ok: false };
     }
 
@@ -112,19 +124,21 @@ export async function sessionMiddleware(c: Context, next: Next) {
         // Backfill CSRF cookie for sessions created before CSRF rolled out
         setCsrfCookie(c);
       }
-      // Sliding session: extend cookie JWT when nearing expiry (cookie auth only)
+      // Sliding session: extend the same session row and re-sign that id.
       const exp = result.payload.exp;
       const now = Math.floor(Date.now() / 1000);
       const remaining = exp - now;
       if (
+        result.payload.sessionId &&
         result.payload.tokenType !== "mobile" &&
         remaining > 0 &&
         remaining < SESSION_SLIDE_THRESHOLD_SEC
       ) {
-        const fresh = await createSession(result.user.id);
-        setSessionCookie(c, fresh);
-        // Refresh exp on context for this request
-        c.set("sessionExp", Math.floor(Date.now() / 1000) + SESSION_MAX_AGE);
+        const fresh = await refreshSession(result.user.id, result.payload.sessionId, "session");
+        if (fresh) {
+          setSessionCookie(c, fresh.token);
+          c.set("sessionExp", fresh.exp);
+        }
       }
     }
   }
@@ -177,26 +191,85 @@ export async function requireAuthor(c: Context, next: Next) {
   await next();
 }
 
-export async function createSession(userId: string): Promise<string> {
-  const env = getEnv();
+async function insertSession(
+  userId: string,
+  tokenType: "session" | "mobile",
+  maxAgeSec: number
+): Promise<{ sessionId: string; exp: number }> {
   const sessionId = crypto.randomUUID();
-  const payload = {
-    userId,
-    sessionId,
-    tokenType: "session" as const,
-    exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE,
-  };
-  return await sign(payload, env.SESSION_SECRET, "HS256");
+  const exp = Math.floor(Date.now() / 1000) + maxAgeSec;
+  await getDb()
+    .insertInto("auth_sessions")
+    .values({
+      id: sessionId,
+      user_id: userId,
+      token_type: tokenType,
+      expires_at: new Date(exp * 1000),
+      revoked_at: null,
+    })
+    .execute();
+  return { sessionId, exp };
+}
+
+async function signSession(
+  userId: string,
+  sessionId: string,
+  tokenType: "session" | "mobile",
+  exp: number
+): Promise<string> {
+  return sign(
+    { userId, sessionId, tokenType, exp },
+    getEnv().SESSION_SECRET,
+    "HS256"
+  );
+}
+
+export async function createSession(userId: string): Promise<string> {
+  const { sessionId, exp } = await insertSession(userId, "session", SESSION_MAX_AGE);
+  return signSession(userId, sessionId, "session", exp);
 }
 
 export async function createMobileToken(userId: string): Promise<string> {
-  const env = getEnv();
-  const payload = {
-    userId,
-    tokenType: "mobile" as const,
-    exp: Math.floor(Date.now() / 1000) + MOBILE_TOKEN_MAX_AGE,
-  };
-  return await sign(payload, env.SESSION_SECRET, "HS256");
+  const { sessionId, exp } = await insertSession(userId, "mobile", MOBILE_TOKEN_MAX_AGE);
+  return signSession(userId, sessionId, "mobile", exp);
+}
+
+/** Extend expires_at on the same session id and return a new JWT for it. */
+export async function refreshSession(
+  userId: string,
+  sessionId: string,
+  tokenType: "session" | "mobile"
+): Promise<{ token: string; exp: number } | null> {
+  const maxAge = tokenType === "mobile" ? MOBILE_TOKEN_MAX_AGE : SESSION_MAX_AGE;
+  const exp = Math.floor(Date.now() / 1000) + maxAge;
+  const updated = await getDb()
+    .updateTable("auth_sessions")
+    .set({ expires_at: new Date(exp * 1000) })
+    .where("id", "=", sessionId)
+    .where("user_id", "=", userId)
+    .where("revoked_at", "is", null)
+    .returning("id")
+    .executeTakeFirst();
+  if (!updated) return null;
+  return { token: await signSession(userId, sessionId, tokenType, exp), exp };
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await getDb()
+    .updateTable("auth_sessions")
+    .set({ revoked_at: new Date() })
+    .where("id", "=", sessionId)
+    .where("revoked_at", "is", null)
+    .execute();
+}
+
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await getDb()
+    .updateTable("auth_sessions")
+    .set({ revoked_at: new Date() })
+    .where("user_id", "=", userId)
+    .where("revoked_at", "is", null)
+    .execute();
 }
 
 export function getMobileTokenExpiryIso() {

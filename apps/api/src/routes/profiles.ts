@@ -6,6 +6,7 @@ import { getDb, getInstanceSettings } from "@xlog/db";
 import { getActorUrlSync } from "@xlog/ap";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { followRemoteActor } from "../lib/activitypub";
+import { sealSecret } from "../lib/seal-secret";
 
 export const profilesRoutes = new Hono().use("*", sessionMiddleware);
 
@@ -355,7 +356,11 @@ profilesRoutes.patch(
       return c.json({ error: "Forbidden" }, 403);
     }
 
-    await db.updateTable("user_profiles").set(data).where("user_id", "=", user.id).execute();
+    const patch = { ...data };
+    if (typeof patch.nostr_privkey === "string" && patch.nostr_privkey.length > 0) {
+      patch.nostr_privkey = sealSecret(patch.nostr_privkey);
+    }
+    await db.updateTable("user_profiles").set(patch).where("user_id", "=", user.id).execute();
 
     const updated = await db
       .selectFrom("users")

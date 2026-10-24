@@ -1,5 +1,7 @@
 import crypto from "crypto";
+import { decryptSecret, getEnv, parseEncryptionKey } from "@xlog/config";
 import { getDb, getInstanceSettings } from "@xlog/db";
+import { safeFetch } from "./safe-url";
 
 const SIGNATURE_TTL_MS = 15 * 60 * 1000;
 /** How long cached remote public keys remain valid before re-fetch. */
@@ -225,6 +227,43 @@ export type ParsedSignatureHeader = {
   headers?: string;
   signature?: string;
 };
+
+const ALLOWED_SIGNATURE_ALGS = new Set(["rsa-sha256", "hs2019"]);
+
+/**
+ * Required signed-header and algorithm checks.
+ * Omitted algorithm is the Cavage default (rsa-sha256). Mastodon labels RSA as hs2019.
+ * Rejects `none`, HMAC, and any other algorithm name.
+ */
+export function signatureConstraintError(
+  method: string,
+  signedHeaders: string[] | undefined,
+  algorithm: string | undefined,
+  hasDigestHeader: boolean
+): string | null {
+  const listed = new Set((signedHeaders ?? []).map((header) => header.toLowerCase()));
+  const alg = algorithm?.trim().toLowerCase();
+  if (alg && !ALLOWED_SIGNATURE_ALGS.has(alg)) {
+    return "unsupported signature algorithm";
+  }
+  for (const name of ["(request-target)", "host", "date"]) {
+    if (!listed.has(name)) return `signature must include ${name}`;
+  }
+  const upper = method.toUpperCase();
+  if (upper === "POST" || upper === "PUT" || listed.has("digest")) {
+    if (!listed.has("digest")) return "signature must include digest";
+    if (!hasDigestHeader) return "digest header missing";
+  }
+  return null;
+}
+
+function headerLookup(headers: Record<string, string>, name: string): string | undefined {
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target && value) return value;
+  }
+  return undefined;
+}
 
 /** Parse a Cavage-style Signature header into key/value pairs. */
 export function parseSignatureHeader(signatureHeader: string): ParsedSignatureHeader {
@@ -721,6 +760,11 @@ export async function signRequest(
     throw new Error("User key not found");
   }
 
+  const privateKeyPem = decryptSecret(
+    userKey.private_key_pem,
+    parseEncryptionKey(getEnv().DATA_ENCRYPTION_KEY)
+  );
+
   const userRow = await db
     .selectFrom("users")
     .select(["username"])
@@ -736,7 +780,7 @@ export async function signRequest(
     method: opts.method,
     url: opts.url,
     body: opts.body,
-    privateKeyPem: userKey.private_key_pem,
+    privateKeyPem,
     keyId,
     extraHeaders: opts.extraHeaders,
   });
@@ -745,22 +789,6 @@ export async function signRequest(
     return result.headers.Signature;
   }
   return result;
-}
-
-const ACTOR_FETCH_TIMEOUT_MS = 12_000;
-
-async function fetchWithTimeout(
-  url: string,
-  init: RequestInit,
-  timeoutMs = ACTOR_FETCH_TIMEOUT_MS
-): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
 }
 
 export async function signedFetch(
@@ -781,10 +809,11 @@ export async function signedFetch(
     extraHeaders: options.headers,
   });
 
-  return fetchWithTimeout(signed.url, {
+  return safeFetch(signed.url, {
     method: signed.method,
     headers: signed.headers,
     body: signed.body,
+    followRedirects: false,
   });
 }
 
@@ -824,8 +853,10 @@ export async function fetchRemoteActorDocument(
 
   for (const candidate of candidates) {
     try {
-      const unsigned = await fetchWithTimeout(candidate, {
+      const unsigned = await safeFetch(candidate, {
         headers: { Accept: ACTIVITYPUB_ACCEPT_HEADER },
+        maxBytes: 1_048_576,
+        timeoutMs: 12_000,
       });
       lastStatus = unsigned.status;
 
@@ -1044,6 +1075,30 @@ async function resolveRemotePublicKey(
   );
 }
 
+async function rememberReplay(
+  db: ReturnType<typeof getDb>,
+  replayKey: string
+): Promise<boolean> {
+  const now = Date.now();
+  const existing = await db
+    .selectFrom("replay_cache")
+    .select("created_at")
+    .where("key", "=", replayKey)
+    .executeTakeFirst();
+  if (existing) {
+    const age = now - new Date(existing.created_at as Date).getTime();
+    if (age < SIGNATURE_TTL_MS) return false;
+    await db.deleteFrom("replay_cache").where("key", "=", replayKey).execute();
+  }
+  const inserted = await db
+    .insertInto("replay_cache")
+    .values({ key: replayKey })
+    .onConflict((oc) => oc.column("key").doNothing())
+    .returning("key")
+    .executeTakeFirst();
+  return Boolean(inserted);
+}
+
 export async function verifySignature(
   method: string,
   path: string,
@@ -1067,33 +1122,9 @@ export async function verifySignature(
     headers = { ...headers, host: authority };
 
     const db = getDb();
-    const digestHeader = headers["digest"] || headers["Digest"];
-    if (digestHeader && !isRfc9421SignatureHeader(signatureHeader)) {
-      // Cavage Digest: SHA-256=...
-      const expectedDigest = computeDigest(body);
-      if (digestHeader !== expectedDigest) {
-        console.warn("Sig verify failed: digest mismatch");
-        return false;
-      }
-    }
-
-    const dateHeader = headers["date"] || headers["Date"];
-    if (dateHeader && !isRfc9421SignatureHeader(signatureHeader)) {
-      const parsed = new Date(dateHeader).getTime();
-      if (Number.isNaN(parsed)) {
-        console.warn("Sig verify failed: invalid date header");
-        return false;
-      }
-      const diffMs = Math.abs(Date.now() - parsed);
-      const maxSkewMs = 5 * 60 * 1000;
-      if (diffMs > maxSkewMs) {
-        console.warn(`Sig verify failed: date skew too large (${Math.round(diffMs / 1000)}s)`);
-        return false;
-      }
-    }
-
-    const signatureInput =
-      headers["signature-input"] || headers["Signature-Input"] || "";
+    const digestHeader = headerLookup(headers, "digest");
+    const dateHeader = headerLookup(headers, "date");
+    const signatureInput = headerLookup(headers, "signature-input") || "";
 
     // ── RFC 9421 path (Mastodon 4.4+ dual-sign / pure RFC deliveries) ──
     if (isRfc9421SignatureHeader(signatureHeader) || signatureInput) {
@@ -1144,6 +1175,36 @@ export async function verifySignature(
       return false;
     }
 
+    const constraint = signatureConstraintError(
+      method,
+      signatureParts.headers?.split(/\s+/).filter(Boolean),
+      signatureParts.algorithm,
+      Boolean(digestHeader)
+    );
+    if (constraint) {
+      console.warn(`Sig verify failed: ${constraint}`);
+      return false;
+    }
+    if (digestHeader && digestHeader !== computeDigest(body)) {
+      console.warn("Sig verify failed: digest mismatch");
+      return false;
+    }
+    if (!dateHeader) {
+      console.warn("Sig verify failed: missing date header");
+      return false;
+    }
+    const parsedDate = new Date(dateHeader).getTime();
+    if (Number.isNaN(parsedDate)) {
+      console.warn("Sig verify failed: invalid date header");
+      return false;
+    }
+    const diffMs = Math.abs(Date.now() - parsedDate);
+    const maxSkewMs = 5 * 60 * 1000;
+    if (diffMs > maxSkewMs) {
+      console.warn(`Sig verify failed: date skew too large (${Math.round(diffMs / 1000)}s)`);
+      return false;
+    }
+
     return verifyOneKeySignature({
       method,
       path,
@@ -1191,15 +1252,10 @@ async function verifyOneKeySignature(opts: {
     .where("key", "=", replayKey)
     .executeTakeFirst();
   const now = Date.now();
-  if (replay && now - new Date(replay.created_at as any).getTime() < SIGNATURE_TTL_MS) {
+  if (replay && now - new Date(replay.created_at as Date).getTime() < SIGNATURE_TTL_MS) {
     console.warn(`Sig verify failed: replay cache hit for keyId=${keyId}`);
     return false;
   }
-  await db
-    .insertInto("replay_cache")
-    .values({ key: replayKey })
-    .onConflict((oc) => oc.column("key").doNothing())
-    .execute();
 
   const actorUrl = actorUrlFromKeyId(keyId);
   const actorId = getActorIdFromUrl(actorUrl);
@@ -1230,7 +1286,10 @@ async function verifyOneKeySignature(opts: {
       console.warn("Sig verify failed: local user key not found");
       return false;
     }
-    return opts.verifyWithKey(userKey.public_key_pem);
+    if (!opts.verifyWithKey(userKey.public_key_pem)) return false;
+    const freshLocal = await rememberReplay(db, replayKey);
+    if (!freshLocal) console.warn(`Sig verify failed: replay cache hit for keyId=${keyId}`);
+    return freshLocal;
   }
 
   if (!actorUrl.startsWith("https://")) {
@@ -1258,7 +1317,10 @@ async function verifyOneKeySignature(opts: {
     }
     ok = opts.verifyWithKey(publicKeyPem);
   }
-  return ok;
+  if (!ok) return false;
+  const fresh = await rememberReplay(db, replayKey);
+  if (!fresh) console.warn(`Sig verify failed: replay cache hit for keyId=${keyId}`);
+  return fresh;
 }
 
 function verifySignatureWithKey(

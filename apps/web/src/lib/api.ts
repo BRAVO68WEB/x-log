@@ -574,7 +574,7 @@ export const settingsApi = {
       instance_domain: string;
       open_registrations: boolean;
       admin_email: string | null;
-      smtp_url: string | null;
+      has_smtp: boolean;
       federation_enabled: boolean;
       following_enabled: boolean;
       use_profile_as_landing: boolean;
@@ -585,7 +585,7 @@ export const settingsApi = {
       local_users: Array<{ id: string; username: string; role: string }>;
       theme_id: string;
       ai_base_url: string | null;
-      ai_api_key: string | null;
+      has_ai_api_key: boolean;
       ai_model: string | null;
       ai_max_tokens: number | null;
       ai_temperature: number | null;
@@ -601,6 +601,7 @@ export const settingsApi = {
     open_registrations?: boolean;
     admin_email?: string | null;
     smtp_url?: string | null;
+    clear_smtp?: boolean;
     federation_enabled?: boolean;
     following_enabled?: boolean;
     use_profile_as_landing?: boolean;
@@ -608,6 +609,7 @@ export const settingsApi = {
     theme_id?: string;
     ai_base_url?: string | null;
     ai_api_key?: string | null;
+    clear_ai_api_key?: boolean;
     ai_model?: string | null;
     ai_max_tokens?: number | null;
     ai_temperature?: number | null;

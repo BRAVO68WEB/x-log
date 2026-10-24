@@ -2,6 +2,7 @@ import { getEnv } from "@xlog/config";
 import { getDb, getInstanceSettings } from "@xlog/db";
 import { createLocalAuthor } from "./local-users";
 import { sendEmail } from "./email";
+import { escapeHtml } from "./html";
 import crypto from "crypto";
 
 /**
@@ -72,7 +73,13 @@ export async function registerPublicAuthor(input: {
     }
   }
 
-  return user;
+  const row = await getDb()
+    .selectFrom("users")
+    .select("email_verified")
+    .where("id", "=", user.id)
+    .executeTakeFirst();
+
+  return { ...user, email_verified: row?.email_verified !== false };
 }
 
 async function sendRegistrationVerificationEmail(
@@ -116,14 +123,17 @@ async function sendRegistrationVerificationEmail(
     ? `http://${settings.instance_domain}`
     : `https://${settings.instance_domain}`;
   const url = `${base}/verify-email?token=${token}`;
+  const safeName = escapeHtml(username);
+  const safeInstance = escapeHtml(settings.instance_name || "x-log");
+  const safeUrl = escapeHtml(url);
 
   await sendEmail({
     to: email,
     subject: `Verify your email on ${settings.instance_name || "x-log"}`,
     text: `Hi @${username},\n\nVerify your email: ${url}\n\nThis link expires in 48 hours.`,
-    html: `<p>Hi <strong>@${username}</strong>,</p>
-      <p>Thanks for joining <strong>${settings.instance_name || "x-log"}</strong>.</p>
-      <p><a href="${url}">Verify your email</a></p>
+    html: `<p>Hi <strong>@${safeName}</strong>,</p>
+      <p>Thanks for joining <strong>${safeInstance}</strong>.</p>
+      <p><a href="${safeUrl}">Verify your email</a></p>
       <p class="muted">Link expires in 48 hours.</p>`,
   });
 }

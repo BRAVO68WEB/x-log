@@ -1,4 +1,4 @@
-import { getEnv } from "@xlog/config";
+import { assertPublicUrl, getEnv, safeFetch, UnsafeUrlError } from "@xlog/config";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 export interface OIDCDiscoveryDocument {
@@ -52,6 +52,28 @@ export class OIDCClient {
     };
   }
 
+  private allowPrivateIdp(): boolean {
+    return getEnv().NODE_ENV !== "production";
+  }
+
+  /**
+   * Discovery, token, userinfo, and JWKS URLs must share one host so the
+   * client secret is not posted to a different server.
+   */
+  private async validatedDiscovery(doc: OIDCDiscoveryDocument, fetchedUrl: string): Promise<OIDCDiscoveryDocument> {
+    const allowPrivate = this.allowPrivateIdp();
+    const fetched = await assertPublicUrl(fetchedUrl, { allowPrivate });
+    const host = fetched.host.toLowerCase();
+    const fields = ["authorization_endpoint", "token_endpoint", "jwks_uri", "userinfo_endpoint"] as const;
+    for (const field of fields) {
+      const endpoint = await assertPublicUrl(doc[field], { allowPrivate });
+      if (endpoint.host.toLowerCase() !== host) {
+        throw new UnsafeUrlError(`OIDC ${field} host does not match discovery host`);
+      }
+    }
+    return doc;
+  }
+
   /**
    * Fetch and cache the OIDC discovery document
    */
@@ -60,12 +82,21 @@ export class OIDCClient {
       return this.discovery;
     }
 
+    const configured = this.config.discoveryUrl.replace(/\/$/, "");
+    const discoveryUrl = configured.endsWith("/.well-known/openid-configuration")
+      ? configured
+      : `${configured}/.well-known/openid-configuration`;
     try {
-      const response = await fetch(this.config.discoveryUrl + "/.well-known/openid-configuration");
+      const response = await safeFetch(discoveryUrl, {
+        allowPrivate: this.allowPrivateIdp(),
+        followRedirects: false,
+        maxBytes: 256 * 1024,
+      });
       if (!response.ok) {
         throw new Error(`Failed to fetch discovery document: ${response.statusText}`);
       }
-      this.discovery = (await response.json()) as OIDCDiscoveryDocument;
+      const doc = (await response.json()) as OIDCDiscoveryDocument;
+      this.discovery = await this.validatedDiscovery(doc, discoveryUrl);
       return this.discovery;
     } catch (error) {
       throw new Error(
@@ -109,12 +140,15 @@ export class OIDCClient {
     });
 
     try {
-      const response = await fetch(discovery.token_endpoint, {
+      const response = await safeFetch(discovery.token_endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: params.toString(),
+        allowPrivate: this.allowPrivateIdp(),
+        followRedirects: false,
+        maxBytes: 256 * 1024,
       });
 
       if (!response.ok) {
@@ -134,7 +168,7 @@ export class OIDCClient {
   /**
    * Verify and decode ID token
    */
-  async verifyIdToken(idToken: string): Promise<OIDCUserInfo> {
+  async verifyIdToken(idToken: string, expectedNonce?: string): Promise<OIDCUserInfo> {
     const discovery = await this.getDiscovery();
 
     try {
@@ -146,6 +180,13 @@ export class OIDCClient {
         issuer: discovery.issuer,
         audience: this.config.clientId,
       });
+
+      if (expectedNonce) {
+        const nonce = (payload as { nonce?: unknown }).nonce;
+        if (typeof nonce !== "string" || nonce !== expectedNonce) {
+          throw new Error("OIDC nonce mismatch");
+        }
+      }
 
       return payload as unknown as OIDCUserInfo;
     } catch (error) {
@@ -162,10 +203,13 @@ export class OIDCClient {
     const discovery = await this.getDiscovery();
 
     try {
-      const response = await fetch(discovery.userinfo_endpoint, {
+      const response = await safeFetch(discovery.userinfo_endpoint, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        allowPrivate: this.allowPrivateIdp(),
+        followRedirects: false,
+        maxBytes: 256 * 1024,
       });
 
       if (!response.ok) {
@@ -183,15 +227,12 @@ export class OIDCClient {
   /**
    * Complete OIDC flow: exchange code and get user info
    */
-  async completeFlow(code: string): Promise<OIDCUserInfo> {
+  async completeFlow(code: string, expectedNonce: string): Promise<OIDCUserInfo> {
     const tokens = await this.exchangeCode(code);
-    const userInfo = await this.verifyIdToken(tokens.id_token);
+    const userInfo = await this.verifyIdToken(tokens.id_token, expectedNonce);
 
-    // Optionally fetch additional userinfo if needed
     const additionalInfo = await this.getUserInfo(tokens.access_token);
     return { ...userInfo, ...additionalInfo };
-
-    // return userInfo;
   }
 }
 

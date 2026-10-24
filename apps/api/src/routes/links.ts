@@ -7,18 +7,17 @@ import { generateId } from "@xlog/snowflake";
 import { sessionMiddleware, requireAuth } from "../middleware/session";
 import { isFeatureEnabled } from "../lib/features";
 import { archiveToWayback, utcDayBounds } from "../lib/wayback";
+import { safeFetch } from "@xlog/ap";
 
 async function fetchOgMetadata(
   url: string
 ): Promise<{ title?: string; description?: string; image?: string }> {
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const res = await fetch(url, {
-      signal: controller.signal,
+    const res = await safeFetch(url, {
       headers: { "User-Agent": "x-log/1.0 (link-archiver)" },
+      timeoutMs: 5000,
+      maxBytes: 1_048_576,
     });
-    clearTimeout(timeout);
 
     const html = await res.text();
     const getMeta = (property: string): string | undefined => {
@@ -210,6 +209,14 @@ linksRoutes.get(
       .executeTakeFirst();
 
     if (!link) {
+      return c.json({ error: "Link not found" }, 404);
+    }
+
+    const viewer = c.get("user");
+    if (
+      link.is_public === false &&
+      (!viewer || (viewer.id !== link.user_id && viewer.role !== "admin"))
+    ) {
       return c.json({ error: "Link not found" }, 404);
     }
 

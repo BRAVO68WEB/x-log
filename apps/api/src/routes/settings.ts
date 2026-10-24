@@ -11,13 +11,15 @@ import {
 } from "@xlog/db";
 import { sessionMiddleware, requireAuth, requireAdmin } from "../middleware/session";
 import { followRemoteActor } from "../lib/activitypub";
+import { assertPublicUrl, getEnv } from "@xlog/config";
 
 const InstanceSettingsUpdateSchema = z.object({
   instance_name: z.string().min(1).optional(),
   instance_description: z.string().optional().nullable(),
   instance_domain: z.string().min(1).optional(),
   admin_email: z.string().email().optional().nullable(),
-  smtp_url: z.string().url().optional().nullable(),
+  smtp_url: z.string().optional().nullable(),
+  clear_smtp: z.boolean().optional(),
   federation_enabled: z.boolean().optional(),
   following_enabled: z.boolean().optional(),
   use_profile_as_landing: z.boolean().optional(),
@@ -44,6 +46,7 @@ const InstanceSettingsUpdateSchema = z.object({
     .optional(),
   ai_base_url: z.string().url().optional().nullable(),
   ai_api_key: z.string().optional().nullable(),
+  clear_ai_api_key: z.boolean().optional(),
   ai_model: z.string().optional().nullable(),
   ai_max_tokens: z.number().int().min(1).max(128000).optional().nullable(),
   ai_temperature: z.number().min(0).max(2).optional().nullable(),
@@ -61,7 +64,7 @@ const InstanceSettingsResponseSchema = z.object({
   instance_description: z.string().nullable(),
   instance_domain: z.string(),
   admin_email: z.string().nullable(),
-  smtp_url: z.string().nullable(),
+  has_smtp: z.boolean(),
   federation_enabled: z.boolean(),
   following_enabled: z.boolean(),
   use_profile_as_landing: z.boolean(),
@@ -89,7 +92,7 @@ const InstanceSettingsResponseSchema = z.object({
     "retro-classic",
   ]),
   ai_base_url: z.string().nullable(),
-  ai_api_key: z.string().nullable(),
+  has_ai_api_key: z.boolean(),
   ai_model: z.string().nullable(),
   ai_max_tokens: z.number().nullable(),
   ai_temperature: z.number().nullable(),
@@ -116,7 +119,7 @@ async function formatSettingsResponse(settings: any) {
     instance_description: settings.instance_description,
     instance_domain: settings.instance_domain,
     admin_email: settings.admin_email,
-    smtp_url: settings.smtp_url,
+    has_smtp: Boolean(settings.smtp_url),
     federation_enabled: settings.federation_enabled,
     following_enabled: settings.following_enabled,
     use_profile_as_landing: settings.use_profile_as_landing,
@@ -128,7 +131,7 @@ async function formatSettingsResponse(settings: any) {
     local_users: localUsers,
     theme_id: settings.theme_id,
     ai_base_url: settings.ai_base_url ?? null,
-    ai_api_key: settings.ai_api_key ?? null,
+    has_ai_api_key: Boolean(settings.ai_api_key),
     ai_model: settings.ai_model ?? null,
     ai_max_tokens: settings.ai_max_tokens ?? null,
     ai_temperature: settings.ai_temperature ?? null,
@@ -287,8 +290,19 @@ settingsRoutes.patch(
     if (data.admin_email !== undefined) {
       updateData.admin_email = data.admin_email;
     }
-    if (data.smtp_url !== undefined) {
-      updateData.smtp_url = data.smtp_url;
+    if (data.clear_smtp) {
+      updateData.smtp_url = null;
+    } else if (typeof data.smtp_url === "string" && data.smtp_url.trim()) {
+      let smtp: URL;
+      try {
+        smtp = new URL(data.smtp_url.trim());
+      } catch {
+        return c.json({ error: "SMTP URL is invalid" }, 400);
+      }
+      if (smtp.protocol !== "smtp:" && smtp.protocol !== "smtps:") {
+        return c.json({ error: "SMTP URL must use smtp or smtps" }, 400);
+      }
+      updateData.smtp_url = data.smtp_url.trim();
     }
     if (data.federation_enabled !== undefined) {
       updateData.federation_enabled = data.federation_enabled;
@@ -312,11 +326,22 @@ settingsRoutes.patch(
     if (data.theme_id !== undefined) {
       updateData.theme_id = data.theme_id;
     }
-    if (data.ai_base_url !== undefined) {
-      updateData.ai_base_url = data.ai_base_url;
+    if (data.ai_base_url === null) {
+      updateData.ai_base_url = null;
+    } else if (typeof data.ai_base_url === "string" && data.ai_base_url.trim()) {
+      const env = getEnv();
+      const allowPrivate = env.NODE_ENV !== "production" || env.AI_ALLOW_PRIVATE_BASE;
+      try {
+        await assertPublicUrl(data.ai_base_url.trim(), { allowPrivate });
+      } catch {
+        return c.json({ error: "AI base URL is not allowed" }, 400);
+      }
+      updateData.ai_base_url = data.ai_base_url.trim();
     }
-    if (data.ai_api_key !== undefined) {
-      updateData.ai_api_key = data.ai_api_key;
+    if (data.clear_ai_api_key) {
+      updateData.ai_api_key = null;
+    } else if (typeof data.ai_api_key === "string" && data.ai_api_key.trim()) {
+      updateData.ai_api_key = data.ai_api_key.trim();
     }
     if (data.ai_model !== undefined) {
       updateData.ai_model = data.ai_model;

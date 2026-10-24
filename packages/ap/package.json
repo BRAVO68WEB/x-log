@@ -8,12 +8,12 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@opentelemetry/api": "^1.9.1",
+    "@opentelemetry/api": "^1.10.0",
     "@xlog/config": "workspace:*",
     "@xlog/db": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "typescript": "^5.3.3"
+    "@types/node": "^26.6.5",
+    "typescript": "^6.0.3"
   }
 }

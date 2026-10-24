@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import type { getDb } from "@xlog/db";
 import { getInstanceSettings, getPrimaryUser } from "@xlog/db";
-import { getActorUrlSync, signRequest, fetchRemoteActorInbox } from "@xlog/ap";
+import { assertPublicUrl, getActorUrlSync, isHttpUrl, safeFetch, signRequest, fetchRemoteActorInbox } from "@xlog/ap";
 
 /** @deprecated Prefer getPrimaryUser() from @xlog/db */
 export async function getPrimaryProfileUser(
@@ -12,12 +12,20 @@ export async function getPrimaryProfileUser(
   return { id: user.id, username: user.username };
 }
 
-export async function resolveActorUrl(input: string): Promise<string> {
-  if (input.startsWith("https://")) {
-    return input;
+async function requirePublicHttps(raw: string): Promise<string> {
+  const url = await assertPublicUrl(raw);
+  if (url.protocol !== "https:") {
+    throw new Error("ActivityPub URLs must use https");
   }
+  return url.href;
+}
+
+export async function resolveActorUrl(input: string): Promise<string> {
   if (input.startsWith("http://")) {
     throw new Error("ActivityPub actor URLs must use https");
+  }
+  if (input.startsWith("https://")) {
+    return requirePublicHttps(input);
   }
 
   const handle = input.replace(/^@/, "");
@@ -27,21 +35,29 @@ export async function resolveActorUrl(input: string): Promise<string> {
   }
 
   const [remoteUser, remoteDomain] = parts;
-  const webfingerUrl = `https://${remoteDomain}/.well-known/webfinger?resource=acct:${remoteUser}@${remoteDomain}`;
-  const resp = await fetch(webfingerUrl);
+  const webfingerUrl = `https://${remoteDomain}/.well-known/webfinger?resource=acct:${encodeURIComponent(`${remoteUser}@${remoteDomain}`)}`;
+  const resp = await safeFetch(webfingerUrl, { maxBytes: 65_536, timeoutMs: 8_000 });
   if (!resp.ok) {
     throw new Error("WebFinger lookup failed");
   }
 
   const data = await resp.json();
   const selfLink = (data.links || []).find(
-    (link: any) => link.rel === "self" && typeof link.href === "string"
+    (link: any) => link.rel === "self" && typeof link.href === "string" && isHttpUrl(link.href)
   );
   if (!selfLink) {
     throw new Error("Actor URL not found in WebFinger response");
   }
 
-  return selfLink.href as string;
+  const actor = await assertPublicUrl(selfLink.href as string);
+  if (actor.protocol !== "https:") {
+    throw new Error("ActivityPub actor URLs must use https");
+  }
+  const fingerHost = new URL(webfingerUrl).hostname.toLowerCase();
+  if (actor.hostname.toLowerCase() !== fingerHost) {
+    throw new Error("WebFinger actor host does not match the handle domain");
+  }
+  return actor.href;
 }
 
 export async function fetchRemoteActor(
@@ -68,7 +84,7 @@ export async function followRemoteActor({
   const { inbox, sharedInbox } = await fetchRemoteActor(remoteActorUrl, {
     signerUserId: localUser.id,
   });
-  const inboxUrl = sharedInbox || inbox;
+  const inboxUrl = await requirePublicHttps(sharedInbox || inbox);
   const settings = await getInstanceSettings();
   const actorId = getActorUrlSync(localUser.username, settings.instance_domain);
 
@@ -108,10 +124,11 @@ export async function followRemoteActor({
     userId: localUser.id,
   });
 
-  const response = await fetch(signed.url, {
+  const response = await safeFetch(signed.url, {
     method: signed.method,
     headers: signed.headers,
     body: signed.body,
+    followRedirects: false,
   });
 
   if (!response.ok) {

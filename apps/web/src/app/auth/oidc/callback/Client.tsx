@@ -5,6 +5,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useAuth } from "@/hooks/useAuth";
 
+function safeNextPath(value: string): string {
+  if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return "/";
+  const path = value.split("?")[0] || "/";
+  if (path.includes("\\") || path.includes("://")) return "/";
+  return value;
+}
+
 interface OIDCCallbackResponse {
   action: "login" | "link" | "pending_link" | "already_linked" | "error";
   redirect_url: string;
@@ -88,23 +95,23 @@ export default function OIDCCallbackClient() {
           case "login":
             // User logged in successfully
             await refetch(); // Refresh auth state
-            router.replace(data.redirect_url);
+            router.replace(safeNextPath(data.redirect_url));
             break;
 
           case "link":
             // OIDC account linked to current user
             await refetch(); // Refresh auth state
-            router.replace(data.redirect_url);
+            router.replace(safeNextPath(data.redirect_url));
             break;
 
           case "already_linked":
             // OIDC account already linked to current user
-            router.replace(data.redirect_url);
+            router.replace(safeNextPath(data.redirect_url));
             break;
 
           case "pending_link":
             // Need manual linking - redirect to linking page
-            router.replace(data.redirect_url);
+            router.replace(safeNextPath(data.redirect_url));
             break;
 
           case "error":
