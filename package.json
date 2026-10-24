@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "dev": "dotenv --override=false -- turbo run dev",
+    "dev": "dotenv run -- turbo run dev",
     "mobile": "bun run --cwd apps/mobile dev",
     "mobile:ios": "bun run --cwd apps/mobile ios",
     "mobile:android": "bun run --cwd apps/mobile android",
@@ -20,8 +20,8 @@
     "test:smoke": "bash ./scripts/smoke-api.sh",
     "test:e2e-auth": "bash ./scripts/smoke-e2e-auth.sh",
     "test:integration": "bun run --cwd apps/api test src/app.integration.test.ts",
-    "migrate": "dotenv --override=false -- turbo run migrate",
-    "start": "dotenv --override=false -- turbo run start"
+    "migrate": "dotenv run -- turbo run migrate",
+    "start": "dotenv run -- turbo run start"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
